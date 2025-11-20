@@ -370,8 +370,10 @@ app.post('/api/agent-register', async (req, res) => {
       owner_whatsapp_number: phone,  // Unified phone field for all systems
       business_name: businessName,
       password: password,  // Store password (use bcrypt in production)
-      status: 'registered',
-      plan: 'free',
+      subscription_status: 'trial',
+      subscription_tier: 'free',
+      status: 'active',
+      is_active: true,
       bot_phone_number: phone,  // Default to owner's number
       admin_phones: [phone],    // Owner is admin
       created_at: new Date().toISOString()
