@@ -3862,13 +3862,62 @@
         submitButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Processing...';
 
         try {
-            const response = await fetch('/api/broadcast/send', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-
-            const result = await response.json();
+            let response, result;
+            
+            // PRIORITY 1: If desktop agent is online, send DIRECTLY to it (bypassing server)
+            if (waWebStatus.connected && waWebStatus.method === 'desktop_agent') {
+                console.log('[BROADCAST] 🚀 Sending via DESKTOP AGENT (FREE!)');
+                
+                try {
+                    response = await fetch('http://localhost:3001/broadcast', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            phoneNumbers: uploadedRecipients,
+                            message: message,
+                            messageType: messageType,
+                            imageBase64: messageType === 'image' ? uploadedImageBase64 : null,
+                            batchSize: batchSize,
+                            messageDelay: messageDelay,
+                            batchDelay: batchDelay
+                        })
+                    });
+                    
+                    const agentResult = await response.json();
+                    
+                    if (agentResult.ok) {
+                        result = {
+                            success: true,
+                            details: {
+                                total: agentResult.totalRecipients || uploadedRecipients.length,
+                                sent: agentResult.totalSent,
+                                failed: agentResult.totalFailed
+                            },
+                            method: 'desktop_agent'
+                        };
+                    } else {
+                        throw new Error(agentResult.error || 'Desktop agent failed');
+                    }
+                } catch (agentError) {
+                    console.warn('[BROADCAST] Desktop agent failed, falling back to server/Maytapi:', agentError.message);
+                    // Fall through to server method below
+                    response = await fetch('/api/broadcast/send', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    result = await response.json();
+                }
+            } else {
+                // PRIORITY 2: Use server (which will use Maytapi)
+                console.log('[BROADCAST] Using server/Maytapi (PAID)');
+                response = await fetch('/api/broadcast/send', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                result = await response.json();
+            }
             
             if (result.success) {
                 if (scheduleType === 'later') {

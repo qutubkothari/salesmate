@@ -514,6 +514,10 @@ app.use('/api/auth', authRouter);
 const tenantsRouter = require('./routes/api/tenants');
 app.use('/api/tenants', tenantsRouter);
 
+// Tenant Features API (for controlling enabled features per tenant)
+const tenantFeaturesRouter = require('./routes/api/tenantFeatures');
+app.use('/api/tenants', tenantFeaturesRouter);
+
 // Discount Management API
 const discountsRouter = require('./routes/api/discounts');
 app.use('/api/discounts', discountsRouter);

@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tenant Feature Manager</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto px-4 py-8 max-w-4xl">
+        <div class="bg-white rounded-lg shadow-lg p-8">
+            <h1 class="text-3xl font-bold text-gray-800 mb-6">🎛️ Tenant Feature Manager</h1>
+            
+            <p class="text-gray-600 mb-8">Control which features are available for each tenant</p>
+            
+            <!-- Tenant Selection -->
+            <div class="mb-8">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Select Tenant</label>
+                <input type="text" id="phoneNumber" placeholder="Enter phone number (e.g., 971507055253)" 
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                <button onclick="loadTenantFeatures()" 
+                        class="mt-3 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition">
+                    Load Tenant
+                </button>
+            </div>
+            
+            <!-- Tenant Info -->
+            <div id="tenantInfo" class="hidden mb-8 p-4 bg-blue-50 rounded-lg">
+                <h3 class="font-semibold text-blue-900 mb-2">Tenant Information</h3>
+                <div id="tenantDetails"></div>
+            </div>
+            
+            <!-- Quick Presets -->
+            <div class="mb-8">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4">⚡ Quick Presets</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <button onclick="applyPreset('broadcast_only')" 
+                            class="p-4 border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition text-left">
+                        <div class="font-semibold text-gray-800">📢 Broadcast Only</div>
+                        <div class="text-sm text-gray-600 mt-1">Only bulk messaging, no AI or products</div>
+                    </button>
+                    
+                    <button onclick="applyPreset('broadcast_and_assistant')" 
+                            class="p-4 border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition text-left">
+                        <div class="font-semibold text-gray-800">📢 + 🤖 Broadcast + Assistant</div>
+                        <div class="text-sm text-gray-600 mt-1">Broadcast and AI chat, no products</div>
+                    </button>
+                    
+                    <button onclick="applyPreset('sales_only')" 
+                            class="p-4 border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition text-left">
+                        <div class="font-semibold text-gray-800">🤖 💼 Sales Assistant Only</div>
+                        <div class="text-sm text-gray-600 mt-1">AI + products + orders, no broadcast</div>
+                    </button>
+                    
+                    <button onclick="applyPreset('full_features')" 
+                            class="p-4 border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition text-left">
+                        <div class="font-semibold text-gray-800">⭐ Full Features</div>
+                        <div class="text-sm text-gray-600 mt-1">Everything enabled</div>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Custom Feature Toggles -->
+            <div class="mb-8">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4">🔧 Custom Configuration</h3>
+                <div class="space-y-4">
+                    <label class="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50">
+                        <div>
+                            <div class="font-semibold text-gray-800">📢 Broadcast Messaging</div>
+                            <div class="text-sm text-gray-600">Send bulk WhatsApp messages</div>
+                        </div>
+                        <input type="checkbox" id="broadcast_enabled" 
+                               class="w-6 h-6 text-blue-600 rounded focus:ring-2 focus:ring-blue-500">
+                    </label>
+                    
+                    <label class="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50">
+                        <div>
+                            <div class="font-semibold text-gray-800">🤖 AI Sales Assistant</div>
+                            <div class="text-sm text-gray-600">AI-powered conversations and recommendations</div>
+                        </div>
+                        <input type="checkbox" id="sales_assistant_enabled" 
+                               class="w-6 h-6 text-blue-600 rounded focus:ring-2 focus:ring-blue-500">
+                    </label>
+                    
+                    <label class="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50">
+                        <div>
+                            <div class="font-semibold text-gray-800">📦 Product Catalog</div>
+                            <div class="text-sm text-gray-600">Manage products and categories</div>
+                        </div>
+                        <input type="checkbox" id="products_enabled" 
+                               class="w-6 h-6 text-blue-600 rounded focus:ring-2 focus:ring-blue-500">
+                    </label>
+                    
+                    <label class="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50">
+                        <div>
+                            <div class="font-semibold text-gray-800">🛒 Order Management</div>
+                            <div class="text-sm text-gray-600">Process and track customer orders</div>
+                        </div>
+                        <input type="checkbox" id="orders_enabled" 
+                               class="w-6 h-6 text-blue-600 rounded focus:ring-2 focus:ring-blue-500">
+                    </label>
+                    
+                    <label class="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50">
+                        <div>
+                            <div class="font-semibold text-gray-800">📊 Analytics & Reports</div>
+                            <div class="text-sm text-gray-600">View statistics and insights</div>
+                        </div>
+                        <input type="checkbox" id="analytics_enabled" 
+                               class="w-6 h-6 text-blue-600 rounded focus:ring-2 focus:ring-blue-500">
+                    </label>
+                </div>
+            </div>
+            
+            <!-- Save Button -->
+            <div class="flex gap-4">
+                <button onclick="saveFeatures()" 
+                        class="flex-1 bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition font-semibold">
+                    💾 Save Features
+                </button>
+                <button onclick="location.reload()" 
+                        class="px-6 py-3 border-2 border-gray-300 rounded-lg hover:bg-gray-50 transition">
+                    Reset
+                </button>
+            </div>
+            
+            <!-- Status Messages -->
+            <div id="status" class="mt-6 hidden"></div>
+        </div>
+    </div>
+
+    <script>
+        const PRESETS = {
+            broadcast_only: {
+                broadcast_enabled: true,
+                sales_assistant_enabled: false,
+                products_enabled: false,
+                orders_enabled: false,
+                analytics_enabled: true
+            },
+            broadcast_and_assistant: {
+                broadcast_enabled: true,
+                sales_assistant_enabled: true,
+                products_enabled: false,
+                orders_enabled: false,
+                analytics_enabled: true
+            },
+            sales_only: {
+                broadcast_enabled: false,
+                sales_assistant_enabled: true,
+                products_enabled: true,
+                orders_enabled: true,
+                analytics_enabled: true
+            },
+            full_features: {
+                broadcast_enabled: true,
+                sales_assistant_enabled: true,
+                products_enabled: true,
+                orders_enabled: true,
+                analytics_enabled: true
+            }
+        };
+
+        function applyPreset(presetName) {
+            const features = PRESETS[presetName];
+            Object.keys(features).forEach(key => {
+                document.getElementById(key).checked = features[key];
+            });
+            showStatus('✅ Preset applied! Click "Save Features" to update.', 'success');
+        }
+
+        async function loadTenantFeatures() {
+            const phone = document.getElementById('phoneNumber').value.trim();
+            if (!phone) {
+                showStatus('❌ Please enter a phone number', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/tenants/${phone}/features`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Load features into checkboxes
+                    const features = data.features || PRESETS.full_features;
+                    Object.keys(features).forEach(key => {
+                        const checkbox = document.getElementById(key);
+                        if (checkbox) checkbox.checked = features[key];
+                    });
+                    
+                    // Show tenant info
+                    document.getElementById('tenantInfo').classList.remove('hidden');
+                    document.getElementById('tenantDetails').innerHTML = `
+                        <p><strong>Business:</strong> ${data.tenant.business_name || 'N/A'}</p>
+                        <p><strong>Phone:</strong> ${data.tenant.phone_number}</p>
+                        <p><strong>Status:</strong> ${data.tenant.status || 'active'}</p>
+                    `;
+                    
+                    showStatus('✅ Tenant loaded successfully!', 'success');
+                } else {
+                    showStatus('❌ ' + data.error, 'error');
+                }
+            } catch (error) {
+                showStatus('❌ Error loading tenant: ' + error.message, 'error');
+            }
+        }
+
+        async function saveFeatures() {
+            const phone = document.getElementById('phoneNumber').value.trim();
+            if (!phone) {
+                showStatus('❌ Please load a tenant first', 'error');
+                return;
+            }
+
+            const features = {
+                broadcast_enabled: document.getElementById('broadcast_enabled').checked,
+                sales_assistant_enabled: document.getElementById('sales_assistant_enabled').checked,
+                products_enabled: document.getElementById('products_enabled').checked,
+                orders_enabled: document.getElementById('orders_enabled').checked,
+                analytics_enabled: document.getElementById('analytics_enabled').checked
+            };
+
+            try {
+                const response = await fetch(`/api/tenants/${phone}/features`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ features })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    showStatus('✅ Features saved successfully!', 'success');
+                } else {
+                    showStatus('❌ ' + data.error, 'error');
+                }
+            } catch (error) {
+                showStatus('❌ Error saving features: ' + error.message, 'error');
+            }
+        }
+
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.className = `mt-6 p-4 rounded-lg ${
+                type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+            }`;
+            statusDiv.textContent = message;
+            statusDiv.classList.remove('hidden');
+            
+            setTimeout(() => {
+                statusDiv.classList.add('hidden');
+            }, 5000);
+        }
+    </script>
+</body>
+</html>
