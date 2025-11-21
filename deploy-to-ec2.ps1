@@ -9,7 +9,7 @@ Write-Host "================================" -ForegroundColor Cyan
 Write-Host ""
 
 # Configuration
-$EC2_IP = "13.62.57.240"
+$EC2_IP = "13.51.193.219"
 $EC2_USER = "ubuntu"
 $EC2_KEY = "$HOME\Downloads\whatsapp-ai-key.pem"
 $EC2_APP_DIR = "/home/ubuntu/whatsapp-ai"
