@@ -431,6 +431,24 @@
                     
                     const content = `
                         <div class="space-y-6">
+                            <!-- Tenant ID Section -->
+                            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                <label class="text-sm font-medium text-gray-700 block mb-2">
+                                    <i class="fas fa-key mr-1"></i>Tenant ID (Copy for client setup)
+                                </label>
+                                <div class="flex gap-2">
+                                    <input type="text" value="${tenant.id}" readonly class="flex-1 bg-white border border-gray-300 rounded px-3 py-2 font-mono text-sm" id="tenantIdInput">
+                                    <button onclick="copyTenantId('${tenant.id}')" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2">
+                                        <i class="fas fa-copy"></i>
+                                        Copy
+                                    </button>
+                                </div>
+                                <p class="text-xs text-gray-600 mt-2">
+                                    <i class="fas fa-info-circle mr-1"></i>
+                                    Client needs this ID to configure their desktop agent
+                                </p>
+                            </div>
+
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
                                     <label class="text-sm font-medium text-gray-600">Business Name</label>
@@ -479,6 +497,83 @@
                                 </div>
                             </div>
 
+                            <!-- Feature Access Control -->
+                            <div class="border-t pt-4">
+                                <h3 class="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                                    <i class="fas fa-cogs text-blue-600"></i>
+                                    Feature Access Control
+                                </h3>
+                                <div class="bg-gray-50 rounded-lg p-4 space-y-3">
+                                    <!-- Sales Assistant Features -->
+                                    <div class="border-b pb-3">
+                                        <h4 class="font-medium text-gray-800 mb-2 flex items-center gap-2">
+                                            <i class="fas fa-robot text-purple-600"></i>
+                                            Sales Assistant (WhatsApp AI Bot)
+                                        </h4>
+                                        <div class="grid grid-cols-2 gap-3 ml-6">
+                                            <label class="flex items-center gap-2 cursor-pointer">
+                                                <input type="checkbox" id="bot_enabled_${tenant.id}" onchange="updateFeatureAccess('${tenant.id}', 'bot_enabled', this.checked)" class="rounded text-blue-600">
+                                                <span class="text-sm">Enable AI Bot</span>
+                                            </label>
+                                            <label class="flex items-center gap-2 cursor-pointer">
+                                                <input type="checkbox" id="bot_product_discovery_${tenant.id}" onchange="updateFeatureAccess('${tenant.id}', 'bot_product_discovery', this.checked)" class="rounded text-blue-600">
+                                                <span class="text-sm">Product Discovery</span>
+                                            </label>
+                                            <label class="flex items-center gap-2 cursor-pointer">
+                                                <input type="checkbox" id="bot_cart_management_${tenant.id}" onchange="updateFeatureAccess('${tenant.id}', 'bot_cart_management', this.checked)" class="rounded text-blue-600">
+                                                <span class="text-sm">Cart Management</span>
+                                            </label>
+                                            <label class="flex items-center gap-2 cursor-pointer">
+                                                <input type="checkbox" id="bot_order_processing_${tenant.id}" onchange="updateFeatureAccess('${tenant.id}', 'bot_order_processing', this.checked)" class="rounded text-blue-600">
+                                                <span class="text-sm">Order Processing</span>
+                                            </label>
+                                            <label class="flex items-center gap-2 cursor-pointer">
+                                                <input type="checkbox" id="bot_payment_links_${tenant.id}" onchange="updateFeatureAccess('${tenant.id}', 'bot_payment_links', this.checked)" class="rounded text-blue-600">
+                                                <span class="text-sm">Payment Links</span>
+                                            </label>
+                                            <label class="flex items-center gap-2 cursor-pointer">
+                                                <input type="checkbox" id="bot_customer_support_${tenant.id}" onchange="updateFeatureAccess('${tenant.id}', 'bot_customer_support', this.checked)" class="rounded text-blue-600">
+                                                <span class="text-sm">Customer Support</span>
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <!-- Dashboard Features -->
+                                    <div>
+                                        <h4 class="font-medium text-gray-800 mb-2 flex items-center gap-2">
+                                            <i class="fas fa-tachometer-alt text-green-600"></i>
+                                            Dashboard Tabs
+                                        </h4>
+                                        <div class="grid grid-cols-2 gap-3 ml-6">
+                                            <label class="flex items-center gap-2 cursor-pointer">
+                                                <input type="checkbox" id="tab_products_${tenant.id}" onchange="updateFeatureAccess('${tenant.id}', 'tab_products', this.checked)" class="rounded text-green-600">
+                                                <span class="text-sm">Products</span>
+                                            </label>
+                                            <label class="flex items-center gap-2 cursor-pointer">
+                                                <input type="checkbox" id="tab_customers_${tenant.id}" onchange="updateFeatureAccess('${tenant.id}', 'tab_customers', this.checked)" class="rounded text-green-600">
+                                                <span class="text-sm">Customers</span>
+                                            </label>
+                                            <label class="flex items-center gap-2 cursor-pointer">
+                                                <input type="checkbox" id="tab_orders_${tenant.id}" onchange="updateFeatureAccess('${tenant.id}', 'tab_orders', this.checked)" class="rounded text-green-600">
+                                                <span class="text-sm">Orders</span>
+                                            </label>
+                                            <label class="flex items-center gap-2 cursor-pointer">
+                                                <input type="checkbox" id="tab_discounts_${tenant.id}" onchange="updateFeatureAccess('${tenant.id}', 'tab_discounts', this.checked)" class="rounded text-green-600">
+                                                <span class="text-sm">Discounts</span>
+                                            </label>
+                                            <label class="flex items-center gap-2 cursor-pointer">
+                                                <input type="checkbox" id="tab_broadcast_${tenant.id}" onchange="updateFeatureAccess('${tenant.id}', 'tab_broadcast', this.checked)" class="rounded text-green-600">
+                                                <span class="text-sm">Broadcast</span>
+                                            </label>
+                                            <label class="flex items-center gap-2 cursor-pointer">
+                                                <input type="checkbox" id="tab_analytics_${tenant.id}" onchange="updateFeatureAccess('${tenant.id}', 'tab_analytics', this.checked)" class="rounded text-green-600">
+                                                <span class="text-sm">Analytics</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
                             <div class="border-t pt-4">
                                 <h3 class="font-semibold text-gray-900 mb-3">Subscription Actions</h3>
                                 <div class="flex gap-3">
@@ -497,6 +592,17 @@
                     `;
 
                     document.getElementById('detailsContent').innerHTML = content;
+                    
+                    // Set checkbox states based on tenant features (defaulting to all enabled for now)
+                    // TODO: Load actual feature settings from database
+                    const features = ['bot_enabled', 'bot_product_discovery', 'bot_cart_management', 'bot_order_processing', 'bot_payment_links', 'bot_customer_support', 'tab_products', 'tab_customers', 'tab_orders', 'tab_discounts', 'tab_broadcast', 'tab_analytics'];
+                    features.forEach(feature => {
+                        const checkbox = document.getElementById(`${feature}_${tenant.id}`);
+                        if (checkbox) {
+                            checkbox.checked = true; // Default to enabled
+                        }
+                    });
+                    
                     showDetailsModal();
                 } else {
                     showError('Failed to load tenant details');
@@ -504,6 +610,37 @@
             } catch (error) {
                 console.error('Error:', error);
                 showError('Error loading details: ' + error.message);
+            }
+        }
+
+        // Copy tenant ID to clipboard
+        function copyTenantId(tenantId) {
+            navigator.clipboard.writeText(tenantId).then(() => {
+                showSuccess('Tenant ID copied to clipboard!');
+            }).catch(err => {
+                showError('Failed to copy: ' + err.message);
+            });
+        }
+
+        // Update feature access
+        async function updateFeatureAccess(tenantId, feature, enabled) {
+            try {
+                console.log(`Updating ${feature} to ${enabled} for tenant ${tenantId}`);
+                
+                // TODO: Implement API endpoint to save feature settings
+                // For now, just show success message
+                showSuccess(`${feature.replace(/_/g, ' ')} ${enabled ? 'enabled' : 'disabled'}`);
+                
+                // Future implementation:
+                // const response = await fetch(`/api/tenants/${tenantId}/features`, {
+                //     method: 'PUT',
+                //     headers: { 'Content-Type': 'application/json' },
+                //     body: JSON.stringify({ feature, enabled })
+                // });
+                
+            } catch (error) {
+                console.error('Error updating feature:', error);
+                showError('Failed to update feature');
             }
         }
 
