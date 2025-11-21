@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Desktop Agent Detection Test</title>
+    <style>
+        body { font-family: Arial; padding: 40px; background: #f5f5f5; }
+        .box { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); max-width: 600px; margin: 0 auto; }
+        .status { padding: 20px; margin: 20px 0; border-radius: 8px; font-size: 18px; }
+        .online { background: #d4edda; border: 2px solid #28a745; color: #155724; }
+        .offline { background: #f8d7da; border: 2px solid #dc3545; color: #721c24; }
+        button { background: #007bff; color: white; border: none; padding: 12px 24px; border-radius: 5px; cursor: pointer; font-size: 16px; }
+        button:hover { background: #0056b3; }
+        pre { background: #f8f9fa; padding: 15px; border-radius: 5px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <div class="box">
+        <h1>🔍 Desktop Agent Detection Test</h1>
+        <p>This page tests if your browser can detect the desktop agent.</p>
+        
+        <button onclick="testAgent()">🔄 Test Connection</button>
+        
+        <div id="result"></div>
+        <div id="logs"></div>
+    </div>
+
+    <script>
+        async function testAgent() {
+            const resultDiv = document.getElementById('result');
+            const logsDiv = document.getElementById('logs');
+            
+            logsDiv.innerHTML = '<h3>📋 Logs:</h3>';
+            
+            function log(message, type = 'info') {
+                console.log(message);
+                const color = type === 'success' ? '#28a745' : type === 'error' ? '#dc3545' : '#007bff';
+                logsDiv.innerHTML += `<div style="color: ${color}; margin: 5px 0;">${message}</div>`;
+            }
+            
+            log('🔍 Checking desktop agent at localhost:3001...');
+            
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 3000);
+                
+                log('📡 Sending fetch request...');
+                
+                const response = await fetch('http://localhost:3001/health', {
+                    method: 'GET',
+                    mode: 'cors',
+                    signal: controller.signal
+                });
+                
+                clearTimeout(timeoutId);
+                
+                log(`📨 Response status: ${response.status}`, 'success');
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log('✅ Desktop agent is ONLINE!', 'success');
+                    log('📊 Response data:');
+                    
+                    resultDiv.innerHTML = `
+                        <div class="status online">
+                            <strong>✅ DESKTOP AGENT ONLINE</strong><br><br>
+                            <strong>Status:</strong> ${data.status}<br>
+                            <strong>Authenticated:</strong> ${data.authenticated}<br>
+                            <strong>Tenant ID:</strong> ${data.tenantId}<br>
+                            <strong>Timestamp:</strong> ${data.timestamp}
+                        </div>
+                    `;
+                    
+                    logsDiv.innerHTML += `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+                } else {
+                    log(`❌ Response not OK: ${response.status}`, 'error');
+                    resultDiv.innerHTML = `<div class="status offline">❌ Agent responded but status not OK</div>`;
+                }
+            } catch (error) {
+                log(`❌ Error: ${error.name} - ${error.message}`, 'error');
+                resultDiv.innerHTML = `
+                    <div class="status offline">
+                        <strong>❌ DESKTOP AGENT OFFLINE</strong><br><br>
+                        <strong>Error:</strong> ${error.name}<br>
+                        <strong>Message:</strong> ${error.message}<br><br>
+                        <em>Make sure the desktop agent is running on port 3001</em>
+                    </div>
+                `;
+            }
+        }
+        
+        // Auto-test on page load
+        window.onload = () => {
+            testAgent();
+        };
+    </script>
+</body>
+</html>

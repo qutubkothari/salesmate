@@ -18,7 +18,7 @@ require('dotenv').config();
 const CLOUD_SERVER_URL = process.env.CLOUD_SERVER_URL || 'http://13.62.57.240:8080';
 const LOCAL_PORT = process.env.LOCAL_PORT || 3001;
 const WHATSAPP_PHONE = process.env.WHATSAPP_PHONE || '971507055253'; // Your WhatsApp number
-let TENANT_ID = null; // Will be fetched from cloud based on phone
+let TENANT_ID = process.env.TENANT_ID || null; // Read from .env file first
 const API_KEY = process.env.API_KEY || '';
 let isAuthenticated = true; // Auto-authenticate
 
@@ -249,20 +249,25 @@ async function initializeWhatsApp() {
     console.log('\n🔍 Fetching tenant information...');
     
     try {
-        // Fetch tenant ID from cloud server using phone number
-        const response = await axios.post(`${CLOUD_SERVER_URL}/api/agent-get-tenant`, {
-            phoneNumber: WHATSAPP_PHONE
-        }, {
-            headers: { 'x-api-key': API_KEY }
-        });
-        
-        if (response.data && response.data.tenantId) {
-            TENANT_ID = response.data.tenantId;
-            console.log(`✅ Tenant ID: ${TENANT_ID}`);
+        // Use tenant ID from .env if provided, otherwise fetch from cloud
+        if (!TENANT_ID) {
+            // Fetch tenant ID from cloud server using phone number
+            const response = await axios.post(`${CLOUD_SERVER_URL}/api/agent-get-tenant`, {
+                phoneNumber: WHATSAPP_PHONE
+            }, {
+                headers: { 'x-api-key': API_KEY }
+            });
+            
+            if (response.data && response.data.tenantId) {
+                TENANT_ID = response.data.tenantId;
+                console.log(`✅ Tenant ID (from cloud): ${TENANT_ID}`);
+            } else {
+                console.error('❌ Phone number not registered. Please register first at:');
+                console.error(`   ${CLOUD_SERVER_URL}/agent-login.html`);
+                process.exit(1);
+            }
         } else {
-            console.error('❌ Phone number not registered. Please register first at:');
-            console.error(`   ${CLOUD_SERVER_URL}/agent-login.html`);
-            process.exit(1);
+            console.log(`✅ Tenant ID (from .env): ${TENANT_ID}`);
         }
     } catch (error) {
         console.error('❌ Failed to fetch tenant info:', error.message);
