@@ -384,7 +384,7 @@ async function wahaRequest(method, url, data = null) {
     url: `${WAHA_URL}${url}`,
     headers: {
       'Content-Type': 'application/json',
-      'X-Api-Key': WAHA_API_KEY
+      'X-API-KEY': WAHA_API_KEY  // Waha expects uppercase X-API-KEY
     }
   };
   
