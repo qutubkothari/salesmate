@@ -13,6 +13,13 @@ const API_URL = `https://api.maytapi.com/api/${MAYTAPI_PRODUCT_ID}/${MAYTAPI_PHO
  * Sends a plain text message via the Maytapi API and returns the message ID.
  */
 const sendMessage = async (to, text) => {
+    // Check if we're in desktop agent mode - if so, capture instead of sending
+    if (global.desktopAgentMode) {
+        console.log('[WHATSAPP_SERVICE] Desktop agent mode - capturing message instead of sending');
+        global.capturedMessage = text;
+        return 'desktop_agent_captured_' + Date.now();
+    }
+    
     try {
         // ✅ FIX 1: Clean up currency symbols and ensure UTF-8
         let cleanText = text

@@ -245,16 +245,9 @@ app.post('/api/desktop-agent/process-message', async (req, res) => {
       });
     }
 
-    // Temporarily override sendMessage to capture the reply
-    const whatsappService = require('./services/whatsappService');
-    const originalSendMessage = whatsappService.sendMessage;
-    let capturedReply = null;
-    
-    whatsappService.sendMessage = async (to, text) => {
-      console.log('[DESKTOP_AGENT] Captured reply:', text.substring(0, 100));
-      capturedReply = text;
-      return 'desktop_agent_' + Date.now(); // Return fake message ID
-    };
+    // Set a global flag to capture messages instead of sending via Maytapi
+    global.desktopAgentMode = true;
+    global.capturedMessage = null;
 
     try {
       // Format the request to match the customerHandler.handleCustomer format
@@ -277,9 +270,11 @@ app.post('/api/desktop-agent/process-message', async (req, res) => {
       // Process through existing customer handler
       await customerHandler.handleCustomer(formattedReq, formattedRes);
     } finally {
-      // Restore original sendMessage
-      whatsappService.sendMessage = originalSendMessage;
+      // Disable desktop agent mode
+      global.desktopAgentMode = false;
     }
+
+    const capturedReply = global.capturedMessage;
 
     // Return AI response to desktop agent
     res.json({
