@@ -372,6 +372,67 @@ app.post('/api/admin/restart-waha', async (req, res) => {
   }
 });
 
+// Clear Tenant Data (preserve products)
+app.post('/api/admin/clear-tenant-data', async (req, res) => {
+  try {
+    const { supabase } = require('./config/database');
+    
+    console.log('[ADMIN] Starting tenant data cleanup (preserving products)...');
+    
+    // Delete tenant-related data in order (respecting foreign keys)
+    const tables = [
+      'conversations',
+      'order_items',
+      'orders',
+      'cart_items',
+      'carts',
+      'clients',
+      'tenants'
+    ];
+    
+    const results = {};
+    
+    for (const table of tables) {
+      const { data: countBefore, error: countError } = await supabase
+        .from(table)
+        .select('*', { count: 'exact', head: true });
+      
+      const beforeCount = countError ? 0 : (countBefore?.length || 0);
+      
+      const { error: deleteError, count } = await supabase
+        .from(table)
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all
+      
+      if (deleteError) {
+        console.error(`[ADMIN] Error clearing ${table}:`, deleteError);
+        results[table] = { error: deleteError.message };
+      } else {
+        console.log(`[ADMIN] Cleared ${table} (${beforeCount} rows)`);
+        results[table] = { deleted: beforeCount };
+      }
+    }
+    
+    // Check products are preserved
+    const { count: productCount, error: prodError } = await supabase
+      .from('products')
+      .select('*', { count: 'exact', head: true });
+    
+    console.log('[ADMIN] Cleanup complete. Products preserved:', productCount);
+    
+    res.json({
+      ok: true,
+      message: 'Tenant data cleared successfully',
+      results: results,
+      productsPreserved: productCount || 0
+    });
+    
+  } catch (error) {
+    console.error('[ADMIN] Clear tenant data error:', error);
+    res.status(500).json({ error: 'Failed to clear tenant data', details: error.message });
+  }
+});
+
 // Waha WhatsApp Bot Endpoints (24/7 Bot Support)
 const axios = require('axios');
 const WAHA_URL = process.env.WAHA_URL || 'http://localhost:3000';
