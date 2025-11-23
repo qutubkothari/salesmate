@@ -229,13 +229,31 @@ app.post('/api/desktop-agent/process-message', async (req, res) => {
 
     console.log(`[DESKTOP_AGENT] Message from ${from} (${tenantId}): ${message.substring(0, 50)}...`);
 
-    // Format the request to match the existing customer handler format
+    // Fetch tenant
+    const { data: tenant, error: tenantError } = await supabase
+      .from('tenants')
+      .select('*')
+      .eq('id', tenantId)
+      .single();
+
+    if (tenantError || !tenant) {
+      console.error('[DESKTOP_AGENT] Tenant not found:', tenantId);
+      return res.status(404).json({ 
+        ok: false, 
+        error: 'Tenant not found',
+        reply: 'Sorry, your account configuration was not found. Please contact support.'
+      });
+    }
+
+    // Format the request to match the customerHandler.handleCustomer format
     const formattedReq = {
-      body: {
-        customer_phone: from.replace('@c.us', ''),
-        customer_message: message,
-        tenant_id: tenantId
-      }
+      message: {
+        from: from,
+        text: {
+          body: message
+        }
+      },
+      tenant: tenant
     };
 
     // Create a response wrapper to capture the AI reply
@@ -258,7 +276,7 @@ app.post('/api/desktop-agent/process-message', async (req, res) => {
     };
 
     // Process through existing customer handler
-    await customerHandler.handleCustomerTextMessage(formattedReq, formattedRes);
+    await customerHandler.handleCustomer(formattedReq, formattedRes);
 
     // Return AI response to desktop agent
     res.json({
