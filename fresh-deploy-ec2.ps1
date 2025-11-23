@@ -31,39 +31,7 @@ Write-Host "Code pushed to GitHub!" -ForegroundColor Green
 Write-Host ""
 Write-Host "[2/6] Connecting to EC2..." -ForegroundColor Yellow
 
-$DEPLOY_SCRIPT = @"
-echo '=== Fresh Deployment Started ==='
-cd /home/ubuntu
-
-echo '[1/5] Stopping all PM2 processes...'
-pm2 stop all
-pm2 delete all
-
-echo '[2/5] Removing old installation...'
-rm -rf SAK-Whatsapp-AI-Hybrid
-rm -rf whatsapp-ai
-
-echo '[3/5] Cloning fresh code from GitHub...'
-git clone $GITHUB_REPO
-cd SAK-Whatsapp-AI-Hybrid
-
-echo '[4/5] Installing dependencies...'
-npm install --production
-
-echo '[5/5] Starting application with PM2...'
-pm2 start index.js --name whatsapp-ai --node-args="--max-old-space-size=2048"
-pm2 save
-pm2 startup
-
-echo ''
-echo '=== Deployment Complete ==='
-echo ''
-pm2 status
-echo ''
-echo 'Application URL: http://$EC2_IP:8080'
-echo 'Login URL: http://$EC2_IP:8080/login.html'
-echo ''
-"@
+$DEPLOY_SCRIPT = "cd /home/ubuntu && pm2 stop all; pm2 delete all; rm -rf SAK-Whatsapp-AI-Hybrid whatsapp-ai; git clone https://github.com/qutubkothari/SAK-Whatsapp-AI-Hybrid.git && cd SAK-Whatsapp-AI-Hybrid && npm install --production && pm2 start index.js --name whatsapp-ai && pm2 save && pm2 list"
 
 ssh -i $EC2_KEY -o StrictHostKeyChecking=no $EC2_USER@$EC2_IP $DEPLOY_SCRIPT
 
