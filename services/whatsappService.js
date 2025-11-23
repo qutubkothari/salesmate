@@ -19,7 +19,6 @@ const API_URL = `https://api.maytapi.com/api/${MAYTAPI_PRODUCT_ID}/${MAYTAPI_PHO
  * @param {object} tenant - Tenant object (optional, for provider selection)
  */
 const sendMessage = async (to, text, tenant = null) => {
-const sendMessage = async (to, text, tenant = null) => {
     try {
         // Clean up text formatting
         let cleanText = text
