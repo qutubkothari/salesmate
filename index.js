@@ -388,7 +388,7 @@ app.post('/api/admin/clear-tenant-data', async (req, res) => {
       'carts',
       'proactive_messaging_analytics',
       'response_analytics',
-      'engagement_scores',
+      'shipping_config',
       'clients',
       'tenants'
     ];
