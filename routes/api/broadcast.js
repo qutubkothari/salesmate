@@ -121,6 +121,34 @@ router.post('/send', async (req, res) => {
                 const result = await sendViaDesktopAgent(tenantId, broadcastData);
                 
                 if (result.success) {
+                    // Save broadcast record to database for history
+                    const campaignId = `campaign_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                    
+                    console.log('[BROADCAST_API] Saving broadcast to database for history...');
+                    
+                    // Save each recipient to bulk_schedules table
+                    const scheduleRecords = recipients.map(phoneNumber => ({
+                        tenant_id: tenantId,
+                        phone_number: phoneNumber,
+                        campaign_id: campaignId,
+                        campaign_name: campaignName,
+                        message_text: message,
+                        image_url: imageBase64 ? 'data:image/png;base64,...' : null,
+                        scheduled_at: new Date().toISOString(),
+                        status: 'sent',
+                        created_at: new Date().toISOString()
+                    }));
+                    
+                    const { error: insertError } = await supabase
+                        .from('bulk_schedules')
+                        .insert(scheduleRecords);
+                    
+                    if (insertError) {
+                        console.error('[BROADCAST_API] Warning: Failed to save broadcast history:', insertError);
+                    } else {
+                        console.log('[BROADCAST_API] ✅ Broadcast history saved successfully');
+                    }
+                    
                     return res.json({
                         success: true,
                         message: `Broadcast sent via Desktop Agent (FREE)! ${result.totalSent} sent, ${result.totalFailed} failed.`,

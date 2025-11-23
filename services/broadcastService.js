@@ -45,28 +45,10 @@ const BroadcastLogger = {
 };
 
 /**
- * Smart message sender - uses MessageProvider for automatic provider selection
+ * Smart message sender - tries WhatsApp Web first, falls back to Maytapi
  */
 const sendMessageSmart = async (tenantId, phoneNumber, messageText, mediaUrl = null) => {
     try {
-        // Fetch tenant object for MessageProvider
-        const { data: tenant, error: tenantError } = await supabase
-            .from('tenants')
-            .select('*')
-            .eq('id', tenantId)
-            .single();
-
-        if (tenantError || !tenant) {
-            BroadcastLogger.error('Failed to fetch tenant for MessageProvider', tenantError, { tenantId });
-            // Fallback to legacy Maytapi if tenant fetch fails
-            if (mediaUrl) {
-                await sendMessageWithImage(phoneNumber, messageText, mediaUrl);
-            } else {
-                await sendMessage(phoneNumber, messageText);
-            }
-            return { success: true, method: 'maytapi-fallback' };
-        }
-
         // Check if WhatsApp Web is available for this tenant
         const waWebStatus = getClientStatus(tenantId);
         
@@ -80,21 +62,21 @@ const sendMessageSmart = async (tenantId, phoneNumber, messageText, mediaUrl = n
                 }
                 return { success: true, method: 'whatsapp-web' };
             } catch (waWebError) {
-                BroadcastLogger.warn('WhatsApp Web failed, falling back to MessageProvider', { 
+                BroadcastLogger.warn('WhatsApp Web failed, falling back to Maytapi', { 
                     tenantId, 
                     error: waWebError.message 
                 });
             }
         }
         
-        // Use MessageProvider for automatic provider selection (Desktop Agent/Waha/Maytapi)
-        BroadcastLogger.info('Using MessageProvider for message', { tenantId, phoneNumber, provider: tenant.whatsapp_provider || 'auto' });
+        // Fallback to Maytapi
+        BroadcastLogger.info('Using Maytapi for message', { tenantId, phoneNumber });
         if (mediaUrl) {
-            await sendMessageWithImage(phoneNumber, messageText, mediaUrl, tenant);
+            await sendMessageWithImage(phoneNumber, messageText, mediaUrl);
         } else {
-            await sendMessage(phoneNumber, messageText, tenant);
+            await sendMessage(phoneNumber, messageText);
         }
-        return { success: true, method: 'message-provider' };
+        return { success: true, method: 'maytapi' };
         
     } catch (error) {
         BroadcastLogger.error('All message sending methods failed', error, { tenantId, phoneNumber });

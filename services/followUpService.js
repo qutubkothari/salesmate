@@ -161,7 +161,6 @@ const sendDueFollowUpReminders = async () => {
             .from('conversations')
             .select(`
                 id,
-                tenant_id,
                 end_user_phone,
                 tenant:tenants (
                     phone_number
@@ -179,21 +178,8 @@ const sendDueFollowUpReminders = async () => {
                 const customerPhoneNumber = followUp.end_user_phone;
                 const reminderMessage = `Hi! This is a reminder to follow up with your customer at ${customerPhoneNumber}. They seemed interested!`;
 
-                // Fetch full tenant object for MessageProvider
-                const { data: tenantObj, error: tenantError } = await supabase
-                    .from('tenants')
-                    .select('*')
-                    .eq('id', followUp.tenant_id)
-                    .single();
-
-                if (tenantError || !tenantObj) {
-                    console.error('Failed to fetch tenant for MessageProvider:', tenantError);
-                    // Fallback to legacy sendMessage without tenant
-                    await sendMessage(tenantPhoneNumber, reminderMessage);
-                } else {
-                    // Send the reminder message to the tenant using MessageProvider
-                    await sendMessage(tenantPhoneNumber, reminderMessage, tenantObj);
-                }
+                // Send the reminder message to the tenant
+                await sendMessage(tenantPhoneNumber, reminderMessage);
 
                 // Update the conversation to nullify the follow-up time so we don't send it again
                 await supabase

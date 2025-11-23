@@ -1107,10 +1107,6 @@ app.use('/api/broadcast', broadcastRouter);
 const whatsappWebRouter = require('./routes/api/whatsappWeb');
 app.use('/api/whatsapp-web', whatsappWebRouter);
 
-// Desktop Agent API
-const desktopAgentRouter = require('./routes/api/desktopAgent');
-app.use('/api', desktopAgentRouter);
-
 // Cron endpoint for processing broadcast queue
 app.get('/cron/process-broadcasts', async (req, res) => {
   try {
