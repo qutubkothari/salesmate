@@ -18,6 +18,7 @@ const bodyParser = require('body-parser');
 const path = require('path'); // For serving static files
 const cron = require('node-cron');
 const cors = require('cors');
+const cookieParser = require('cookie-parser');
 
 const app = express();
 
@@ -111,6 +112,7 @@ app.use(express.json({ limit: '2mb' }));
 if (useExpressJson) {
   app.use(bodyParser.json());
 }
+app.use(cookieParser());
 app.use(cors()); // Allow all origins for development
 // Or for production, be specific:
 // app.use(cors({ origin: 'http://localhost:8080' }));
@@ -1160,6 +1162,10 @@ app.use('/api/products', productsRouter);
 // Broadcast API
 const broadcastRouter = require('./routes/api/broadcast');
 app.use('/api/broadcast', broadcastRouter);
+
+// CRM API (feature-flagged by tier + tenant overrides)
+const crmRouter = require('./routes/api/crm');
+app.use('/api/crm', crmRouter);
 
 // WhatsApp Web Standalone API (separate from existing Maytapi system)
 const whatsappWebRouter = require('./routes/api/whatsappWeb');

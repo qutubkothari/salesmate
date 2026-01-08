@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>CRM - Salesmate</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+    .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+    .glass-effect { backdrop-filter: blur(10px); background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); }
+    .card { background: rgba(255,255,255,0.95); }
+    .btn-primary { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); }
+  </style>
+</head>
+<body class="min-h-screen gradient-bg">
+  <div class="max-w-7xl mx-auto px-6 py-6">
+    <div class="flex items-center justify-between mb-6">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow">
+          <img src="/assets/logo.png" alt="Logo" class="w-6 h-6" />
+        </div>
+        <div>
+          <h1 class="text-2xl font-bold text-white">CRM</h1>
+          <p class="text-white/70 text-sm" id="subTitle">Loading…</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-3">
+        <a href="/dashboard.html" class="glass-effect px-4 py-2 rounded-xl text-white hover:bg-white/20 transition">
+          <i class="fas fa-arrow-left mr-2"></i>Dashboard
+        </a>
+        <button id="logoutBtn" class="glass-effect px-4 py-2 rounded-xl text-white hover:bg-white/20 transition hidden">
+          <i class="fas fa-sign-out-alt mr-2"></i>CRM Logout
+        </button>
+      </div>
+    </div>
+
+    <!-- Auth panel -->
+    <div id="authPanel" class="glass-effect rounded-2xl p-6">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="card rounded-2xl p-6 shadow">
+          <h2 class="text-lg font-semibold text-gray-800 mb-2"><i class="fas fa-shield-alt mr-2 text-indigo-600"></i>CRM Login</h2>
+          <p class="text-sm text-gray-600 mb-4">Use the same tenant password as the dashboard. First login auto-creates a CRM OWNER user (if needed).</p>
+
+          <form id="crmLoginForm" class="space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Tenant ID</label>
+              <input id="tenantId" class="w-full px-4 py-2 border rounded-lg" placeholder="Tenant UUID" required />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Email or Phone</label>
+              <input id="emailOrPhone" class="w-full px-4 py-2 border rounded-lg" placeholder="email@example.com or 9199…" required />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+              <input id="password" type="password" class="w-full px-4 py-2 border rounded-lg" placeholder="Your password" required />
+            </div>
+
+            <div id="loginError" class="hidden bg-red-50 border border-red-200 text-red-700 p-3 rounded-lg text-sm"></div>
+
+            <button type="submit" class="btn-primary w-full text-white px-4 py-2 rounded-lg font-semibold">
+              <i class="fas fa-sign-in-alt mr-2"></i>Sign in
+            </button>
+          </form>
+        </div>
+
+        <div class="card rounded-2xl p-6 shadow">
+          <h2 class="text-lg font-semibold text-gray-800 mb-2"><i class="fas fa-info-circle mr-2 text-indigo-600"></i>Notes</h2>
+          <ul class="text-sm text-gray-700 space-y-2 list-disc pl-5">
+            <li>In dev, the database can be a local SQLite file (see <code>USE_LOCAL_DB=true</code>).</li>
+            <li>In production, it typically uses Supabase/Postgres.</li>
+            <li>Sections appear only if enabled in your tenant feature flags.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- App -->
+    <div id="appPanel" class="hidden">
+      <div class="glass-effect rounded-2xl p-4 mb-6">
+        <div class="flex flex-wrap gap-2" id="tabs"></div>
+      </div>
+
+      <div id="status" class="hidden mb-6"></div>
+
+      <!-- Leads -->
+      <section id="tab-leads" class="hidden">
+        <div class="card rounded-2xl p-6 shadow">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-semibold text-gray-800"><i class="fas fa-user-tag mr-2 text-indigo-600"></i>Leads</h2>
+            <button id="refreshLeads" class="px-4 py-2 rounded-lg border hover:bg-gray-50">
+              <i class="fas fa-rotate mr-2"></i>Refresh
+            </button>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Name</label>
+              <input id="newLeadName" class="w-full px-3 py-2 border rounded-lg" placeholder="Customer name" />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+              <input id="newLeadPhone" class="w-full px-3 py-2 border rounded-lg" placeholder="Digits (optional)" />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Channel</label>
+              <select id="newLeadChannel" class="w-full px-3 py-2 border rounded-lg">
+                <option>WHATSAPP</option>
+                <option>GMAIL</option>
+                <option>WEB</option>
+                <option>SALES</option>
+                <option>MANUAL</option>
+              </select>
+            </div>
+          </div>
+          <button id="createLead" class="btn-primary text-white px-4 py-2 rounded-lg font-semibold">
+            <i class="fas fa-plus mr-2"></i>Create Lead
+          </button>
+
+          <div class="mt-6 overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="text-left text-gray-600">
+                  <th class="py-2 pr-4">Name</th>
+                  <th class="py-2 pr-4">Phone</th>
+                  <th class="py-2 pr-4">Status</th>
+                  <th class="py-2 pr-4">Heat</th>
+                  <th class="py-2 pr-4">Channel</th>
+                  <th class="py-2 pr-4">Updated</th>
+                  <th class="py-2 pr-4"></th>
+                </tr>
+              </thead>
+              <tbody id="leadsTable" class="text-gray-800"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card rounded-2xl p-6 shadow mt-6">
+          <h3 class="text-md font-semibold text-gray-800 mb-3"><i class="fas fa-message mr-2 text-indigo-600"></i>Lead Detail</h3>
+          <div id="leadDetailEmpty" class="text-sm text-gray-600">Select a lead from the list.</div>
+          <div id="leadDetail" class="hidden">
+            <div class="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Lead ID</label>
+                <input id="leadId" class="w-full px-3 py-2 border rounded-lg" readonly />
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                <select id="leadStatus" class="w-full px-3 py-2 border rounded-lg">
+                  <option>NEW</option>
+                  <option>OPEN</option>
+                  <option>QUALIFIED</option>
+                  <option>WON</option>
+                  <option>LOST</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Heat</label>
+                <select id="leadHeat" class="w-full px-3 py-2 border rounded-lg">
+                  <option>COLD</option>
+                  <option>WARM</option>
+                  <option>HOT</option>
+                </select>
+              </div>
+              <div class="flex items-end">
+                <button id="saveLead" class="btn-primary text-white px-4 py-2 rounded-lg font-semibold w-full">
+                  <i class="fas fa-save mr-2"></i>Save
+                </button>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div>
+                <h4 class="font-semibold text-gray-800 mb-2">Events</h4>
+                <div id="leadEvents" class="text-sm text-gray-700 space-y-2"></div>
+              </div>
+              <div>
+                <h4 class="font-semibold text-gray-800 mb-2">Messages</h4>
+                <div class="flex gap-2 mb-2">
+                  <input id="newMessageBody" class="flex-1 px-3 py-2 border rounded-lg" placeholder="Log a message…" />
+                  <button id="logMessage" class="px-4 py-2 rounded-lg border hover:bg-gray-50">Log</button>
+                </div>
+                <div id="leadMessages" class="text-sm text-gray-700 space-y-2"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Triage -->
+      <section id="tab-triage" class="hidden">
+        <div class="card rounded-2xl p-6 shadow">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-semibold text-gray-800"><i class="fas fa-triangle-exclamation mr-2 text-indigo-600"></i>Triage</h2>
+            <button id="refreshTriage" class="px-4 py-2 rounded-lg border hover:bg-gray-50"><i class="fas fa-rotate mr-2"></i>Refresh</button>
+          </div>
+          <div id="triageList" class="space-y-3"></div>
+        </div>
+      </section>
+
+      <!-- Templates -->
+      <section id="tab-templates" class="hidden">
+        <div class="card rounded-2xl p-6 shadow">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-semibold text-gray-800"><i class="fas fa-file-lines mr-2 text-indigo-600"></i>Templates</h2>
+            <button id="refreshTemplates" class="px-4 py-2 rounded-lg border hover:bg-gray-50"><i class="fas fa-rotate mr-2"></i>Refresh</button>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Name</label>
+              <input id="tplName" class="w-full px-3 py-2 border rounded-lg" placeholder="Template name" />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Channel</label>
+              <select id="tplChannel" class="w-full px-3 py-2 border rounded-lg">
+                <option>WHATSAPP</option>
+                <option>GMAIL</option>
+                <option>SMS</option>
+                <option>MANUAL</option>
+              </select>
+            </div>
+            <div></div>
+          </div>
+          <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Body</label>
+            <textarea id="tplBody" class="w-full px-3 py-2 border rounded-lg" rows="4" placeholder="Message body"></textarea>
+          </div>
+          <button id="createTemplate" class="btn-primary text-white px-4 py-2 rounded-lg font-semibold"><i class="fas fa-plus mr-2"></i>Create Template</button>
+
+          <div class="mt-6" id="templatesList"></div>
+        </div>
+      </section>
+
+      <!-- Notifications -->
+      <section id="tab-notifications" class="hidden">
+        <div class="card rounded-2xl p-6 shadow">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-semibold text-gray-800"><i class="fas fa-bell mr-2 text-indigo-600"></i>Notifications</h2>
+            <button id="refreshNotifs" class="px-4 py-2 rounded-lg border hover:bg-gray-50"><i class="fas fa-rotate mr-2"></i>Refresh</button>
+          </div>
+          <div id="notifsList" class="space-y-3"></div>
+        </div>
+      </section>
+
+      <!-- Users -->
+      <section id="tab-users" class="hidden">
+        <div class="card rounded-2xl p-6 shadow">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-semibold text-gray-800"><i class="fas fa-users-gear mr-2 text-indigo-600"></i>Users</h2>
+            <button id="refreshUsers" class="px-4 py-2 rounded-lg border hover:bg-gray-50"><i class="fas fa-rotate mr-2"></i>Refresh</button>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Full name</label>
+              <input id="userFullName" class="w-full px-3 py-2 border rounded-lg" placeholder="Name" />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+              <input id="userEmail" class="w-full px-3 py-2 border rounded-lg" placeholder="email" />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+              <input id="userPhone" class="w-full px-3 py-2 border rounded-lg" placeholder="digits" />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Role</label>
+              <select id="userRole" class="w-full px-3 py-2 border rounded-lg">
+                <option>SALESMAN</option>
+                <option>MANAGER</option>
+                <option>ADMIN</option>
+                <option>OWNER</option>
+              </select>
+            </div>
+          </div>
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+              <input id="userPassword" type="password" class="w-full px-3 py-2 border rounded-lg" placeholder="Initial password" />
+            </div>
+            <div class="flex items-end">
+              <button id="createUser" class="btn-primary text-white px-4 py-2 rounded-lg font-semibold w-full"><i class="fas fa-plus mr-2"></i>Create User</button>
+            </div>
+          </div>
+
+          <div class="mt-4 overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="text-left text-gray-600">
+                  <th class="py-2 pr-4">Name</th>
+                  <th class="py-2 pr-4">Role</th>
+                  <th class="py-2 pr-4">Email</th>
+                  <th class="py-2 pr-4">Phone</th>
+                  <th class="py-2 pr-4">Active</th>
+                </tr>
+              </thead>
+              <tbody id="usersTable" class="text-gray-800"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- SLA -->
+      <section id="tab-sla" class="hidden">
+        <div class="card rounded-2xl p-6 shadow">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-semibold text-gray-800"><i class="fas fa-stopwatch mr-2 text-indigo-600"></i>SLA</h2>
+            <button id="refreshSla" class="px-4 py-2 rounded-lg border hover:bg-gray-50"><i class="fas fa-rotate mr-2"></i>Refresh</button>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Name</label>
+              <input id="slaName" class="w-full px-3 py-2 border rounded-lg" placeholder="Rule name" />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Target minutes</label>
+              <input id="slaMinutes" type="number" class="w-full px-3 py-2 border rounded-lg" value="60" />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Applies to</label>
+              <select id="slaAppliesTo" class="w-full px-3 py-2 border rounded-lg">
+                <option>NEW</option>
+                <option>OPEN</option>
+                <option>QUALIFIED</option>
+              </select>
+            </div>
+            <div class="flex items-end">
+              <button id="createSla" class="btn-primary text-white px-4 py-2 rounded-lg font-semibold w-full"><i class="fas fa-plus mr-2"></i>Create SLA</button>
+            </div>
+          </div>
+
+          <div id="slaList" class="space-y-3"></div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const TAB_DEFS = [
+      { id: 'leads', label: 'Leads', icon: 'fa-user-tag' },
+      { id: 'triage', label: 'Triage', icon: 'fa-triangle-exclamation' },
+      { id: 'templates', label: 'Templates', icon: 'fa-file-lines' },
+      { id: 'notifications', label: 'Notifications', icon: 'fa-bell' },
+      { id: 'users', label: 'Users', icon: 'fa-users-gear' },
+      { id: 'sla', label: 'SLA', icon: 'fa-stopwatch' }
+    ];
+
+    const state = {
+      me: null,
+      features: null,
+      tenantId: null,
+      token: null
+    };
+
+    function showStatus(message, kind = 'success') {
+      const el = document.getElementById('status');
+      el.classList.remove('hidden');
+      el.className = 'mb-6 p-3 rounded-lg text-sm ' + (kind === 'success'
+        ? 'bg-green-50 border border-green-200 text-green-800'
+        : 'bg-red-50 border border-red-200 text-red-800');
+      el.textContent = message;
+      setTimeout(() => el.classList.add('hidden'), 5000);
+    }
+
+    function phoneDigits(value) {
+      return String(value || '').replace(/@c\.us$/i, '').replace(/\D/g, '');
+    }
+
+    async function api(path, options = {}) {
+      const headers = Object.assign({ 'Content-Type': 'application/json' }, options.headers || {});
+      if (state.token) headers['Authorization'] = `Bearer ${state.token}`;
+      const res = await fetch(path, Object.assign({}, options, { headers, credentials: 'include' }));
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const msg = data?.error || data?.details || res.statusText;
+        throw new Error(msg);
+      }
+      return data;
+    }
+
+    function setActiveTab(tabId) {
+      for (const t of TAB_DEFS) {
+        const btn = document.getElementById(`tabbtn-${t.id}`);
+        const panel = document.getElementById(`tab-${t.id}`);
+        if (!btn || !panel) continue;
+        const active = t.id === tabId;
+        btn.className = active
+          ? 'btn-primary text-white px-4 py-2 rounded-xl font-semibold'
+          : 'glass-effect text-white px-4 py-2 rounded-xl hover:bg-white/20 transition';
+        panel.classList.toggle('hidden', !active);
+      }
+    }
+
+    function buildTabs(allowedTabs) {
+      const tabsEl = document.getElementById('tabs');
+      tabsEl.innerHTML = '';
+      for (const t of TAB_DEFS) {
+        if (!allowedTabs.has(t.id)) continue;
+        const btn = document.createElement('button');
+        btn.id = `tabbtn-${t.id}`;
+        btn.className = 'glass-effect text-white px-4 py-2 rounded-xl hover:bg-white/20 transition';
+        btn.innerHTML = `<i class="fas ${t.icon} mr-2"></i>${t.label}`;
+        btn.onclick = () => setActiveTab(t.id);
+        tabsEl.appendChild(btn);
+      }
+    }
+
+    async function loadMeAndFeatures() {
+      const me = await api('/api/crm/auth/me');
+      state.me = me.user;
+      const features = await api('/api/crm/features');
+      state.features = features;
+      document.getElementById('subTitle').textContent = `${state.me.role} • Tenant ${state.me.tenantId}`;
+
+      const enabled = new Set();
+      const f = features?.features || {};
+      if (f.crm_leads) enabled.add('leads');
+      if (f.crm_triage) enabled.add('triage');
+      if (f.crm_templates) enabled.add('templates');
+      if (f.crm_notifications) enabled.add('notifications');
+      if (f.crm_users) enabled.add('users');
+      if (f.crm_sla) enabled.add('sla');
+
+      buildTabs(enabled);
+
+      // Default tab
+      const first = [...enabled][0] || 'leads';
+      setActiveTab(first);
+
+      document.getElementById('authPanel').classList.add('hidden');
+      document.getElementById('appPanel').classList.remove('hidden');
+      document.getElementById('logoutBtn').classList.remove('hidden');
+
+      // initial loads
+      if (enabled.has('leads')) await refreshLeads();
+      if (enabled.has('triage')) await refreshTriage();
+      if (enabled.has('templates')) await refreshTemplates();
+      if (enabled.has('notifications')) await refreshNotifs();
+      if (enabled.has('users')) await refreshUsers();
+      if (enabled.has('sla')) await refreshSla();
+    }
+
+    async function tryAutoFillFromDashboardSession() {
+      const raw = localStorage.getItem('dashboardSession');
+      if (!raw) return;
+      try {
+        const s = JSON.parse(raw);
+        if (s?.tenantId) document.getElementById('tenantId').value = s.tenantId;
+        const digits = phoneDigits(s?.phoneNumber);
+        if (digits) document.getElementById('emailOrPhone').value = digits;
+      } catch (_) {}
+    }
+
+    // Leads
+    async function refreshLeads() {
+      const data = await api('/api/crm/leads?limit=100');
+      const tbody = document.getElementById('leadsTable');
+      tbody.innerHTML = '';
+      for (const lead of (data.leads || [])) {
+        const tr = document.createElement('tr');
+        tr.className = 'border-t';
+        tr.innerHTML = `
+          <td class="py-2 pr-4">${lead.name || ''}</td>
+          <td class="py-2 pr-4">${lead.phone || ''}</td>
+          <td class="py-2 pr-4">${lead.status || ''}</td>
+          <td class="py-2 pr-4">${lead.heat || ''}</td>
+          <td class="py-2 pr-4">${lead.channel || ''}</td>
+          <td class="py-2 pr-4">${(lead.updated_at || lead.created_at || '').slice(0, 19).replace('T',' ')}</td>
+          <td class="py-2 pr-4"><button class="px-3 py-1 rounded border hover:bg-gray-50">Open</button></td>
+        `;
+        tr.querySelector('button').onclick = () => openLead(lead.id);
+        tbody.appendChild(tr);
+      }
+    }
+
+    async function openLead(leadId) {
+      const data = await api(`/api/crm/leads/${leadId}`);
+      document.getElementById('leadDetailEmpty').classList.add('hidden');
+      document.getElementById('leadDetail').classList.remove('hidden');
+      document.getElementById('leadId').value = data.lead.id;
+      document.getElementById('leadStatus').value = data.lead.status || 'NEW';
+      document.getElementById('leadHeat').value = data.lead.heat || 'COLD';
+
+      const events = document.getElementById('leadEvents');
+      events.innerHTML = '';
+      for (const ev of (data.events || [])) {
+        const div = document.createElement('div');
+        div.className = 'p-2 rounded border bg-gray-50';
+        div.textContent = `${(ev.created_at || '').slice(0, 19).replace('T',' ')} • ${ev.event_type}`;
+        events.appendChild(div);
+      }
+
+      const msgs = document.getElementById('leadMessages');
+      msgs.innerHTML = '';
+      for (const m of (data.messages || [])) {
+        const div = document.createElement('div');
+        div.className = 'p-2 rounded border';
+        div.innerHTML = `<div class="text-xs text-gray-500 mb-1">${m.direction} • ${m.channel} • ${(m.created_at || '').slice(0, 19).replace('T',' ')}</div><div>${(m.body || '').replace(/</g,'&lt;')}</div>`;
+        msgs.appendChild(div);
+      }
+    }
+
+    // Triage
+    async function refreshTriage() {
+      const data = await api('/api/crm/triage?limit=100');
+      const el = document.getElementById('triageList');
+      el.innerHTML = '';
+      for (const item of (data.items || [])) {
+        const row = document.createElement('div');
+        row.className = 'p-3 rounded-lg border bg-gray-50 flex items-center justify-between gap-3';
+        row.innerHTML = `
+          <div>
+            <div class="font-semibold text-gray-800">Lead: ${item.lead_id || ''}</div>
+            <div class="text-xs text-gray-600">${item.status || ''} • ${item.escalation_level || 'no escalation'} • ${item.reason || ''}</div>
+          </div>
+          <div class="flex items-center gap-2">
+            <select class="px-2 py-1 border rounded">
+              <option ${item.status==='OPEN'?'selected':''}>OPEN</option>
+              <option ${item.status==='ASSIGNED'?'selected':''}>ASSIGNED</option>
+              <option ${item.status==='CLOSED'?'selected':''}>CLOSED</option>
+            </select>
+            <button class="px-3 py-1 rounded border hover:bg-white">Save</button>
+          </div>
+        `;
+        const sel = row.querySelector('select');
+        row.querySelector('button').onclick = async () => {
+          await api(`/api/crm/triage/${item.id}`, { method: 'PATCH', body: JSON.stringify({ status: sel.value }) });
+          showStatus('Triage updated');
+          await refreshTriage();
+        };
+        el.appendChild(row);
+      }
+    }
+
+    // Templates
+    async function refreshTemplates() {
+      const data = await api('/api/crm/templates?limit=100');
+      const el = document.getElementById('templatesList');
+      el.innerHTML = '';
+      for (const t of (data.templates || [])) {
+        const row = document.createElement('div');
+        row.className = 'p-3 rounded-lg border bg-gray-50 mb-2';
+        row.innerHTML = `
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="font-semibold text-gray-800">${t.name || ''}</div>
+              <div class="text-xs text-gray-600">${t.channel || ''} • ${t.kind || ''}</div>
+            </div>
+          </div>
+          <div class="text-sm text-gray-700 mt-2 whitespace-pre-wrap">${(t.body || '').replace(/</g,'&lt;')}</div>
+        `;
+        el.appendChild(row);
+      }
+    }
+
+    // Notifications
+    async function refreshNotifs() {
+      const data = await api('/api/crm/notifications?limit=100');
+      const el = document.getElementById('notifsList');
+      el.innerHTML = '';
+      for (const n of (data.notifications || [])) {
+        const row = document.createElement('div');
+        row.className = 'p-3 rounded-lg border ' + (n.read_at ? 'bg-white' : 'bg-yellow-50');
+        row.innerHTML = `
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="font-semibold text-gray-800">${n.type || 'Notification'}</div>
+              <div class="text-sm text-gray-700 whitespace-pre-wrap">${JSON.stringify(n.payload || {}, null, 2).replace(/</g,'&lt;')}</div>
+              <div class="text-xs text-gray-500 mt-1">${(n.created_at || '').slice(0, 19).replace('T',' ')}</div>
+            </div>
+            <div>
+              <button class="px-3 py-1 rounded border hover:bg-gray-50">Mark read</button>
+            </div>
+          </div>
+        `;
+        row.querySelector('button').onclick = async () => {
+          await api(`/api/crm/notifications/${n.id}/mark-read`, { method: 'POST' });
+          await refreshNotifs();
+        };
+        el.appendChild(row);
+      }
+    }
+
+    // Users
+    async function refreshUsers() {
+      const data = await api('/api/crm/users?limit=100');
+      const tbody = document.getElementById('usersTable');
+      tbody.innerHTML = '';
+      for (const u of (data.users || [])) {
+        const tr = document.createElement('tr');
+        tr.className = 'border-t';
+        tr.innerHTML = `
+          <td class="py-2 pr-4">${u.full_name || ''}</td>
+          <td class="py-2 pr-4">${u.role || ''}</td>
+          <td class="py-2 pr-4">${u.email || ''}</td>
+          <td class="py-2 pr-4">${u.phone || ''}</td>
+          <td class="py-2 pr-4">${u.is_active ? 'Yes' : 'No'}</td>
+        `;
+        tbody.appendChild(tr);
+      }
+    }
+
+    // SLA
+    async function refreshSla() {
+      const data = await api('/api/crm/sla/rules');
+      const el = document.getElementById('slaList');
+      el.innerHTML = '';
+      for (const r of (data.rules || [])) {
+        const row = document.createElement('div');
+        row.className = 'p-3 rounded-lg border bg-gray-50';
+        row.innerHTML = `
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="font-semibold text-gray-800">${r.name || ''}</div>
+              <div class="text-xs text-gray-600">Response: ${r.response_time_minutes} min • Escalation: ${r.escalation_time_minutes ?? '-'} min</div>
+            </div>
+          </div>
+        `;
+        el.appendChild(row);
+      }
+    }
+
+    // Wire up handlers
+    document.getElementById('crmLoginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const tenantId = document.getElementById('tenantId').value.trim();
+      const emailOrPhone = document.getElementById('emailOrPhone').value.trim();
+      const password = document.getElementById('password').value;
+      const err = document.getElementById('loginError');
+      err.classList.add('hidden');
+
+      try {
+        const data = await api('/api/crm/auth/login', { method: 'POST', body: JSON.stringify({ tenantId, emailOrPhone, password }) });
+        // Token is stored in cookie; also keep a bearer fallback if ever added later.
+        state.token = null;
+        state.tenantId = tenantId;
+        showStatus('Logged in');
+        await loadMeAndFeatures();
+      } catch (ex) {
+        err.textContent = ex.message || 'Login failed';
+        err.classList.remove('hidden');
+      }
+    });
+
+    document.getElementById('logoutBtn').addEventListener('click', async () => {
+      try {
+        await api('/api/crm/auth/logout', { method: 'POST' });
+      } catch (_) {}
+      state.me = null;
+      state.features = null;
+      state.token = null;
+      document.getElementById('appPanel').classList.add('hidden');
+      document.getElementById('authPanel').classList.remove('hidden');
+      document.getElementById('logoutBtn').classList.add('hidden');
+      document.getElementById('subTitle').textContent = 'Signed out';
+    });
+
+    document.getElementById('refreshLeads').onclick = () => refreshLeads().catch(e => showStatus(e.message, 'error'));
+    document.getElementById('createLead').onclick = async () => {
+      try {
+        const name = document.getElementById('newLeadName').value.trim();
+        const phone = document.getElementById('newLeadPhone').value.trim();
+        const channel = document.getElementById('newLeadChannel').value;
+        await api('/api/crm/leads', { method: 'POST', body: JSON.stringify({ name, phone, channel }) });
+        showStatus('Lead created');
+        await refreshLeads();
+      } catch (e) {
+        showStatus(e.message, 'error');
+      }
+    };
+
+    document.getElementById('saveLead').onclick = async () => {
+      try {
+        const leadId = document.getElementById('leadId').value.trim();
+        const status = document.getElementById('leadStatus').value;
+        const heat = document.getElementById('leadHeat').value;
+        await api(`/api/crm/leads/${leadId}`, { method: 'PATCH', body: JSON.stringify({ status, heat }) });
+        showStatus('Lead saved');
+        await refreshLeads();
+        await openLead(leadId);
+      } catch (e) {
+        showStatus(e.message, 'error');
+      }
+    };
+
+    document.getElementById('logMessage').onclick = async () => {
+      try {
+        const leadId = document.getElementById('leadId').value.trim();
+        const body = document.getElementById('newMessageBody').value;
+        if (!body) return;
+        await api(`/api/crm/leads/${leadId}/messages`, { method: 'POST', body: JSON.stringify({ body, direction: 'OUTBOUND', channel: 'MANUAL' }) });
+        document.getElementById('newMessageBody').value = '';
+        showStatus('Message logged');
+        await openLead(leadId);
+      } catch (e) {
+        showStatus(e.message, 'error');
+      }
+    };
+
+    document.getElementById('refreshTriage').onclick = () => refreshTriage().catch(e => showStatus(e.message, 'error'));
+    document.getElementById('refreshTemplates').onclick = () => refreshTemplates().catch(e => showStatus(e.message, 'error'));
+    document.getElementById('createTemplate').onclick = async () => {
+      try {
+        const name = document.getElementById('tplName').value.trim();
+        const channel = document.getElementById('tplChannel').value;
+        const body = document.getElementById('tplBody').value;
+        await api('/api/crm/templates', { method: 'POST', body: JSON.stringify({ name, channel, body }) });
+        showStatus('Template created');
+        await refreshTemplates();
+      } catch (e) {
+        showStatus(e.message, 'error');
+      }
+    };
+
+    document.getElementById('refreshNotifs').onclick = () => refreshNotifs().catch(e => showStatus(e.message, 'error'));
+
+    document.getElementById('refreshUsers').onclick = () => refreshUsers().catch(e => showStatus(e.message, 'error'));
+    document.getElementById('createUser').onclick = async () => {
+      try {
+        const fullName = document.getElementById('userFullName').value.trim();
+        const email = document.getElementById('userEmail').value.trim();
+        const phone = document.getElementById('userPhone').value.trim();
+        const role = document.getElementById('userRole').value;
+        const password = document.getElementById('userPassword').value;
+        await api('/api/crm/users', { method: 'POST', body: JSON.stringify({ fullName, email, phone, role, password }) });
+        showStatus('User created');
+        await refreshUsers();
+      } catch (e) {
+        showStatus(e.message, 'error');
+      }
+    };
+
+    document.getElementById('refreshSla').onclick = () => refreshSla().catch(e => showStatus(e.message, 'error'));
+    document.getElementById('createSla').onclick = async () => {
+      try {
+        const name = document.getElementById('slaName').value.trim();
+        const responseTimeMinutes = parseInt(document.getElementById('slaMinutes').value, 10) || 60;
+        await api('/api/crm/sla/rules', { method: 'POST', body: JSON.stringify({ name, responseTimeMinutes }) });
+        showStatus('SLA created');
+        await refreshSla();
+      } catch (e) {
+        showStatus(e.message, 'error');
+      }
+    };
+
+    // Boot
+    (async () => {
+      await tryAutoFillFromDashboardSession();
+      document.getElementById('subTitle').textContent = 'Sign in to continue';
+      try {
+        await loadMeAndFeatures();
+      } catch (_) {
+        // Not signed in; stay on auth panel
+      }
+    })();
+  </script>
+</body>
+</html>

@@ -2,6 +2,29 @@ const express = require('express');
 const router = express.Router();
 const { supabase } = require('../../services/config');
 const crypto = require('crypto');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+
+function getJwtSecret() {
+    return process.env.JWT_SECRET || process.env.SAK_JWT_SECRET;
+}
+
+function signToken({ userId, tenantId, role }) {
+    const secret = getJwtSecret();
+    if (!secret) throw new Error('JWT secret not configured (JWT_SECRET or SAK_JWT_SECRET)');
+    const expiresIn = process.env.JWT_EXPIRES_IN || '7d';
+    return jwt.sign({ userId, tenantId, role }, secret, { expiresIn });
+}
+
+function setAuthCookie(res, token) {
+    const secure = process.env.NODE_ENV === 'production';
+    res.cookie('sak_auth', token, {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure,
+        path: '/'
+    });
+}
 
 /**
  * POST /api/auth/login
@@ -132,6 +155,64 @@ router.post('/login', async (req, res) => {
 
         console.log('[AUTH] Login successful for:', getBusinessName(tenant) || getTenantId(tenant));
 
+        // Best-effort: ensure CRM OWNER user exists and set CRM JWT cookie for /api/crm/* usage.
+        try {
+            const tenantId = getTenantId(tenant);
+            if (tenantId) {
+                const normalizePhoneDigits = (value) => {
+                    if (!value) return '';
+                    const withoutSuffix = String(value).replace(/@c\.us$/i, '');
+                    return withoutSuffix.replace(/\D/g, '');
+                };
+                const ownerDigits = normalizePhoneDigits(getPrimaryPhone(tenant) || phone);
+
+                const passwordHash = bcrypt.hashSync(String(password), 10);
+                const { data: existingUser } = await supabase
+                    .from('crm_users')
+                    .select('id, role, is_active')
+                    .eq('tenant_id', tenantId)
+                    .eq('role', 'OWNER')
+                    .maybeSingle();
+
+                let crmUserId = existingUser?.id;
+                let crmRole = existingUser?.role || 'OWNER';
+
+                if (crmUserId) {
+                    await supabase
+                        .from('crm_users')
+                        .update({ password_hash: passwordHash, phone: ownerDigits || null, is_active: true })
+                        .eq('id', crmUserId);
+                } else {
+                    const { data: createdUser, error: createErr } = await supabase
+                        .from('crm_users')
+                        .insert({
+                            tenant_id: tenantId,
+                            role: 'OWNER',
+                            full_name: `${getBusinessName(tenant) || 'Tenant'} Owner`,
+                            email: (tenant?.email ? String(tenant.email).trim().toLowerCase() : null),
+                            phone: ownerDigits || null,
+                            is_active: true,
+                            password_hash: passwordHash
+                        })
+                        .select('id, role')
+                        .single();
+
+                    if (!createErr && createdUser?.id) {
+                        crmUserId = createdUser.id;
+                        crmRole = createdUser.role || 'OWNER';
+                    }
+                }
+
+                if (crmUserId) {
+                    const token = signToken({ userId: crmUserId, tenantId, role: crmRole });
+                    setAuthCookie(res, token);
+                }
+            }
+        } catch (e) {
+            // Do not block dashboard login if CRM JWT can't be issued.
+            console.warn('[AUTH] CRM JWT cookie issuance skipped/failed:', e?.message || e);
+        }
+
         // Create session object
         const session = {
             tenantId: getTenantId(tenant),
@@ -208,6 +289,45 @@ router.post('/change-password', async (req, res) => {
         }
 
         console.log('[AUTH] Password changed for tenant:', tenantId);
+
+        // Best-effort: keep CRM OWNER password in sync.
+        try {
+            const normalizePhoneDigits = (value) => {
+                if (!value) return '';
+                const withoutSuffix = String(value).replace(/@c\.us$/i, '');
+                return withoutSuffix.replace(/\D/g, '');
+            };
+            const ownerDigits = normalizePhoneDigits(tenant.phone_number || tenant.owner_whatsapp_number);
+            const hash = bcrypt.hashSync(String(newPassword), 10);
+
+            const { data: existingUser } = await supabase
+                .from('crm_users')
+                .select('id')
+                .eq('tenant_id', tenantId)
+                .eq('role', 'OWNER')
+                .maybeSingle();
+
+            if (existingUser?.id) {
+                await supabase
+                    .from('crm_users')
+                    .update({ password_hash: hash, phone: ownerDigits || null, is_active: true })
+                    .eq('id', existingUser.id);
+            } else {
+                await supabase
+                    .from('crm_users')
+                    .insert({
+                        tenant_id: tenantId,
+                        role: 'OWNER',
+                        full_name: `${tenant.business_name || 'Tenant'} Owner`,
+                        email: tenant.email ? String(tenant.email).trim().toLowerCase() : null,
+                        phone: ownerDigits || null,
+                        is_active: true,
+                        password_hash: hash
+                    });
+            }
+        } catch (e) {
+            console.warn('[AUTH] CRM password sync skipped/failed:', e?.message || e);
+        }
 
         res.json({
             success: true,

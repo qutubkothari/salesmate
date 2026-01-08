@@ -126,16 +126,15 @@
                 </div>
                 
                 <nav class="py-4">
-                    <!-- Hidden tabs - will be activated based on subscription modules -->
-                    <div class="sidebar-item active" onclick="switchTab('overview')" data-tab="overview" style="display: none;">
+                    <div class="sidebar-item active" onclick="switchTab('overview')" data-tab="overview">
                         <i class="fas fa-chart-line"></i>
                         <span>Overview</span>
                     </div>
-                    <div class="sidebar-item" onclick="switchTab('conversations')" data-tab="conversations" style="display: none;">
+                    <div class="sidebar-item" onclick="switchTab('conversations')" data-tab="conversations">
                         <i class="fas fa-comments"></i>
                         <span>Conversations</span>
                     </div>
-                    <div class="sidebar-item" onclick="switchTab('orders')" data-tab="orders" style="display: none;">
+                    <div class="sidebar-item" onclick="switchTab('orders')" data-tab="orders">
                         <i class="fas fa-shopping-cart"></i>
                         <span>Orders</span>
                     </div>
@@ -155,6 +154,10 @@
                         <i class="fas fa-users"></i>
                         <span>Customers</span>
                     </div>
+                    <div class="sidebar-item" onclick="switchTab('leads')" data-tab="leads">
+                        <i class="fas fa-user-tag"></i>
+                        <span>Leads</span>
+                    </div>
                     <div class="sidebar-item" onclick="switchTab('settings')" data-tab="settings">
                         <i class="fas fa-cog"></i>
                         <span>Settings</span>
@@ -164,19 +167,16 @@
                         <span>Analytics</span>
                     </div>
                     
-                    <!-- Active tabs - Based on subscription modules -->
                     <div class="sidebar-item" onclick="switchTab('broadcast')" data-tab="broadcast">
                         <i class="fas fa-bullhorn"></i>
                         <span>Broadcast</span>
                     </div>
-                    <!-- Hidden for now - focusing on broadcast functionality -->
                     <div class="sidebar-item" onclick="switchTab('whatsapp-web')" data-tab="whatsapp-web">
                         <i class="fas fa-qrcode"></i>
                         <span>WhatsApp Web</span>
                     </div>
                     
-                    <!-- Hidden tabs -->
-                    <div class="sidebar-item" onclick="window.location.href='/discounts.html'" style="display: none;">
+                    <div class="sidebar-item" onclick="window.location.href='/discounts.html'">
                         <i class="fas fa-tags"></i>
                         <span>Discounts</span>
                     </div>
@@ -1596,6 +1596,9 @@
                         content.classList.remove('hidden');
                         content.innerHTML = '<div class="p-8 text-red-500">Customers tab element not found.</div>';
                     }
+                    break;
+                case 'leads':
+                    await loadLeads();
                     break;
                 case 'documents':
                     content.classList.remove('hidden');
@@ -5375,39 +5378,9 @@
     }
 
     // Apply feature settings to show/hide tabs
-    function applyFeatureSettings(tenantId) {
-        // Load saved feature settings from localStorage (set by admin in clients.html)
-        const savedFeatures = JSON.parse(localStorage.getItem(`tenant_features_${tenantId}`)) || {};
-        console.log('Loading feature settings for tenant:', tenantId, savedFeatures);
-        
-        // Map features to tab data attributes
-        const featureTabMap = {
-            'tab_products': 'products',
-            'tab_customers': 'customers',
-            'tab_orders': 'orders',
-            'tab_discounts': 'discounts',
-            'tab_broadcast': 'broadcast',
-            'tab_whatsapp_web': 'whatsapp-web',
-            'tab_analytics': 'analytics'
-        };
-        
-        // Show/hide tabs based on feature settings
-        Object.keys(featureTabMap).forEach(feature => {
-            const tabName = featureTabMap[feature];
-            const isEnabled = savedFeatures.hasOwnProperty(feature) ? savedFeatures[feature] : true; // Default to enabled
-            
-            // Find all sidebar items with this tab
-            const tabElements = document.querySelectorAll(`[data-tab="${tabName}"]`);
-            tabElements.forEach(el => {
-                if (isEnabled) {
-                    el.style.display = ''; // Show
-                    console.log(`✅ Enabled tab: ${tabName}`);
-                } else {
-                    el.style.display = 'none'; // Hide
-                    console.log(`❌ Disabled tab: ${tabName}`);
-                }
-            });
-        });
+    // User request: always show all sidebar features.
+    function applyFeatureSettings(_) {
+        return;
     }
 
     // ---------- Event listeners ----------

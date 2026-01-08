@@ -547,6 +547,146 @@ function ensureSqliteSchema(dbInstance) {
     );
   `);
 
+  // --- CRM (local dev) ---
+  exec(`
+    CREATE TABLE IF NOT EXISTS crm_users (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      tenant_id TEXT NOT NULL,
+      email TEXT,
+      phone TEXT,
+      full_name TEXT,
+      role TEXT NOT NULL,
+      password_hash TEXT,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT DEFAULT (DATETIME('now')),
+      updated_at TEXT DEFAULT (DATETIME('now')),
+      UNIQUE(tenant_id, email),
+      UNIQUE(tenant_id, phone)
+    );
+  `);
+
+  exec(`
+    CREATE TABLE IF NOT EXISTS crm_leads (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      tenant_id TEXT NOT NULL,
+      created_by_user_id TEXT,
+      assigned_user_id TEXT,
+      name TEXT,
+      phone TEXT,
+      email TEXT,
+      channel TEXT DEFAULT 'WHATSAPP',
+      status TEXT DEFAULT 'NEW',
+      heat TEXT DEFAULT 'COLD',
+      score INTEGER DEFAULT 0,
+      qualification_level TEXT DEFAULT 'UNQUALIFIED',
+      last_activity_at TEXT,
+      created_at TEXT DEFAULT (DATETIME('now')),
+      updated_at TEXT DEFAULT (DATETIME('now'))
+    );
+  `);
+
+  // Non-destructive patch: add qualification_level if table existed before.
+  ensureColumns('crm_leads', [
+    { name: 'qualification_level', type: "TEXT DEFAULT 'UNQUALIFIED'" }
+  ]);
+
+  exec(`
+    CREATE TABLE IF NOT EXISTS crm_lead_events (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      tenant_id TEXT NOT NULL,
+      lead_id TEXT NOT NULL,
+      actor_user_id TEXT,
+      event_type TEXT NOT NULL,
+      event_payload TEXT DEFAULT '{}',
+      created_at TEXT DEFAULT (DATETIME('now'))
+    );
+  `);
+
+  exec(`
+    CREATE TABLE IF NOT EXISTS crm_messages (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      tenant_id TEXT NOT NULL,
+      lead_id TEXT NOT NULL,
+      conversation_id TEXT,
+      direction TEXT NOT NULL,
+      channel TEXT NOT NULL,
+      body TEXT,
+      external_id TEXT,
+      raw_payload TEXT,
+      created_by_user_id TEXT,
+      created_at TEXT DEFAULT (DATETIME('now'))
+    );
+  `);
+
+  exec(`
+    CREATE TABLE IF NOT EXISTS crm_triage_items (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      tenant_id TEXT NOT NULL,
+      lead_id TEXT,
+      conversation_id TEXT,
+      status TEXT DEFAULT 'OPEN',
+      escalation_level TEXT,
+      reason TEXT,
+      assigned_user_id TEXT,
+      created_at TEXT DEFAULT (DATETIME('now')),
+      updated_at TEXT DEFAULT (DATETIME('now'))
+    );
+  `);
+
+  exec(`
+    CREATE TABLE IF NOT EXISTS crm_message_templates (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      tenant_id TEXT NOT NULL,
+      channel TEXT NOT NULL,
+      name TEXT NOT NULL,
+      body TEXT NOT NULL,
+      is_enabled INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT DEFAULT (DATETIME('now')),
+      updated_at TEXT DEFAULT (DATETIME('now')),
+      UNIQUE(tenant_id, channel, name)
+    );
+  `);
+
+  exec(`
+    CREATE TABLE IF NOT EXISTS crm_notifications (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      tenant_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      type TEXT NOT NULL,
+      payload TEXT DEFAULT '{}',
+      created_at TEXT DEFAULT (DATETIME('now')),
+      read_at TEXT
+    );
+  `);
+
+  exec(`
+    CREATE TABLE IF NOT EXISTS crm_audit_logs (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      tenant_id TEXT NOT NULL,
+      actor_user_id TEXT,
+      action TEXT NOT NULL,
+      entity_type TEXT,
+      entity_id TEXT,
+      metadata TEXT DEFAULT '{}',
+      created_at TEXT DEFAULT (DATETIME('now'))
+    );
+  `);
+
+  exec(`
+    CREATE TABLE IF NOT EXISTS crm_sla_rules (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      tenant_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      response_time_minutes INTEGER NOT NULL,
+      escalation_time_minutes INTEGER,
+      notify_roles TEXT DEFAULT '[]',
+      is_active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT DEFAULT (DATETIME('now')),
+      updated_at TEXT DEFAULT (DATETIME('now')),
+      UNIQUE(tenant_id, name)
+    );
+  `);
+
   // --- Broadcasts / bulk scheduling (required for broadcast sending) ---
   exec(`
     CREATE TABLE IF NOT EXISTS bulk_schedules (
@@ -696,6 +836,9 @@ function ensureSqliteSchema(dbInstance) {
   // Tenants: broadcasts rely on daily_message_limit existing
   ensureColumns('tenants', [
     { name: 'daily_message_limit', type: 'INTEGER DEFAULT 1000' },
+    // Feature flags / tiering (used by CRM module)
+    { name: 'enabled_features', type: "TEXT DEFAULT '{}'" },
+    { name: 'subscription_tier', type: "TEXT DEFAULT 'standard'" },
     // Dashboard settings (local mode should not crash on updates)
     { name: 'gst_rate', type: 'REAL DEFAULT 18' },
     { name: 'business_state', type: "TEXT DEFAULT 'maharashtra'" },
