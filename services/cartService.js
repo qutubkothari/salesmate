@@ -1,4 +1,10 @@
 const { calculateDiscount } = require('./volumeDiscountService');
+const { randomUUID } = require('crypto');
+
+function generateId() {
+    // Use UUID v4 for portability across Postgres/Supabase and local SQLite.
+    return randomUUID();
+}
 
 /**
  * Safely parse context_data (handles both string and object)
@@ -34,15 +40,15 @@ const applyApprovedDiscountToCart = async (tenantId, endUserPhone) => {
     // Get conversation with quoted products
     const { data: conversation } = await supabase
         .from('conversations')
-        .select('id, context_data, last_quoted_products')
+        .select('id, context, last_quoted_products')
         .eq('id', conversationId)
         .single();
 
-    if (!conversation || !conversation.context_data) return;
+    if (!conversation || !conversation.context) return;
 
     let approvedDiscount = null;
     try {
-        const contextData = safeParseContextData(conversation.context_data);
+        const contextData = safeParseContextData(conversation.context);
         // Check for both offeredDiscount (during negotiation) and approvedDiscount (after confirmation)
         if (contextData.offeredDiscount && contextData.offeredDiscount > 0) {
             approvedDiscount = contextData.offeredDiscount;
@@ -103,7 +109,10 @@ const applyApprovedDiscountToCart = async (tenantId, endUserPhone) => {
         // 1. Personalized price from quotedProductsMap (from price quote)
         // 2. Catalog price from product
         // NOTE: We IGNORE carton_price_override to avoid double discounting!
-        const basePrice = quotedProductsMap.get(item.product.id) || item.product.price;
+        const unitsPerCarton = parseInt(item.product.units_per_carton, 10) > 0 ? parseInt(item.product.units_per_carton, 10) : 1;
+        // quotedProductsMap prices come from quotes/negotiation and are per-carton.
+        // catalog price is per-unit; convert to per-carton for cart math.
+        const basePrice = quotedProductsMap.get(item.product.id) || (Number(item.product.price) || 0) * unitsPerCarton;
         const discountedPrice = basePrice * (1 - approvedDiscount / 100);
         const discountAmountPerCarton = basePrice - discountedPrice;
 
@@ -269,7 +278,7 @@ const processOrderBackground = async (orderId) => {
     }
 };
 // services/cartService.js - COMPLETE FIXED VERSION with Force Clear on New Orders
-const { supabase } = require('./config');
+const { supabase, USE_LOCAL_DB } = require('./config');
 const { getConversationId } = require('./historyService');
 const { addPointsForPurchase } = require('./loyaltyService');
 const { sendMessage } = require('./whatsappService');
@@ -278,6 +287,91 @@ const { generatePaymentDetails } = require('./paymentService');
 // Import modular services
 const { calculateComprehensivePricing, formatPricingForWhatsApp, roundAmount } = require('./pricingService');
 const CustomerService = require('./core/CustomerService');
+
+/**
+ * Fetch cart and items in a way that works for both Supabase Postgres and the local SQLite wrapper.
+ * Local mode does not reliably support nested relationship selects.
+ */
+const fetchCartWithItems = async ({ conversationId, productSelectFields }) => {
+    if (!conversationId) {
+        return { data: null, error: null };
+    }
+
+    if (!USE_LOCAL_DB) {
+        return supabase
+            .from('carts')
+            .select(`
+                *,
+                cart_items (
+                    quantity,
+                    carton_price_override,
+                    carton_discount_amount,
+                    product:products (${productSelectFields})
+                )
+            `)
+            .eq('conversation_id', conversationId)
+            .single();
+    }
+
+    const { data: cart, error: cartError } = await supabase
+        .from('carts')
+        .select('*')
+        .eq('conversation_id', conversationId)
+        .maybeSingle();
+
+    if (cartError && cartError.code !== 'PGRST116') return { data: null, error: cartError };
+    if (!cart) return { data: null, error: null };
+
+    const { data: cartItems, error: itemsError } = await supabase
+        .from('cart_items')
+        .select('quantity, carton_price_override, carton_discount_amount, product_id')
+        .eq('cart_id', cart.id);
+
+    if (itemsError) return { data: null, error: itemsError };
+
+    const uniqueProductIds = Array.from(
+        new Set((cartItems || []).map((i) => i.product_id).filter(Boolean))
+    );
+
+    let productsById = {};
+
+    if (uniqueProductIds.length > 0) {
+        try {
+            const baseQuery = supabase.from('products').select(productSelectFields);
+            if (typeof baseQuery.in === 'function') {
+                const { data: products, error: productsError } = await baseQuery.in('id', uniqueProductIds);
+                if (!productsError && products) {
+                    productsById = Object.fromEntries(products.map((p) => [p.id, p]));
+                } else if (productsError) {
+                    console.warn('[CART] Local mode product fetch failed:', productsError.message);
+                }
+            } else {
+                // Fallback: N+1 queries (cart sizes are typically small)
+                for (const productId of uniqueProductIds) {
+                    const { data: productRow, error: productError } = await supabase
+                        .from('products')
+                        .select(productSelectFields)
+                        .eq('id', productId)
+                        .single();
+                    if (!productError && productRow) {
+                        productsById[productId] = productRow;
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn('[CART] Local mode product join fallback error:', e.message);
+        }
+    }
+
+    const enrichedItems = (cartItems || []).map((item) => ({
+        quantity: item.quantity,
+        carton_price_override: item.carton_price_override,
+        carton_discount_amount: item.carton_discount_amount,
+        product: productsById[item.product_id] || null,
+    }));
+
+    return { data: { ...cart, cart_items: enrichedItems }, error: null };
+};
 
 /**
  * Debug function to inspect cart state
@@ -524,15 +618,19 @@ const addProductToCartEnhanced = async (tenantId, endUserPhone, product, quantit
             };
         }
 
-        const cart = await getOrCreateCart(conversationId);
+        const cart = await getOrCreateCart(conversationId, tenantId);
 
         // Check for existing item
-        const { data: existingItem } = await supabase
+        const { data: existingItem, error: existingItemError } = await supabase
             .from('cart_items')
             .select('id, quantity')
             .eq('cart_id', cart.id)
             .eq('product_id', product.id)
-            .single();
+            .maybeSingle();
+
+        if (existingItemError && existingItemError.code !== 'PGRST116') {
+            throw existingItemError;
+        }
 
         if (existingItem) {
             // Update existing item
@@ -542,7 +640,7 @@ const addProductToCartEnhanced = async (tenantId, endUserPhone, product, quantit
                 
             const { error: updateError } = await supabase
                 .from('cart_items')
-                .update({ quantity: newQuantity })
+                .update({ quantity: newQuantity, updated_at: new Date().toISOString() })
                 .eq('id', existingItem.id);
             
             if (updateError) throw updateError;
@@ -553,9 +651,12 @@ const addProductToCartEnhanced = async (tenantId, endUserPhone, product, quantit
             const { error: insertError } = await supabase
                 .from('cart_items')
                 .insert({
+                    id: generateId(),
                     cart_id: cart.id,
                     product_id: product.id,
-                    quantity: Number(quantity)
+                    quantity: Number(quantity),
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
                 });
             
             if (insertError) throw insertError;
@@ -583,20 +684,34 @@ const addProductToCartEnhanced = async (tenantId, endUserPhone, product, quantit
 /**
  * Finds or creates a shopping cart for a given conversation.
  */
-const getOrCreateCart = async (conversationId) => {
-    let { data: cart } = await supabase
+const getOrCreateCart = async (conversationId, tenantId = null) => {
+    let { data: cart, error: cartSelectError } = await supabase
         .from('carts')
         .select('*')
         .eq('conversation_id', conversationId)
-        .single();
+        .maybeSingle();
+
+    if (cartSelectError && cartSelectError.code !== 'PGRST116') {
+        throw cartSelectError;
+    }
 
     if (!cart) {
-        const { data: newCart } = await supabase
+        const insertPayload = tenantId
+            ? { id: generateId(), conversation_id: conversationId, tenant_id: tenantId }
+            : { id: generateId(), conversation_id: conversationId };
+
+        const { data: newCart, error: insertError } = await supabase
             .from('carts')
-            .insert({ conversation_id: conversationId })
+            .insert(insertPayload)
             .select('*')
-            .single();
+            .maybeSingle();
+
+        if (insertError) throw insertError;
         cart = newCart;
+    }
+
+    if (!cart) {
+        throw new Error('Failed to create or fetch cart');
     }
     return cart;
 };
@@ -613,34 +728,24 @@ const viewCartWithDiscounts = async (tenantId, endUserPhone) => {
         const conversationId = await getConversationId(tenantId, endUserPhone);
         if (!conversationId) return "Could not identify your conversation.";
 
-        // Get cart with items - SAME structure as checkout
-        const { data: cart } = await supabase
-            .from('carts')
-            .select(`
-                *,
-                cart_items (
-                    quantity,
-                    carton_price_override,
-                    carton_discount_amount,
-                    product:products (
-                        id, 
-                        name, 
-                        price, 
-                        packaging_unit, 
-                        units_per_carton
-                    )
-                )
-            `)
-            .eq('conversation_id', conversationId)
-            .single();
+        // Get cart with items - SAME structure as checkout (SQLite-compatible)
+        const { data: cart, error: cartError } = await fetchCartWithItems({
+            conversationId,
+            productSelectFields: 'id, name, price, packaging_unit, units_per_carton'
+        });
+
+        if (cartError) {
+            console.error('[CART_VIEW] Cart fetch error:', cartError);
+            throw cartError;
+        }
 
         if (!cart || !cart.cart_items || cart.cart_items.length === 0) {
             return "Your shopping cart is empty.";
         }
 
         // Filter out items with zero price or invalid products
-        const validItems = cart.cart_items.filter(item => 
-            item.product && item.product.price > 0
+        const validItems = cart.cart_items.filter(item =>
+            item.product && Number(item.product.price) > 0
         );
 
         if (validItems.length === 0) {
@@ -671,9 +776,11 @@ const viewCartWithDiscounts = async (tenantId, endUserPhone) => {
         // CRITICAL FIX: Calculate base order total using ORIGINAL catalog prices only
         // Don't use carton_price_override here because it may contain already-discounted prices
         // This prevents double-discounting when comparing negotiated vs automatic discounts
-        const baseOrderTotal = validItems.reduce((sum, item) =>
-            sum + (item.quantity * item.product.price), 0
-        );
+        const baseOrderTotal = validItems.reduce((sum, item) => {
+            const upc = parseInt(item.product.units_per_carton, 10) > 0 ? parseInt(item.product.units_per_carton, 10) : 1;
+            const catalogCartonPrice = (Number(item.product.price) || 0) * upc;
+            return sum + (item.quantity * catalogCartonPrice);
+        }, 0);
         console.log('[CART_VIEW] Base order total (catalog prices):', baseOrderTotal);
 
         // Step 1: Check for negotiated discounts from AI conversation
@@ -682,14 +789,14 @@ const viewCartWithDiscounts = async (tenantId, endUserPhone) => {
         try {
             const { data: conversation } = await supabase
                 .from('conversations')
-                .select('context_data')
+                .select('context')
                 .eq('id', conversationId)
                 .single();
 
-            if (conversation?.context_data) {
-                const contextData = typeof conversation.context_data === 'string'
-                    ? JSON.parse(conversation.context_data)
-                    : conversation.context_data;
+            if (conversation?.context) {
+                const contextData = typeof conversation.context === 'string'
+                    ? JSON.parse(conversation.context)
+                    : conversation.context;
 
                 if (contextData.offeredDiscount || contextData.approvedDiscount) {
                     negotiatedDiscountPercent = contextData.offeredDiscount || contextData.approvedDiscount;
@@ -916,47 +1023,43 @@ const checkoutWithDiscounts = async (tenant, endUserPhone) => {
         console.log('[CHECKOUT] Customer profile:', customerProfile?.id);
 
         // ===== GST VALIDATION CHECK =====
-        // Check if customer has set GST preference before allowing checkout
+        // NEW LOGIC: Do NOT block checkout on missing GST.
+        // If GST details are missing, create a generic (non-GST) order now,
+        // then ask customer whether they want a GST bill. Only after GST is provided
+        // do we trigger Zoho invoicing.
         console.log('[CHECKOUT] Checking GST preference...');
         const GSTService = require('./core/GSTService');
         const needsGST = await GSTService.needsGSTCollection(tenant.id, endUserPhone);
-
-        if (needsGST) {
-            // Customer hasn't set GST preference yet - block checkout and ask
-            console.log('[CHECKOUT] GST preference not set, requesting details');
-
-            // Request GST using the new service (handles state transition automatically)
-            const { message } = await GSTService.requestGSTPreference(tenant.id, endUserPhone);
-            
-            return `⏸️ ${message}`;
+        let gstPreference = null;
+        let gstNumber = null;
+        if (!needsGST) {
+            const gstPref = await GSTService.getGSTPreference(tenant.id, endUserPhone);
+            gstPreference = gstPref?.preference || null;
+            gstNumber = gstPref?.gstNumber || gstPref?.gst_number || null;
+            console.log('[CHECKOUT] GST preference confirmed:', gstPreference);
+        } else {
+            console.log('[CHECKOUT] GST preference not set - proceeding with generic (non-GST) checkout');
         }
-
-        const { preference, gstNumber } = await GSTService.getGSTPreference(tenant.id, endUserPhone);
-        console.log('[CHECKOUT] GST preference confirmed:', preference);
         // ===== END GST VALIDATION =====
 
-        // Get cart with EXACT same structure as viewCart
-        const { data: cart } = await supabase
-            .from('carts')
-            .select(`
-                *,
-                cart_items (
-                    quantity,
-                    carton_price_override,
-                    carton_discount_amount,
-                    product:products (id, name, price, units_per_carton, packaging_unit)
-                )
-            `)
-            .eq('conversation_id', conversationId)
-            .single();
+        // Get cart with EXACT same structure as viewCart (SQLite-compatible)
+        const { data: cart, error: cartError } = await fetchCartWithItems({
+            conversationId,
+            productSelectFields: 'id, name, price, units_per_carton, packaging_unit'
+        });
+
+        if (cartError) {
+            console.error('[CHECKOUT] Cart fetch error:', cartError);
+            throw cartError;
+        }
 
         if (!cart || !cart.cart_items || cart.cart_items.length === 0) {
             return "Your cart is empty. Add some products before checking out!";
         }
 
         // Filter out zero price items
-        const validItems = cart.cart_items.filter(item => 
-            item.product && item.product.price > 0
+        const validItems = cart.cart_items.filter(item =>
+            item.product && Number(item.product.price) > 0
         );
 
         if (validItems.length === 0) {
@@ -984,7 +1087,8 @@ const checkoutWithDiscounts = async (tenant, endUserPhone) => {
                 customerId: customerProfile?.id,
                 customerPhone: customerProfile?.id ? null : endUserPhone, // Fallback to phone if no profile
                 discountAmount: preApprovedDiscount, // ONLY use pre-approved discount from cart
-                roundTotals: true // EXACT same as viewCart
+                roundTotals: true, // EXACT same as viewCart
+                includeGST: needsGST ? false : true
             }
         );
 
@@ -999,9 +1103,13 @@ const checkoutWithDiscounts = async (tenant, endUserPhone) => {
         const { data: order, error: orderError} = await supabase
             .from('orders')
             .insert({
+                id: generateId(),
                 tenant_id: tenant.id,
                 conversation_id: conversationId,
+                status: needsGST ? 'pending_gst' : 'confirmed',
+                order_status: needsGST ? 'pending_gst' : 'confirmed',
                 customer_profile_id: customerProfile?.id || null,
+                phone_number: endUserPhone,
                 original_amount: pricing.originalSubtotal,
                 subtotal_amount: pricing.subtotal,
                 discount_amount: pricing.discountAmount,
@@ -1018,6 +1126,9 @@ const checkoutWithDiscounts = async (tenant, endUserPhone) => {
                 shipping_rate_per_carton: pricing.shipping.ratePerCarton,
                 free_shipping_applied: pricing.shipping.freeShippingApplied,
                 total_amount: pricing.grandTotal,
+                final_amount: pricing.grandTotal,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
                 customer_name: customerProfile?.business_name || customerProfile?.name || null
             })
             .select('id')
@@ -1034,6 +1145,8 @@ const checkoutWithDiscounts = async (tenant, endUserPhone) => {
         const totalOriginalPrice = pricing.originalSubtotal;
         const totalDiscountedPrice = pricing.subtotal;
         const discountRatio = totalOriginalPrice > 0 ? totalDiscountedPrice / totalOriginalPrice : 1;
+        const gstRateForItems = Number(pricing?.gst?.rate) || 0;
+        const taxMultiplier = 1 + (gstRateForItems / 100);
         
         const orderItems = validItems.map((item, index) => {
             const pricingItem = pricing.items[index];
@@ -1042,7 +1155,7 @@ const checkoutWithDiscounts = async (tenant, endUserPhone) => {
             // Apply proportional discount to get the ACTUAL price customer pays
             const discountedPriceWithTax = originalPriceWithTax * discountRatio;
             
-            const unitPriceBeforeTax = discountedPriceWithTax / 1.18;
+            const unitPriceBeforeTax = taxMultiplier > 0 ? (discountedPriceWithTax / taxMultiplier) : discountedPriceWithTax;
             const gstAmount = (discountedPriceWithTax - unitPriceBeforeTax) * item.quantity;
             
             console.log(`[ORDER_ITEM] ${item.product.name}: Original â‚¹${originalPriceWithTax} â†’ Discounted â‚¹${discountedPriceWithTax.toFixed(2)}`);
@@ -1061,7 +1174,7 @@ const checkoutWithDiscounts = async (tenant, endUserPhone) => {
                 // Store per-unit BEFORE tax so dashboard line totals align with subtotal/gst fields.
                 price_at_time_of_purchase: Number(unitPriceBeforeTax.toFixed(2)),
                 unit_price_before_tax: Number(unitPriceBeforeTax.toFixed(2)),
-                gst_rate: 18,
+                gst_rate: gstRateForItems,
                 gst_amount: Number(gstAmount.toFixed(2)),
                 zoho_item_id: null
             };
@@ -1082,6 +1195,46 @@ const checkoutWithDiscounts = async (tenant, endUserPhone) => {
         // REMOVED: Discount logging code since we're no longer applying automatic discounts at checkout
         // Discounts are now only applied via explicit approval in discount negotiation flow
         // If needed, discount logs should be created during the negotiation/approval step, not at checkout
+
+        // If GST is not yet collected, defer Zoho integration.
+        // We'll ask the customer whether they want a GST bill; once provided, we activate Zoho.
+        if (needsGST) {
+            try {
+                const { message } = await GSTService.requestGSTPreference(tenant.id, endUserPhone);
+                // Clear cart completely after order creation (generic invoice/PO path)
+                await supabase.from('cart_items').delete().eq('cart_id', cart.id);
+                await supabase.from('carts').update({
+                    applied_discount_id: null,
+                    discount_amount: 0,
+                    updated_at: new Date().toISOString()
+                }).eq('id', cart.id);
+
+                return (
+                    `✅ *Order Created (Generic / Non-GST)*\n` +
+                    `Order ID: ${order.id.substring(0, 8)}\n\n` +
+                    `This is a *generic (non-GST) purchase order / invoice* for now.\n\n` +
+                    `${formatPricingForWhatsApp(pricing, { showItemBreakdown: true, showGSTBreakdown: false })}\n\n` +
+                    `⏸️ ${message}`
+                );
+            } catch (gstAskError) {
+                console.error('[CHECKOUT] GST request failed after order creation:', gstAskError?.message || gstAskError);
+                // Still clear cart and return a direct prompt even if state transition failed.
+                await supabase.from('cart_items').delete().eq('cart_id', cart.id);
+                await supabase.from('carts').update({
+                    applied_discount_id: null,
+                    discount_amount: 0,
+                    updated_at: new Date().toISOString()
+                }).eq('id', cart.id);
+
+                return (
+                    `✅ *Order Created (Generic / Non-GST)*\n` +
+                    `Order ID: ${order.id.substring(0, 8)}\n\n` +
+                    `Would you like a GST bill? Reply with:\n` +
+                    `• Your 15-digit GST number\n` +
+                    `• "No GST"\n`
+                );
+            }
+        }
 
         // === SHIPPING INFO REQUEST ===
         // Request shipping address and transporter details after order creation
@@ -1123,7 +1276,7 @@ const checkoutWithDiscounts = async (tenant, endUserPhone) => {
             if (result.success) {
                 console.log('[ZOHO_INTEGRATION] Success:', result.zohoOrderId);
                 // Send success notification
-                await sendMessage(endUserPhone, 
+                await sendMessage(endUserPhone,
                     `ðŸ“‹ Sales Order Created!\n\nZoho Order: ${result.zohoOrderId.substring(0, 8)}\nReference: ${order.id.substring(0, 8)}`
                 );
 
@@ -1239,6 +1392,95 @@ const checkoutWithDiscounts = async (tenant, endUserPhone) => {
         console.error('[CHECKOUT] Error:', error.message);
         return 'An error occurred during checkout. Please try again.';
     }
+};
+
+/**
+ * Activate Zoho integration for the latest pending-GST order in this conversation.
+ * Used after customer provides GST details.
+ */
+const activateZohoForLatestPendingGSTOrder = async (tenantId, endUserPhone) => {
+    const conversationId = await getConversationId(tenantId, endUserPhone);
+    if (!conversationId) {
+        return { success: false, message: 'Could not identify your conversation.' };
+    }
+
+    const { data: recentOrders, error } = await supabase
+        .from('orders')
+        .select('id, order_status, zoho_sales_order_id, created_at')
+        .eq('tenant_id', tenantId)
+        .eq('conversation_id', conversationId)
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+    if (error) {
+        console.error('[ZOHO_ACTIVATE] Failed to fetch recent orders:', error);
+        return { success: false, message: 'Could not find your order to generate GST invoice.' };
+    }
+
+    const pendingOrder = (recentOrders || []).find((o) => !o.zoho_sales_order_id && (o.order_status || '').toLowerCase() === 'pending_gst');
+    if (!pendingOrder) {
+        return { success: false, message: 'No pending order found for GST invoicing.' };
+    }
+
+    try {
+        const { processOrderToZoho } = require('./zohoSalesOrderService');
+        const zohoResult = await processOrderToZoho(tenantId, pendingOrder.id);
+        if (!zohoResult?.success) {
+            return { success: false, message: `Zoho invoice creation failed: ${zohoResult?.error || 'unknown error'}` };
+        }
+
+        // Best-effort PDF delivery
+        if (zohoResult.pdfBuffer && zohoResult.filename) {
+            try {
+                const { sendPDFViaWhatsApp } = require('./pdfDeliveryService');
+                await sendPDFViaWhatsApp(
+                    endUserPhone,
+                    zohoResult.pdfBuffer,
+                    zohoResult.filename,
+                    `ðŸ“„ Your GST invoice\nReference: ${pendingOrder.id.substring(0, 8)}\nThank you for your business!`
+                );
+            } catch (e) {
+                console.error('[ZOHO_ACTIVATE] PDF delivery failed:', e?.message || e);
+            }
+        }
+
+        // Mark order no longer pending GST
+        await supabase
+            .from('orders')
+            .update({ order_status: 'confirmed', status: 'confirmed', updated_at: new Date().toISOString() })
+            .eq('id', pendingOrder.id);
+
+        return { success: true, message: '✅ GST details received. Generating invoice now.' };
+    } catch (e) {
+        console.error('[ZOHO_ACTIVATE] Error:', e?.message || e);
+        return { success: false, message: 'Failed to activate GST invoice creation. Please try again.' };
+    }
+};
+
+/**
+ * Mark the latest pending-GST order as confirmed without GST.
+ */
+const markLatestPendingGSTOrderAsNoGST = async (tenantId, endUserPhone) => {
+    const conversationId = await getConversationId(tenantId, endUserPhone);
+    if (!conversationId) return { success: false };
+
+    const { data: recentOrders } = await supabase
+        .from('orders')
+        .select('id, order_status, zoho_sales_order_id, created_at')
+        .eq('tenant_id', tenantId)
+        .eq('conversation_id', conversationId)
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+    const pendingOrder = (recentOrders || []).find((o) => !o.zoho_sales_order_id && (o.order_status || '').toLowerCase() === 'pending_gst');
+    if (!pendingOrder) return { success: false };
+
+    await supabase
+        .from('orders')
+        .update({ order_status: 'confirmed_no_gst', status: 'confirmed_no_gst', updated_at: new Date().toISOString() })
+        .eq('id', pendingOrder.id);
+
+    return { success: true };
 };
 
 /**
@@ -1440,6 +1682,8 @@ module.exports = {
     checkout,
     viewCartWithDiscounts,
     checkoutWithDiscounts,
+    activateZohoForLatestPendingGSTOrder,
+    markLatestPendingGSTOrderAsNoGST,
     getOrderStatus,
     getOrCreateCart,
     forceResetCartForNewOrder,  // â† Make sure this is exported

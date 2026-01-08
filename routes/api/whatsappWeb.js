@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { supabase } = require('../../services/config');
+const { checkSubscriptionStatus } = require('../../services/subscriptionService');
 const {
     initializeClient,
     getQRCode,
@@ -34,6 +35,21 @@ router.post('/connect', async (req, res) => {
             });
         }
 
+        // Enforce subscription before initializing
+        const sub = await checkSubscriptionStatus(tenantId);
+        if (sub?.status === 'expired') {
+            await disconnectClient(tenantId, {
+                dbStatus: 'disabled_subscription_expired',
+                reason: 'subscription_expired'
+            });
+            return res.status(403).json({
+                success: false,
+                code: 'subscription_expired',
+                message: sub.message || 'Your trial has ended. Please contact support to renew.',
+                subscription: sub
+            });
+        }
+
         console.log('[WA_WEB_API] Initializing connection for tenant:', tenantId);
 
         const result = await initializeClient(tenantId);
@@ -62,6 +78,20 @@ router.get('/qr/:tenantId', async (req, res) => {
         setNoCacheJson(res);
         const { tenantId } = req.params;
 
+        const sub = await checkSubscriptionStatus(tenantId);
+        if (sub?.status === 'expired') {
+            await disconnectClient(tenantId, {
+                dbStatus: 'disabled_subscription_expired',
+                reason: 'subscription_expired'
+            });
+            return res.status(403).json({
+                success: false,
+                code: 'subscription_expired',
+                message: sub.message || 'Your trial has ended. Please contact support to renew.',
+                subscription: sub
+            });
+        }
+
         const result = getQRCode(tenantId);
 
         return res.json({
@@ -87,6 +117,20 @@ router.get('/status/:tenantId', async (req, res) => {
     try {
         setNoCacheJson(res);
         const { tenantId } = req.params;
+
+        const sub = await checkSubscriptionStatus(tenantId);
+        if (sub?.status === 'expired') {
+            await disconnectClient(tenantId, {
+                dbStatus: 'disabled_subscription_expired',
+                reason: 'subscription_expired'
+            });
+            return res.status(403).json({
+                success: false,
+                code: 'subscription_expired',
+                message: sub.message || 'Your trial has ended. Please contact support to renew.',
+                subscription: sub
+            });
+        }
 
         // Set response timeout to prevent hanging
         req.setTimeout(5000); // 5 second timeout

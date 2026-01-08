@@ -50,6 +50,96 @@ async function sendAndSaveMessage(to, messageBody, conversationId, tenantId) {
     }
 }
 
+async function tryRecoverPendingAddToCartAndAdd(tenantId, from, conversation) {
+    try {
+        if (!tenantId || !from || !conversation?.id) return false;
+
+        // Look at the last few bot messages to find a prior "confirm" summary.
+        const { data: messages } = await supabase
+            .from('messages')
+            .select('message_body, sender, created_at')
+            .eq('conversation_id', conversation.id)
+            .order('created_at', { ascending: false })
+            .limit(12);
+
+        const botMsgs = Array.isArray(messages)
+            ? messages.filter(m => String(m?.sender || '').toLowerCase() === 'bot')
+            : [];
+
+        const text = String(botMsgs[0]?.message_body || '').trim();
+        if (!text) return false;
+
+        // Example we’ve seen in prod:
+        // "... add 10 pieces of the Notebook Scale (SKU: NB) to your cart ..."
+        const m = text.match(/\badd\s+(\d+)\s*(pieces|pcs|piece|cartons|ctns|carton)\s+of\s+the\s+(.+?)(?:\s*\(SKU:\s*([^\)]+)\))?\b/i);
+        if (!m) return false;
+
+        const qtyRaw = parseInt(m[1], 10);
+        const unitRaw = String(m[2] || '').toLowerCase();
+        const productNameRaw = String(m[3] || '').trim();
+        const skuRaw = m[4] ? String(m[4]).trim() : '';
+
+        if (!qtyRaw || !productNameRaw) return false;
+
+        // Find product by SKU first (most reliable), then fall back to name LIKE.
+        let product = null;
+        if (skuRaw) {
+            const q = await supabase
+                .from('products')
+                .select('id, name, price, units_per_carton, packaging_unit, sku')
+                .eq('tenant_id', tenantId)
+                .eq('sku', skuRaw)
+                .maybeSingle();
+            product = q?.data || null;
+        }
+
+        if (!product) {
+            const likeName = `%${productNameRaw.replace(/%/g, '').slice(0, 80)}%`;
+            const q = await supabase
+                .from('products')
+                .select('id, name, price, units_per_carton, packaging_unit, sku')
+                .eq('tenant_id', tenantId)
+                .like('name', likeName)
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+            product = q?.data || null;
+        }
+
+        if (!product || !(Number(product.price) > 0)) return false;
+
+        // Convert pieces → cartons when needed
+        const upc = parseInt(product.units_per_carton, 10) > 0 ? parseInt(product.units_per_carton, 10) : 1;
+        let quantityForCart = qtyRaw;
+        if (unitRaw.startsWith('pc') || unitRaw.startsWith('piece')) {
+            // If product is packed with multiple pieces per carton, cart quantity should be cartons.
+            if (upc > 1) {
+                quantityForCart = Math.ceil(qtyRaw / upc);
+            }
+        }
+
+        const { addProductToCartEnhanced } = require('../../../services/cartService');
+        const addRes = await addProductToCartEnhanced(tenantId, from, product, quantityForCart, { replace: true });
+        if (!addRes?.success) {
+            console.warn('[MAIN_HANDLER] Recovery add-to-cart failed:', addRes?.error);
+            return false;
+        }
+
+        console.log('[MAIN_HANDLER] Recovered pending add-to-cart from confirmation prompt:', {
+            sku: product.sku,
+            name: product.name,
+            requestedQty: qtyRaw,
+            unit: unitRaw,
+            quantityForCart
+        });
+
+        return true;
+    } catch (e) {
+        console.error('[MAIN_HANDLER] tryRecoverPendingAddToCartAndAdd failed:', e?.message || e);
+        return false;
+    }
+}
+
 async function handleCustomerMessage(req, res, tenant, from, userQuery, conversation) {
     console.log('[MAIN_HANDLER] ===== STARTING MODULAR CUSTOMER HANDLER =====');
     console.log('[MAIN_HANDLER] Query:', userQuery, 'From:', from);
@@ -160,6 +250,37 @@ async function handleCustomerMessage(req, res, tenant, from, userQuery, conversa
         // STEP 0.1: Check for cart commands FIRST (before any other processing)
         const { clearCart, viewCartWithDiscounts, checkoutWithDiscounts } = require('../../../services/cartService');
         const intentClassifier = require('../../../services/ai/intentClassifier');
+
+        // STEP 0.15: GST follow-up flow (generic invoice -> GST preference -> Zoho activation)
+        if (conversation?.state === 'awaiting_gst_details') {
+            console.log('[MAIN_HANDLER] Awaiting GST details - processing user reply');
+            const GSTService = require('../../../services/core/GSTService');
+            const { activateZohoForLatestPendingGSTOrder, markLatestPendingGSTOrderAsNoGST } = require('../../../services/cartService');
+
+            try {
+                const gstResult = await GSTService.handleGSTResponse(tenant.id, from, userQuery);
+                if (gstResult?.handled) {
+                    if (gstResult.message) {
+                        await sendAndSaveMessage(from, gstResult.message, conversation?.id, tenant.id);
+                    }
+
+                    if (gstResult.preference === 'with_gst') {
+                        const zohoActivation = await activateZohoForLatestPendingGSTOrder(tenant.id, from);
+                        if (zohoActivation?.message) {
+                            await sendAndSaveMessage(from, zohoActivation.message, conversation?.id, tenant.id);
+                        }
+                    } else if (gstResult.preference === 'no_gst') {
+                        await markLatestPendingGSTOrderAsNoGST(tenant.id, from);
+                    }
+
+                    return res.status(200).json({ ok: true, type: 'gst_followup_handled' });
+                }
+            } catch (e) {
+                console.error('[MAIN_HANDLER] GST follow-up handling failed:', e?.message || e);
+                await sendAndSaveMessage(from, 'Could not save GST details. Please try again (send GST number or reply "No GST").', conversation?.id, tenant.id);
+                return res.status(200).json({ ok: false, type: 'gst_followup_failed' });
+            }
+        }
         
         // Use AI intent detection for cart operations (no more brittle regex!)
         // Check if conversation exists before accessing state
@@ -465,18 +586,35 @@ async function handleCustomerMessage(req, res, tenant, from, userQuery, conversa
         const isOrderConfirmation = (intentResult?.intent === 'ORDER_CONFIRMATION' && intentResult?.confidence > 0.5) ||
                                     /^(yes|yeah|ok|okay|sure|confirm|proceed|go ahead|add|add to cart|haan|ha|thik hai)$/i.test(userQuery.trim());
 
-        if (isOrderConfirmation && conversation?.last_quoted_products) {
+        // In some cases last_quoted_products is persisted as an empty array string ("[]"),
+        // which is truthy but contains nothing to add. Treat that as "missing".
+        let hasNonEmptyQuotedProducts = false;
+        if (conversation?.last_quoted_products) {
+            try {
+                const parsed = typeof conversation.last_quoted_products === 'string'
+                    ? JSON.parse(conversation.last_quoted_products)
+                    : conversation.last_quoted_products;
+                hasNonEmptyQuotedProducts = Array.isArray(parsed) && parsed.length > 0;
+            } catch (_) {
+                hasNonEmptyQuotedProducts = false;
+            }
+        }
+
+        if (isOrderConfirmation && hasNonEmptyQuotedProducts) {
             console.log('[MAIN_HANDLER] Order confirmation intent detected - adding to cart');
-        } else if (isOrderConfirmation && !conversation?.last_quoted_products) {
-            // User confirmed but no quoted products - check if they want to checkout cart
-            console.log('[MAIN_HANDLER] Order confirmation detected but no quoted products - checking cart for checkout');
+        } else if (isOrderConfirmation && !hasNonEmptyQuotedProducts) {
+            // User confirmed but quoted products were not persisted.
+            // Try to recover the pending selection from the last bot confirmation prompt and add it to cart.
+            console.log('[MAIN_HANDLER] Order confirmation detected but no quoted products - attempting recovery');
+            const recovered = await tryRecoverPendingAddToCartAndAdd(tenant.id, from, conversation);
+
             const { checkoutWithDiscounts } = require('../../../services/cartService');
             const result = await checkoutWithDiscounts(tenant, from);
             await sendAndSaveMessage(from, result, conversation.id, tenant.id);
-            return res.status(200).json({ ok: true, type: 'checkout' });
+            return res.status(200).json({ ok: true, type: recovered ? 'checkout_after_recovery' : 'checkout' });
         }
 
-        if (isOrderConfirmation && conversation?.last_quoted_products) {
+        if (isOrderConfirmation && hasNonEmptyQuotedProducts) {
             console.log('[MAIN_HANDLER] Processing quoted products - adding to cart');
             try {
                 // First, add quoted products to cart if they exist

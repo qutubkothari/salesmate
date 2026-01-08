@@ -1,6 +1,9 @@
 const express = require('express');
 const { supabase } = require('../services/config');
 const router = express.Router();
+const { validate, z, zTrimmedString } = require('../middleware/validate');
+
+const verifyTokenBodySchema = z.object({ token: zTrimmedString(1, 256) }).strict();
 
 // Mount dashboard sub-routes
 const dashboardRouter = require('./api/dashboard');
@@ -17,13 +20,13 @@ router.use('/followups', followupsRouter);
 // Authentication endpoints
 
 // Backup compatibility endpoint (alias for verify-token)
-router.post('/verify-magic-token', async (req, res) => {
+router.post('/verify-magic-token', validate({ body: verifyTokenBodySchema }), async (req, res) => {
     // Redirect to the main verify-token endpoint
     return router.post('/verify-token')(req, res);
 });
 
 // ... keep your other API routes here
-router.post('/verify-token', async (req, res) => {
+router.post('/verify-token', validate({ body: verifyTokenBodySchema }), async (req, res) => {
     const { token } = req.body;
 
     if (!token) {
@@ -112,7 +115,7 @@ router.post('/verify-token', async (req, res) => {
 });
 
 // Keep the original magic token endpoint for backward compatibility
-router.post('/verify-magic-token', async (req, res) => {
+router.post('/verify-magic-token', validate({ body: verifyTokenBodySchema }), async (req, res) => {
     const { token } = req.body;
 
     if (!token) {

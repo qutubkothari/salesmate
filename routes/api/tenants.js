@@ -66,9 +66,9 @@ router.post('/register', async (req, res) => {
         // Generate referral code
         const referralCode = `REF-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
 
-        // Calculate trial period (7 days from now)
+        // Calculate trial period (14 days from now)
         const trialEndsAt = new Date();
-        trialEndsAt.setDate(trialEndsAt.getDate() + 7);
+        trialEndsAt.setDate(trialEndsAt.getDate() + 14);
 
         // Determine subscription tier limits
         const tier = subscription_tier || 'standard';
@@ -231,7 +231,8 @@ router.put('/:tenantId/subscription', async (req, res) => {
             subscription_tier,
             subscription_status,
             subscription_start_date,
-            subscription_end_date
+            subscription_end_date,
+            trial_ends_at
         } = req.body;
 
         const updates = {};
@@ -261,6 +262,10 @@ router.put('/:tenantId/subscription', async (req, res) => {
 
         if (subscription_end_date) {
             updates.subscription_end_date = subscription_end_date;
+        }
+
+        if (trial_ends_at) {
+            updates.trial_ends_at = trial_ends_at;
         }
 
         updates.updated_at = new Date().toISOString();

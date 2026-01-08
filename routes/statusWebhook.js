@@ -6,10 +6,18 @@
 const express = require('express');
 const { supabase } = require('../services/config');
 const router = express.Router();
+const { validate, z, zTrimmedString } = require('../middleware/validate');
+
+const statusUpdateSchema = z
+    .object({
+        id: zTrimmedString(1, 128),
+        status: zTrimmedString(1, 64),
+    })
+    .strict();
 
 // This is the endpoint Maytapi will call to update the status of a message.
 // You need to configure this URL (e.g., https://your-app-url.com/status/update) in your Maytapi dashboard.
-router.post('/update', async (req, res) => {
+router.post('/update', validate({ body: statusUpdateSchema }), async (req, res) => {
     const statusUpdate = req.body;
 
     // Log the entire incoming payload for debugging

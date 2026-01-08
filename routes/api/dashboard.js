@@ -2855,18 +2855,25 @@ router.post('/sync-orders/:tenantId', async (req, res) => {
 router.put('/products/:tenantId/:productId', async (req, res) => {
     try {
         const { tenantId, productId } = req.params;
-        const updateData = req.body;
+        const updateData = req.body || {};
 
         // Only allow updates for products belonging to the tenant
         const { data: product, error: fetchError } = await supabase
             .from('products')
-            .select('id')
+            .select('id, units_per_carton')
             .eq('tenant_id', tenantId)
             .eq('id', productId)
             .single();
 
         if (fetchError || !product) {
             return res.status(404).json({ success: false, error: 'Product not found for tenant' });
+        }
+
+        // IMPORTANT: The dashboard uses `price` as per-unit (typically per piece).
+        // Carton price is derived downstream as: unit_price × units_per_carton.
+        if (Object.prototype.hasOwnProperty.call(updateData, 'units_per_carton')) {
+            const units = parseInt(updateData.units_per_carton, 10);
+            updateData.units_per_carton = Number.isFinite(units) && units > 0 ? units : 1;
         }
 
         // Update product
@@ -2905,18 +2912,30 @@ router.post('/products/:tenantId', async (req, res) => {
         }
 
         // Whitelist fields the UI sends; always enforce tenant_id from path.
+        const unitsPerCarton = (() => {
+            const n = parseInt(body.units_per_carton, 10);
+            return Number.isFinite(n) && n > 0 ? n : 1;
+        })();
+
+        const unitPrice = (() => {
+            if (body.price === null || body.price === undefined) return null;
+            const n = typeof body.price === 'string' ? parseFloat(body.price) : body.price;
+            return Number.isFinite(n) ? n : null;
+        })();
+
         const insertData = {
             tenant_id: tenantId,
             name,
             sku: body.sku ?? null,
             description: body.description ?? null,
-            price: body.price ?? null,
+            // Store per-unit price
+            price: unitPrice,
             stock_quantity: body.stock_quantity ?? 0,
             brand: body.brand ?? null,
             category: body.category ?? null,
             image_url: body.image_url ?? null,
             packaging_unit: body.packaging_unit ?? null,
-            units_per_carton: body.units_per_carton ?? 1
+            units_per_carton: unitsPerCarton
         };
 
         // In Supabase mode, some schemas use `category_id` as the FK; set it when safe.

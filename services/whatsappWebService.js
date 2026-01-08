@@ -10,6 +10,7 @@ const { toWhatsAppFormat } = require('./phoneUtils');
 const puppeteer18 = require('puppeteer18');
 const fs = require('fs');
 const path = require('path');
+const { checkSubscriptionStatus } = require('./subscriptionService');
 
 // Store active WhatsApp clients per tenant
 const clients = new Map();
@@ -62,11 +63,39 @@ async function destroyAndCleanupClient(tenantId, reason) {
     }
 }
 
+async function enforceWhatsAppWebEntitlement(tenantId) {
+    const sub = await checkSubscriptionStatus(tenantId);
+
+    if (sub?.status === 'expired') {
+        // Turn off any active WA Web client for this tenant and prevent auto-reconnect.
+        await disconnectClient(tenantId, {
+            dbStatus: 'disabled_subscription_expired',
+            reason: 'subscription_expired'
+        });
+
+        const err = new Error(sub.message || 'Subscription expired. Please contact support to renew.');
+        err.code = 'SUBSCRIPTION_EXPIRED';
+        throw err;
+    }
+
+    return sub;
+}
+
 /**
  * Initialize WhatsApp Web client for a tenant
  */
 async function initializeClient(tenantId) {
     console.log(`[WA_WEB] Initializing client for tenant: ${tenantId}`);
+
+    try {
+        await enforceWhatsAppWebEntitlement(tenantId);
+    } catch (e) {
+        if (e?.code === 'SUBSCRIPTION_EXPIRED') {
+            clientStatus.set(tenantId, 'subscription_expired');
+            return { success: false, status: 'subscription_expired', error: e.message };
+        }
+        throw e;
+    }
     
     // Avoid creating duplicate clients for the same tenant.
     if (clients.has(tenantId)) {
@@ -427,6 +456,10 @@ async function initializeClient(tenantId) {
 
     } catch (error) {
         console.error(`[WA_WEB] Error initializing client for tenant ${tenantId}:`, error);
+        if (error?.code === 'SUBSCRIPTION_EXPIRED') {
+            clientStatus.set(tenantId, 'subscription_expired');
+            return { success: false, status: 'subscription_expired', error: error.message };
+        }
         clientStatus.set(tenantId, 'error');
         return { success: false, error: error.message };
     }
@@ -458,23 +491,20 @@ function getClientStatus(tenantId) {
 /**
  * Disconnect client
  */
-async function disconnectClient(tenantId) {
+async function disconnectClient(tenantId, options = {}) {
     console.log(`[WA_WEB] Disconnecting client for tenant: ${tenantId}`);
     
     try {
-        const client = clients.get(tenantId);
-        if (client) {
-            await client.destroy();
-            clients.delete(tenantId);
-            clientStatus.delete(tenantId);
-            qrCodes.delete(tenantId);
-        }
+        const dbStatus = options.dbStatus || 'disconnected';
+        const reason = options.reason || 'disconnected';
+
+        await destroyAndCleanupClient(tenantId, reason);
 
         // Update database
         await supabase
             .from('whatsapp_connections')
             .update({
-                status: 'disconnected',
+                status: dbStatus,
                 updated_at: new Date().toISOString()
             })
             .eq('tenant_id', tenantId);
@@ -490,6 +520,8 @@ async function disconnectClient(tenantId) {
  * Send text message via WhatsApp Web
  */
 async function sendWebMessage(tenantId, phoneNumber, message) {
+    await enforceWhatsAppWebEntitlement(tenantId);
+
     const client = clients.get(tenantId);
     
     if (!client) {
@@ -533,6 +565,8 @@ async function sendWebMessage(tenantId, phoneNumber, message) {
  * Send image message via WhatsApp Web
  */
 async function sendWebImageMessage(tenantId, phoneNumber, caption, imageBase64OrUrl) {
+    await enforceWhatsAppWebEntitlement(tenantId);
+
     const client = clients.get(tenantId);
     
     if (!client) {
@@ -592,6 +626,8 @@ async function sendWebImageMessage(tenantId, phoneNumber, caption, imageBase64Or
  * Send document (PDF, etc.) via WhatsApp Web
  */
 async function sendWebDocumentMessage(tenantId, phoneNumber, caption, documentBuffer, filename, mimeType = 'application/pdf') {
+    await enforceWhatsAppWebEntitlement(tenantId);
+
     const client = clients.get(tenantId);
 
     if (!client) {
@@ -670,6 +706,58 @@ function getAllConnections() {
     return connections;
 }
 
+async function enforceExpiredWhatsAppWebConnections() {
+    const nowIso = new Date().toISOString();
+
+    try {
+        // Trials that are past end date but not yet marked expired
+        const { data: expiredTrials, error: trialErr } = await supabase
+            .from('tenants')
+            .select('id')
+            .eq('subscription_status', 'trial')
+            .lt('trial_ends_at', nowIso);
+
+        if (trialErr) {
+            console.warn('[WA_WEB] Trial expiry enforcement query failed:', trialErr?.message || trialErr);
+        }
+
+        // Paid subscriptions that are past end date but not yet marked expired
+        const { data: expiredPaid, error: paidErr } = await supabase
+            .from('tenants')
+            .select('id')
+            .eq('subscription_status', 'active')
+            .lt('subscription_end_date', nowIso);
+
+        if (paidErr) {
+            console.warn('[WA_WEB] Subscription expiry enforcement query failed:', paidErr?.message || paidErr);
+        }
+
+        const ids = new Set([
+            ...(expiredTrials || []).map(r => r.id),
+            ...(expiredPaid || []).map(r => r.id)
+        ].filter(Boolean));
+
+        if (ids.size === 0) return;
+
+        for (const tenantId of ids) {
+            try {
+                // Updates tenant.subscription_status to 'expired' when needed.
+                const sub = await checkSubscriptionStatus(tenantId);
+                if (sub?.status === 'expired') {
+                    await disconnectClient(tenantId, {
+                        dbStatus: 'disabled_subscription_expired',
+                        reason: 'subscription_expired'
+                    });
+                }
+            } catch (e) {
+                console.warn(`[WA_WEB] Failed enforcing expiry for tenant ${tenantId}:`, e?.message || e);
+            }
+        }
+    } catch (e) {
+        console.warn('[WA_WEB] Expiry enforcement loop error:', e?.message || e);
+    }
+}
+
 /**
  * Auto-initialize clients for tenants with connected status on server startup
  */
@@ -721,5 +809,6 @@ module.exports = {
     sendWebMessageWithMedia: sendWebImageMessage, // Alias for broadcast compatibility
     isRegisteredUser,
     getAllConnections,
-    autoInitializeConnectedClients
+    autoInitializeConnectedClients,
+    enforceExpiredWhatsAppWebConnections
 };

@@ -21,6 +21,115 @@ const cors = require('cors');
 
 const app = express();
 
+// --- Security baseline (OWASP-ish) ---
+// Behind Nginx/Cloud proxy, enable trust proxy so req.ip is correct for rate limiting.
+// Set TRUST_PROXY=0 to disable in direct-to-node deployments.
+app.set('trust proxy', process.env.TRUST_PROXY ? Number(process.env.TRUST_PROXY) : 1);
+
+try {
+  const helmet = require('helmet');
+  // Keep CSP disabled because the dashboard uses inline scripts/styles and external CDNs.
+  app.use(
+    helmet({
+      contentSecurityPolicy: false,
+      crossOriginEmbedderPolicy: false,
+    })
+  );
+} catch (e) {
+  console.warn('[SECURITY] helmet not available:', e?.message || e);
+}
+
+// Rate limiting for public endpoints.
+// NOTE: Webhook providers often retry on non-2xx; for /webhook and /status we return 200 by default.
+const { ipRateLimit, userRateLimit } = require('./middleware/rateLimit');
+const apiIpLimiter = ipRateLimit({ windowMs: 60_000, max: Number(process.env.RATE_LIMIT_IP_PER_MIN || 600) });
+const apiUserLimiter = userRateLimit({ windowMs: 60_000, max: Number(process.env.RATE_LIMIT_USER_PER_MIN || 300) });
+app.use('/api', apiIpLimiter, apiUserLimiter);
+app.use('/api_new', apiIpLimiter, apiUserLimiter);
+app.use('/webhook', ipRateLimit({ windowMs: 60_000, max: Number(process.env.RATE_LIMIT_WEBHOOK_PER_MIN || 1200), statusCode: 200 }));
+app.use('/status', ipRateLimit({ windowMs: 60_000, max: Number(process.env.RATE_LIMIT_STATUS_PER_MIN || 1200), statusCode: 200 }));
+
+// --- SEO / canonical URL handling ---
+// Make / the canonical URL (avoid indexing /index.html)
+app.get('/index.html', (req, res) => res.redirect(301, '/'));
+
+// Serve robots/sitemap explicitly (prevents proxy/static edge cases)
+app.get('/robots.txt', (req, res) => {
+  res.type('text/plain');
+  res.sendFile(path.join(__dirname, 'public', 'robots.txt'));
+});
+
+app.get('/sitemap.xml', (req, res) => {
+  res.type('application/xml');
+  res.sendFile(path.join(__dirname, 'public', 'sitemap.xml'));
+});
+
+// Google Search Console verification (HTML file method)
+app.get('/googlea82e002ffc1a37d4.html', (req, res) => {
+  res.type('text/html');
+  res.sendFile(path.join(__dirname, 'public', 'googlea82e002ffc1a37d4.html'));
+});
+
+// Serve clean-URL static pages for SEO and Ads compliance
+app.get('/ai-whatsapp-assistant', (req, res) => res.sendFile(path.join(__dirname, 'public', 'ai-whatsapp-assistant.html')));
+app.get('/whatsapp-sales-automation', (req, res) => res.sendFile(path.join(__dirname, 'public', 'whatsapp-sales-automation.html')));
+app.get('/login', (req, res) => res.sendFile(path.join(__dirname, 'public', 'login.html')));
+// Keep /register public-facing but do not expose internal admin pages.
+app.get('/register', (req, res) => res.redirect(302, '/contact'));
+app.get('/privacy-policy', (req, res) => res.sendFile(path.join(__dirname, 'public', 'privacy-policy.html')));
+app.get('/terms', (req, res) => res.sendFile(path.join(__dirname, 'public', 'terms.html')));
+app.get('/contact', (req, res) => res.sendFile(path.join(__dirname, 'public', 'contact.html')));
+
+// Protect internal admin UI (clients/subscriptions) from public access & indexing.
+function basicAuth({ userEnv, passEnv, realm = 'Restricted' } = {}) {
+  return (req, res, next) => {
+    const expectedUser = process.env[userEnv];
+    const expectedPass = process.env[passEnv];
+    if (!expectedUser || !expectedPass) {
+      return res.status(503).send('Admin access is not configured');
+    }
+
+    const header = req.get('authorization') || '';
+    if (!header.toLowerCase().startsWith('basic ')) {
+      res.setHeader('WWW-Authenticate', `Basic realm="${realm}", charset="UTF-8"`);
+      return res.status(401).send('Authentication required');
+    }
+
+    const b64 = header.slice(6).trim();
+    let decoded = '';
+    try {
+      decoded = Buffer.from(b64, 'base64').toString('utf8');
+    } catch {
+      res.setHeader('WWW-Authenticate', `Basic realm="${realm}", charset="UTF-8"`);
+      return res.status(401).send('Authentication required');
+    }
+
+    const sep = decoded.indexOf(':');
+    const user = sep >= 0 ? decoded.slice(0, sep) : '';
+    const pass = sep >= 0 ? decoded.slice(sep + 1) : '';
+
+    if (user !== expectedUser || pass !== expectedPass) {
+      res.setHeader('WWW-Authenticate', `Basic realm="${realm}", charset="UTF-8"`);
+      return res.status(401).send('Invalid credentials');
+    }
+
+    return next();
+  };
+}
+
+app.get(
+  '/clients.html',
+  basicAuth({ userEnv: 'CLIENTS_ADMIN_USER', passEnv: 'CLIENTS_ADMIN_PASS', realm: 'SalesMate Admin' }),
+  (req, res) => {
+    res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    res.setHeader('Surrogate-Control', 'no-store');
+    res.sendFile(path.join(__dirname, 'public', 'clients.html'));
+  }
+);
+
 // --- Serve Static Files for Web Dashboard ---
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -37,7 +146,22 @@ app.use('/api/admin/ai-stats', aiAdminRoutes); // For dashboard compatibility
 // ADD: /api_new/customer route for direct customer message simulation/testing
 const customerHandler = require('./routes/handlers/customerHandler');
 console.log('[DEBUG] customerHandler exports:', Object.keys(customerHandler));
-app.post('/api_new/customer', async (req, res) => {
+const { validate: validateReq, z: zod, zTrimmedString: zStr } = require('./middleware/validate');
+
+const apiNewCustomerBodySchema = zod
+  .object({
+    tenant_id: zStr(1, 128).optional(),
+    tenantId: zStr(1, 128).optional(),
+    customer_phone: zStr(3, 40).optional(),
+    customer_message: zStr(1, 5000).optional(),
+    from: zStr(3, 40).optional(),
+    phone: zStr(3, 40).optional(),
+    message: zStr(1, 5000).optional(),
+    text: zStr(1, 5000).optional(),
+  })
+  .strict();
+
+app.post('/api_new/customer', validateReq({ body: apiNewCustomerBodySchema }), async (req, res) => {
   // Proxy to main customer handler
   try {
     await customerHandler.handleCustomerTextMessage(req, res);
@@ -111,6 +235,14 @@ app.use(express.json({ limit: '2mb' }));
 if (useExpressJson) {
   app.use(bodyParser.json());
 }
+
+// Sanitize JSON bodies (prototype-pollution keys, disallow array bodies for write methods)
+try {
+  const { sanitizeJsonBody } = require('./middleware/sanitize');
+  app.use(sanitizeJsonBody);
+} catch (e) {
+  console.warn('[SECURITY] sanitize middleware not available:', e?.message || e);
+}
 app.use(cors()); // Allow all origins for development
 // Or for production, be specific:
 // app.use(cors({ origin: 'http://localhost:8080' }));
@@ -172,7 +304,8 @@ app.get('/', (req, res) => {
 
 // Favicon
 app.get('/favicon.ico', (req, res) => {
-    res.status(204).end(); // No content
+  // Redirect to a real icon so browsers/Google can discover it.
+  res.redirect(301, '/assets/logo.png');
 });
 
 // App Engine health probe path
@@ -181,7 +314,26 @@ app.get('/_ah/health', (_req, res) => {
 });
 
 // Desktop Agent Endpoints (MUST be before app.use('/api', apiRouter))
-app.post('/api/desktop-agent/register', async (req, res) => {
+const desktopAgentRegisterSchema = zod
+  .object({
+    tenantId: zStr(1, 128),
+    phoneNumber: zStr(3, 40),
+    deviceName: zStr(0, 80).optional(),
+    status: zStr(0, 40).optional(),
+  })
+  .strict();
+
+const desktopAgentProcessMessageSchema = zod
+  .object({
+    tenantId: zStr(1, 128),
+    from: zStr(3, 40),
+    message: zStr(1, 5000),
+    timestamp: zStr(0, 64).optional(),
+    messageId: zStr(0, 128).optional(),
+  })
+  .strict();
+
+app.post('/api/desktop-agent/register', validateReq({ body: desktopAgentRegisterSchema }), async (req, res) => {
   try {
     const { tenantId, phoneNumber, deviceName, status } = req.body;
     
@@ -219,7 +371,7 @@ app.post('/api/desktop-agent/register', async (req, res) => {
   }
 });
 
-app.post('/api/desktop-agent/process-message', async (req, res) => {
+app.post('/api/desktop-agent/process-message', validateReq({ body: desktopAgentProcessMessageSchema }), async (req, res) => {
   try {
     const { tenantId, from, message, timestamp, messageId } = req.body;
     
@@ -2189,6 +2341,115 @@ app.post('/api/test/reset-all', (req, res) => {
 
 // Make sure your 404 handler only catches API routes, not static files
 // Replace your current 404 handler with this more specific one:
+
+// Contact form endpoint (homepage)
+app.post('/api/contact', async (req, res) => {
+  try {
+    const { z } = require('zod');
+
+    const ContactSchema = z
+      .object({
+        name: z.string().trim().min(2).max(120),
+        email: z.string().trim().email().max(254),
+        phone: z.string().trim().max(40).optional().or(z.literal('')),
+        company: z.string().trim().max(120).optional().or(z.literal('')),
+        subject: z.string().trim().max(160).optional().or(z.literal('')),
+        message: z.string().trim().min(5).max(5000),
+        page: z.string().trim().max(500).optional().or(z.literal('')),
+        hp: z.string().optional().or(z.literal('')),
+      })
+      .strict();
+
+    const parsed = ContactSchema.safeParse(req.body || {});
+    if (!parsed.success) {
+      const details = parsed.error.issues
+        .slice(0, 6)
+        .map((i) => `${i.path.join('.') || 'field'}: ${i.message}`);
+      return res.status(400).json({ ok: false, error: 'Invalid form data', details });
+    }
+
+    // Basic spam honeypot: if filled, pretend success.
+    if (parsed.data.hp && String(parsed.data.hp).trim()) {
+      return res.json({ ok: true, spam: true });
+    }
+
+    let nodemailer;
+    try {
+      nodemailer = require('nodemailer');
+    } catch {
+      return res.status(503).json({ ok: false, error: 'Email service not configured' });
+    }
+
+    const {
+      name,
+      email,
+      phone = '',
+      company = '',
+      subject = '',
+      message,
+      page = '',
+    } = parsed.data;
+
+    const toRaw = process.env.CONTACT_TO || 'sales@saksolution.com, qutub@saksolution.com';
+    const to = Array.from(
+      new Set(
+        String(toRaw)
+          .split(/[,;\n]+/g)
+          .map((v) => v.trim())
+          .filter(Boolean)
+      )
+    );
+    const from =
+      process.env.CONTACT_FROM ||
+      process.env.SMTP_FROM ||
+      process.env.SMTP_USER ||
+      'no-reply@saksolution.com';
+
+    const hasSmtp = Boolean(process.env.SMTP_HOST);
+    const transporter = hasSmtp
+      ? nodemailer.createTransport({
+          host: process.env.SMTP_HOST,
+          port: process.env.SMTP_PORT ? Number(process.env.SMTP_PORT) : 587,
+          secure: String(process.env.SMTP_SECURE || '').toLowerCase() === 'true',
+          auth: process.env.SMTP_USER
+            ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS || '' }
+            : undefined,
+        })
+      : nodemailer.createTransport({ sendmail: true, newline: 'unix', path: process.env.SENDMAIL_PATH || undefined });
+
+    const cleanSubject = subject ? subject : 'Contact form submission';
+    const text = [
+      `New contact form submission`,
+      '',
+      `Subject: ${cleanSubject}`,
+      `Name: ${name}`,
+      `Email: ${email}`,
+      `Phone: ${phone || '-'}`,
+      `Company: ${company || '-'}`,
+      `Page: ${page || '-'}`,
+      `IP: ${req.ip || '-'}`,
+      '',
+      'Message:',
+      message,
+      '',
+      `User-Agent: ${req.get('user-agent') || '-'}`,
+    ].join('\n');
+
+    await transporter.sendMail({
+      to,
+      from,
+      replyTo: email,
+      subject: subject ? subject : 'SAK Contact Form Submission',
+      text,
+    });
+
+    return res.json({ ok: true });
+  } catch (error) {
+    console.error('[CONTACT_FORM] Error:', error);
+    return res.status(500).json({ ok: false, error: 'Failed to send message' });
+  }
+});
+
 app.use('/api/*', (req, res) => {
     res.status(404).json({ error: 'API route not found' });
 });
@@ -2393,6 +2654,22 @@ cron.schedule('* * * * *', async () => {
     await processBroadcastQueue();
   } catch (error) {
     console.error('[CRON] Error:', error);
+  }
+});
+
+// Enforce subscription expiry for WhatsApp Web connections (auto-disable after trial/subscription ends)
+let waWebExpiryEnforcementRunning = false;
+cron.schedule('*/5 * * * *', async () => {
+  if (waWebExpiryEnforcementRunning) return;
+  waWebExpiryEnforcementRunning = true;
+
+  try {
+    const { enforceExpiredWhatsAppWebConnections } = require('./services/whatsappWebService');
+    await enforceExpiredWhatsAppWebConnections();
+  } catch (error) {
+    console.warn('[CRON] WhatsApp Web expiry enforcement failed:', error?.message || error);
+  } finally {
+    waWebExpiryEnforcementRunning = false;
   }
 });
 

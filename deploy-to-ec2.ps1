@@ -1,7 +1,8 @@
 # Automated Deployment Script - Windows to EC2
 param(
     [string]$Message = "Auto deploy from Windows",
-    [switch]$NoCommit
+    [switch]$NoCommit,
+    [string]$KeyPath
 )
 
 $ErrorActionPreference = 'Stop'
@@ -25,7 +26,34 @@ Write-Host ""
 # Configuration (SalesMate bot)
 $EC2_IP = "13.126.234.92"
 $EC2_USER = "ubuntu"
-$EC2_KEY = "$HOME\Downloads\whatsapp-ai-key.pem"
+$defaultKeyCandidates = @(
+    $env:EC2_KEY_PATH,
+    (Join-Path $HOME "Downloads/whatsapp-ai-key.pem"),
+    (Join-Path $HOME ".ssh/whatsapp-ai-key.pem"),
+    (Join-Path $HOME ".ssh/my-new-salesmate"),
+    (Join-Path $HOME "Downloads/my-new-salesmate")
+) | Where-Object { $_ -and $_.Trim().Length -gt 0 }
+
+$EC2_KEY = $null
+if ($KeyPath) {
+    $EC2_KEY = $KeyPath
+} else {
+    foreach ($candidate in $defaultKeyCandidates) {
+        if (Test-Path -LiteralPath $candidate) {
+            $EC2_KEY = $candidate
+            break
+        }
+    }
+}
+
+if (-not $EC2_KEY -or -not (Test-Path -LiteralPath $EC2_KEY)) {
+    Write-Host "ERROR: SSH key not found. Provide -KeyPath or set EC2_KEY_PATH env var." -ForegroundColor Red
+    Write-Host "Tried:" -ForegroundColor Yellow
+    $defaultKeyCandidates | ForEach-Object { Write-Host (" - " + $_) -ForegroundColor DarkYellow }
+    throw "SSH key not found"
+}
+
+Write-Host ("Using SSH key: {0}" -f $EC2_KEY) -ForegroundColor DarkGray
 $EC2_APP_DIR = "/home/ubuntu/salesmate"
 $EC2_SERVICE = "salesmate-bot"
 $EC2_TARGET = "$EC2_USER@$EC2_IP"
@@ -125,7 +153,12 @@ if ($filesToCopy.Count -eq 0) {
 } elseif ($useArchive) {
     Write-Host ("Using archive deploy for {0} files..." -f $filesToCopy.Count) -ForegroundColor Cyan
 
-    $tempRoot = Join-Path $env:TEMP ("salesmate-deploy-" + [Guid]::NewGuid().ToString('N'))
+    $tempBase = $env:TEMP
+    if (-not $tempBase) { $tempBase = $env:TMPDIR }
+    if (-not $tempBase) { $tempBase = [System.IO.Path]::GetTempPath() }
+    if (-not $tempBase) { throw "No temp directory available (TEMP/TMPDIR/GetTempPath)" }
+
+    $tempRoot = Join-Path $tempBase ("salesmate-deploy-" + [Guid]::NewGuid().ToString('N'))
     New-Item -ItemType Directory -Path $tempRoot | Out-Null
 
     $listFile = Join-Path $tempRoot "files.txt"

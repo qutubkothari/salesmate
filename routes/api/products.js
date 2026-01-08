@@ -8,6 +8,26 @@ const { supabase } = require('../../services/config');
 // Configure multer for file upload (memory storage)
 const upload = multer({ storage: multer.memoryStorage() });
 
+function parseNumberLoose(value, { integer = false } = {}) {
+    if (value === null || value === undefined) return 0;
+    if (typeof value === 'number') return integer ? Math.trunc(value) : value;
+    const s = String(value).trim();
+    if (!s) return 0;
+
+    // Remove currency symbols and thousand separators; keep digits, dot, minus
+    const normalized = s
+        .replace(/[,\s]/g, '')
+        .replace(/[^0-9.\-]/g, '');
+
+    const n = integer ? parseInt(normalized, 10) : parseFloat(normalized);
+    return Number.isFinite(n) ? n : 0;
+}
+
+function normalizeUnitsPerCarton(value) {
+    const n = parseNumberLoose(value, { integer: true });
+    return n && n > 0 ? n : 1;
+}
+
 // POST /api/products/bulk-upload - bulk add products via CSV/Excel upload
 router.post('/bulk-upload', upload.single('file'), async (req, res) => {
     try {
@@ -93,23 +113,28 @@ router.post('/bulk-upload', upload.single('file'), async (req, res) => {
             const skuVal = (p.sku || p['sku-id'] || p.sku_id || p.skuid || p.item_code || p.itemcode || '').toString().trim();
             const descVal = (p.description || p.desc || p.product_description || p.details || '').toString().trim();
 
-            const priceVal = p.price ?? p.carton_price ?? p.unit_price ?? p.price_retail ?? '';
+            // IMPORTANT: The dashboard and bulk upload use `price` as per-unit (typically per piece).
+            // Carton price should be derived as: unit_price × units_per_carton.
+            const priceVal = p.price ?? p.unit_price ?? p.price_retail ?? p.carton_price ?? '';
             const stockVal = p.stock ?? p.stock_quantity ?? p.quantity ?? '';
+
+            const unitsPerCarton = normalizeUnitsPerCarton(p.units_per_carton);
+            const unitPrice = parseNumberLoose(priceVal) || 0;
 
             return {
                 tenant_id: tenantId,
                 name: nameVal,
                 sku: skuVal,
                 description: descVal || null,
-                price: parseFloat(priceVal) || 0,
-                stock_quantity: parseInt(stockVal) || 0,
+                price: unitPrice || 0,
+                stock_quantity: parseNumberLoose(stockVal, { integer: true }) || 0,
                 brand: p.brand || '',
                 // Store the selected category id in the `products.category` column (what the dashboard reads).
                 // In local SQLite, `products.category_id` can point to `product_categories` (not `categories`) and will FK-fail.
                 category: categoryId,
                 category_id: useLocalDb ? null : categoryId,
                 packaging_unit: p.packaging_unit || '',
-                units_per_carton: parseInt(p.units_per_carton) || 0,
+                units_per_carton: unitsPerCarton,
                 image_url: p.image_url || ''
             };
         });

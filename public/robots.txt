@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+
+Disallow: /api/
+Disallow: /app/
+Disallow: /dashboard/
+Disallow: /admin/
+
+Sitemap: https://salesmate.saksolution.com/sitemap.xml

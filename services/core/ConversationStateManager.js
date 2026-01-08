@@ -11,7 +11,7 @@
  */
 
 const { supabase } = require('../config');
-const { toWhatsAppFormat } = require('../../utils/phoneUtils');
+const { toWhatsAppFormat, normalizePhone } = require('../../utils/phoneUtils');
 
 /**
  * Valid conversation states
@@ -94,12 +94,21 @@ async function getState(tenantId, phoneNumber) {
         validatePhone(phoneNumber);
         
         const whatsappPhone = toWhatsAppFormat(phoneNumber);
+        const normalizedPhone = normalizePhone(phoneNumber);
         
         const { data, error } = await supabase
             .from('conversations')
             .select('id, state')
             .eq('tenant_id', tenantId)
-            .eq('end_user_phone', whatsappPhone)
+            // Be tolerant: some code stores digits-only, some stores WhatsApp format.
+            .or(
+                [
+                    `end_user_phone.eq.${whatsappPhone}`,
+                    normalizedPhone ? `end_user_phone.eq.${normalizedPhone}` : null,
+                    `phone_number.eq.${whatsappPhone}`,
+                    normalizedPhone ? `phone_number.eq.${normalizedPhone}` : null
+                ].filter(Boolean).join(',')
+            )
             .order('created_at', { ascending: false })
             .limit(1)
             .maybeSingle();
@@ -110,7 +119,7 @@ async function getState(tenantId, phoneNumber) {
         }
         
         if (!data) {
-            console.log(`[StateManager] No conversation found for: ${whatsappPhone}`);
+            console.log(`[StateManager] No conversation found for: ${whatsappPhone} (normalized: ${normalizedPhone})`);
             return { state: STATES.INITIAL, conversationId: null };
         }
         
@@ -139,7 +148,8 @@ async function setState(tenantId, phoneNumber, newState, options = {}) {
         validatePhone(phoneNumber);
         
         const whatsappPhone = toWhatsAppFormat(phoneNumber);
-        const { state: currentState, conversationId } = await getState(tenantId, phoneNumber);
+        const normalizedPhone = normalizePhone(phoneNumber);
+        let { state: currentState, conversationId } = await getState(tenantId, phoneNumber);
         
         // Validate transition unless forced
         if (!options.force && !isValidTransition(currentState, newState)) {
@@ -149,8 +159,28 @@ async function setState(tenantId, phoneNumber, newState, options = {}) {
         }
         
         if (!conversationId) {
-            console.error('[StateManager] Cannot set state: no conversation exists');
-            throw new Error('No conversation found to update state');
+            // Create a conversation so state transitions never fail.
+            console.warn('[StateManager] No conversation exists; creating one for state update');
+            const { data: newConversation, error: createError } = await supabase
+                .from('conversations')
+                .insert({
+                    tenant_id: tenantId,
+                    phone_number: normalizedPhone || phoneNumber,
+                    end_user_phone: normalizedPhone || phoneNumber,
+                    state: STATES.INITIAL,
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                })
+                .select('id')
+                .single();
+
+            if (createError) {
+                console.error('[StateManager] Failed to create conversation for state update:', createError);
+                throw new Error('No conversation found to update state');
+            }
+
+            conversationId = newConversation?.id || null;
+            currentState = STATES.INITIAL;
         }
         
         console.log(`[StateManager] State transition: ${currentState} → ${newState} for ${whatsappPhone}`);

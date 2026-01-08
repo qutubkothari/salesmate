@@ -201,11 +201,13 @@ async function handleDiscountNegotiationV2(tenantId, phoneNumber, message, conve
                         const qty = it.quantity || 1;
                         const unit = it.unit || 'carton';
                         const price = it.price || 0;
-                        const discountedPrice = Math.round(price * (1 - offeredDiscount / 100));
+                        // `price` is per-unit (piece). Derive carton price using units_per_carton.
+                        const discountedUnitPrice = Math.round(price * (1 - offeredDiscount / 100));
                         const unitsPerCarton = it.units_per_carton || 1;
-                        const perPiecePrice = unitsPerCarton > 1 ? (discountedPrice / unitsPerCarton).toFixed(2) : discountedPrice;
+                        const discountedCartonPrice = discountedUnitPrice * unitsPerCarton;
+                        const perPiecePrice = discountedUnitPrice.toFixed(2);
                         const label = it.productName || it.product_code || 'Product';
-                        return `📦 ${label} × ${qty} ${unit}${qty !== 1 ? 's' : ''}\n✨ Your Special Price:\n🔹 ₹${perPiecePrice}/pc per piece\n📦 ₹${discountedPrice}.00/${unit}\n   (${unitsPerCarton} pcs/${unit})`;
+                        return `📦 ${label} × ${qty} ${unit}${qty !== 1 ? 's' : ''}\n✨ Your Special Price:\n🔹 ₹${perPiecePrice}/unit\n📦 ₹${discountedCartonPrice}.00/carton\n   (${unitsPerCarton} pcs/carton)`;
                     })
                     .join('\n\n');
                 // WhatsApp preview for discount offer

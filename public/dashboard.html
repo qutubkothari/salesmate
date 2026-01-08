@@ -2638,7 +2638,24 @@
             
             // PRIORITY 2: Check cloud-based WhatsApp Web connection
             const response = await fetch(`/api/whatsapp-web/status/${tenantId}`, { cache: 'no-store' });
-            const result = await response.json();
+            const result = await response.json().catch(() => null);
+
+            if (!response.ok && response.status === 403 && result?.code === 'subscription_expired') {
+                return {
+                    connected: false,
+                    method: 'subscription_expired',
+                    html: `<div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                        <div class="flex items-start">
+                            <i class="fas fa-exclamation-triangle text-yellow-600 mr-3 mt-0.5"></i>
+                            <div>
+                                <p class="font-semibold text-yellow-900">WhatsApp Web Disabled</p>
+                                <p class="text-sm text-yellow-800">${result.message || 'Your trial has ended. Please contact support to renew.'}</p>
+                                <p class="text-xs text-yellow-800 mt-1"><a class="underline" href="/contact">Contact support</a> to renew.</p>
+                            </div>
+                        </div>
+                    </div>`
+                };
+            }
             
             if (result.success && result.status === 'ready' && result.hasClient) {
                 return {
@@ -3292,10 +3309,6 @@
                         <p class="font-bold text-blue-900">24/7 Cloud Bot Active (Waha)</p>
                         <p class="text-sm text-blue-700">Broadcasts will be sent through the always-online cloud bot</p>
                     </div>
-                    <button type="button" onclick="window.location.href='/clients.html'" 
-                        class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-semibold">
-                        <i class="fas fa-cog mr-1"></i> Change
-                    </button>
                 </div>
             `;
         } else {
@@ -3307,10 +3320,6 @@
                         <p class="font-bold text-gray-900">Desktop Agent Mode</p>
                         <p class="text-sm text-gray-700">Broadcasts require your PC to be online with WhatsApp Web connected</p>
                     </div>
-                    <button type="button" onclick="window.location.href='/clients.html'" 
-                        class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm font-semibold">
-                        <i class="fas fa-cog mr-1"></i> Switch to Cloud Bot
-                    </button>
                 </div>
             `;
         }
@@ -3426,6 +3435,34 @@
         }, 10000);
     }
 
+    function renderWhatsAppWebEntitlementBlocked(message) {
+        const statusDiv = document.getElementById('waWebStatus');
+        if (statusDiv) {
+            statusDiv.innerHTML = `
+                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <div class="flex items-start space-x-3">
+                        <i class="fas fa-exclamation-triangle text-yellow-600 mt-0.5"></i>
+                        <div class="flex-1">
+                            <p class="font-semibold text-yellow-900">WhatsApp Web Disabled</p>
+                            <p class="text-sm text-yellow-800 mt-1">${message || 'Your trial has ended. Please contact support to renew.'}</p>
+                            <p class="text-sm text-yellow-800 mt-1">
+                                <a href="/contact" class="underline font-semibold">Contact support</a> to renew your subscription.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        document.getElementById('qrCodeSection')?.classList.add('hidden');
+        document.getElementById('connectionDetails')?.classList.add('hidden');
+
+        const btnConnect = document.getElementById('btnConnect');
+        const btnDisconnect = document.getElementById('btnDisconnect');
+        if (btnConnect) btnConnect.disabled = true;
+        if (btnDisconnect) btnDisconnect.disabled = true;
+    }
+
     async function connectWhatsAppWeb() {
         const tenantId = state.session?.tenantId;
         if (!tenantId) {
@@ -3443,7 +3480,15 @@
                 body: JSON.stringify({ tenantId })
             });
 
-            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            if (!response.ok) {
+                const payload = await response.json().catch(() => null);
+                if (response.status === 403 && payload?.code === 'subscription_expired') {
+                    renderWhatsAppWebEntitlementBlocked(payload.message);
+                    showNotification(payload.message || 'Your trial has ended. Please contact support to renew.', 'error');
+                    return;
+                }
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
 
             const result = await response.json();
             if (!result.success) {
@@ -3513,7 +3558,14 @@
 
         try {
             const response = await fetch(`/api/whatsapp-web/status/${tenantId}`, { cache: 'no-store' });
-            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            if (!response.ok) {
+                const payload = await response.json().catch(() => null);
+                if (response.status === 403 && payload?.code === 'subscription_expired') {
+                    renderWhatsAppWebEntitlementBlocked(payload.message);
+                    return;
+                }
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
             const result = await response.json();
 
             const statusDiv = document.getElementById('waWebStatus');
@@ -3557,6 +3609,12 @@
                     document.getElementById('qrCodeSection')?.classList.add('hidden');
                     document.getElementById('connectionDetails')?.classList.add('hidden');
             }
+
+            // Re-enable controls if previously disabled by entitlement
+            const btnConnect = document.getElementById('btnConnect');
+            const btnDisconnect = document.getElementById('btnDisconnect');
+            if (btnConnect) btnConnect.disabled = false;
+            if (btnDisconnect) btnDisconnect.disabled = false;
 
             statusDiv.innerHTML = `
                 <div class="flex items-center space-x-4">
@@ -3619,7 +3677,15 @@
             qrDisplay.innerHTML = '<div class="loading-spinner mx-auto mb-4"></div><p class="text-gray-500">Loading QR code...</p>';
 
             const response = await fetch(`/api/whatsapp-web/qr/${tenantId}`, { cache: 'no-store' });
-            const result = await response.json();
+            const result = await response.json().catch(() => null);
+
+            if (!response.ok) {
+                if (response.status === 403 && result?.code === 'subscription_expired') {
+                    renderWhatsAppWebEntitlementBlocked(result.message);
+                    return;
+                }
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
 
             if (result.success && result.qrCode) {
                 qrDisplay.innerHTML = `

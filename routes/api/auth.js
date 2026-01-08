@@ -2,12 +2,28 @@ const express = require('express');
 const router = express.Router();
 const { supabase } = require('../../services/config');
 const crypto = require('crypto');
+const { validate, zTrimmedString, zOptionalTrimmedString, z } = require('../../middleware/validate');
+
+const loginBodySchema = z
+    .object({
+        phone: zTrimmedString(3, 40),
+        password: zTrimmedString(1, 200),
+    })
+    .strict();
+
+const changePasswordBodySchema = z
+    .object({
+        tenantId: zTrimmedString(1, 128),
+        currentPassword: zTrimmedString(1, 200),
+        newPassword: zTrimmedString(1, 200),
+    })
+    .strict();
 
 /**
  * POST /api/auth/login
  * Login with phone number and password
  */
-router.post('/login', async (req, res) => {
+router.post('/login', validate({ body: loginBodySchema }), async (req, res) => {
     try {
         const { phone, password } = req.body;
 
@@ -163,7 +179,7 @@ router.post('/login', async (req, res) => {
  * POST /api/auth/change-password
  * Change user password
  */
-router.post('/change-password', async (req, res) => {
+router.post('/change-password', validate({ body: changePasswordBodySchema }), async (req, res) => {
     try {
         const { tenantId, currentPassword, newPassword } = req.body;
 

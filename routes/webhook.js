@@ -278,7 +278,7 @@ router.post('/', async (req, res) => {
 
 It looks like you don't have an account yet.
 
-Would you like to create one? Just send *"register"* to get started with your FREE 7-day trial! 🚀`;
+Would you like to create one? Just send *"register"* to get started with your FREE 14-day trial! 🚀`;
 
         await sendMessage(phoneNumber, noTenantMessage);
         return res.status(200).json({ ok: true, action: 'no_tenant_prompt' });

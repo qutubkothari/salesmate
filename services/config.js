@@ -782,12 +782,30 @@ function ensureSqliteSchema(dbInstance) {
   // Conversations: some codepaths expect these fields
   ensureColumns('conversations', [
     { name: 'end_user_phone', type: 'TEXT' },
+    { name: 'last_quoted_products', type: "TEXT DEFAULT '[]'" },
     { name: 'metadata', type: 'TEXT' },
     { name: 'last_message_at', type: 'TEXT' },
     { name: 'lead_type', type: 'TEXT' },
     // Dashboard conversations list expects these
     { name: 'state', type: 'TEXT' },
     { name: 'last_product_discussed', type: 'TEXT' },
+    { name: 'created_at', type: 'TEXT' },
+    { name: 'updated_at', type: 'TEXT' }
+  ]);
+
+  // Customer profiles: local SQLite schemas may be minimal; add commonly referenced columns.
+  ensureColumns('customer_profiles', [
+    { name: 'phone', type: 'TEXT' },
+    { name: 'name', type: 'TEXT' },
+    { name: 'business_name', type: 'TEXT' },
+    { name: 'first_name', type: 'TEXT' },
+    { name: 'last_name', type: 'TEXT' },
+    { name: 'gst_preference', type: 'TEXT' },
+    { name: 'gst_number', type: 'TEXT' },
+    { name: 'customer_tier', type: "TEXT DEFAULT 'standard'" },
+    { name: 'total_orders', type: 'INTEGER DEFAULT 0' },
+    { name: 'total_spent', type: 'REAL DEFAULT 0' },
+    { name: 'lead_score', type: 'INTEGER DEFAULT 0' },
     { name: 'created_at', type: 'TEXT' },
     { name: 'updated_at', type: 'TEXT' }
   ]);

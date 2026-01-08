@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
     <title>Client Management - WhatsApp AI Sales Assistant</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -220,7 +221,7 @@
                         <option value="premium">Premium - ₹9,999/month</option>
                         <option value="enterprise">Enterprise - ₹29,999/month</option>
                     </select>
-                    <p class="text-xs text-gray-500 mt-1">7-day free trial included</p>
+                    <p class="text-xs text-gray-500 mt-1">14-day free trial included</p>
                 </div>
 
                 <div class="flex gap-3 pt-4">
@@ -322,7 +323,7 @@
                                 </div>
                             </div>
                             <div class="flex items-center gap-2">
-                                <button onclick="event.stopPropagation(); manageSub scription('${tenant.id}')" class="text-blue-600 hover:text-blue-800 px-3 py-1 border border-blue-200 rounded-lg text-sm">
+                                <button onclick="event.stopPropagation(); manageSubscription('${tenant.id}')" class="text-blue-600 hover:text-blue-800 px-3 py-1 border border-blue-200 rounded-lg text-sm">
                                     <i class="fas fa-edit mr-1"></i>Manage
                                 </button>
                                 <i class="fas fa-chevron-right text-gray-400"></i>
@@ -367,6 +368,25 @@
         function formatDate(dateString) {
             const date = new Date(dateString);
             return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        }
+
+        function isoToDateInputValue(isoString) {
+            if (!isoString) return '';
+            const d = new Date(isoString);
+            if (Number.isNaN(d.getTime())) return '';
+            const yyyy = d.getUTCFullYear();
+            const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+            const dd = String(d.getUTCDate()).padStart(2, '0');
+            return `${yyyy}-${mm}-${dd}`;
+        }
+
+        function dateInputToUtcEndOfDayIso(dateStr) {
+            // dateStr: YYYY-MM-DD
+            if (!dateStr) return null;
+            const [y, m, d] = String(dateStr).split('-').map(n => parseInt(n, 10));
+            if (!y || !m || !d) return null;
+            const dt = new Date(Date.UTC(y, m - 1, d, 23, 59, 59));
+            return dt.toISOString();
         }
 
         // Modal functions
@@ -469,6 +489,10 @@
                                 <div>
                                     <label class="text-sm font-medium text-gray-600">Trial Ends</label>
                                     <p class="text-gray-900">${tenant.trial_ends_at ? formatDate(tenant.trial_ends_at) : 'N/A'}</p>
+                                </div>
+                                <div>
+                                    <label class="text-sm font-medium text-gray-600">Subscription Ends</label>
+                                    <p class="text-gray-900">${tenant.subscription_end_date ? formatDate(tenant.subscription_end_date) : 'N/A'}</p>
                                 </div>
                                 <div>
                                     <label class="text-sm font-medium text-gray-600">Created</label>
@@ -608,7 +632,12 @@
 
                             <div class="border-t pt-4">
                                 <h3 class="font-semibold text-gray-900 mb-3">Subscription Actions</h3>
-                                <div class="flex gap-3">
+                                <div class="flex flex-col sm:flex-row sm:items-end gap-3">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Subscription End Date</label>
+                                        <input type="date" id="subscription_end_date_${tenant.id}" value="${isoToDateInputValue(tenant.subscription_end_date) || ''}" class="border border-gray-300 rounded-lg px-3 py-2" />
+                                        <p class="text-xs text-gray-500 mt-1">Set this when renewing/activating</p>
+                                    </div>
                                     <button onclick="upgradeSubscription('${tenant.id}')" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg">
                                         <i class="fas fa-arrow-up mr-2"></i>Upgrade
                                     </button>
@@ -717,13 +746,17 @@
             const tier = prompt('Enter new tier (standard/premium/enterprise):');
             if (!tier) return;
 
+            const endDateInput = document.getElementById(`subscription_end_date_${tenantId}`)?.value || '';
+            const subscriptionEndIso = endDateInput ? dateInputToUtcEndOfDayIso(endDateInput) : null;
+
             try {
                 const response = await fetch(`/api/tenants/${tenantId}/subscription`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         subscription_tier: tier.toLowerCase(),
-                        subscription_status: 'active'
+                        subscription_status: 'active',
+                        ...(subscriptionEndIso ? { subscription_end_date: subscriptionEndIso } : {})
                     })
                 });
 
@@ -754,7 +787,7 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         subscription_status: 'trial',
-                        subscription_end_date: newTrialEnd.toISOString()
+                        trial_ends_at: newTrialEnd.toISOString()
                     })
                 });
 

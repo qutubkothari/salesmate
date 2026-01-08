@@ -4,6 +4,16 @@
 const express = require('express');
 const router = express.Router();
 const customerProfileService = require('../../services/customerProfileService');
+const { validate, z, zTrimmedString, zOptionalTrimmedString } = require('../../middleware/validate');
+
+const tenantIdParamsSchema = z.object({ tenantId: zTrimmedString(1, 128) }).strict();
+const upsertCustomerBodySchema = z
+  .object({
+    phone: zTrimmedString(3, 40),
+  })
+  // Allow additional profile fields, but do not allow prototype pollution keys.
+  // Keeping this non-strict avoids breaking existing dashboards that send extra fields.
+  .passthrough();
 
 // GET /api/customers/list/:tenantId - List all customers for a tenant
 router.get('/list/:tenantId', async (req, res) => {
@@ -39,7 +49,7 @@ router.get('/lookup/:tenantId', async (req, res) => {
 });
 
 // POST /api/customers/upsert/:tenantId - Create or update a customer profile by phone
-router.post('/upsert/:tenantId', async (req, res) => {
+router.post('/upsert/:tenantId', validate({ params: tenantIdParamsSchema, body: upsertCustomerBodySchema }), async (req, res) => {
   const { tenantId } = req.params;
   const { phone, ...profileData } = req.body || {};
 

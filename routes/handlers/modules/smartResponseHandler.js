@@ -3,7 +3,7 @@
 
 const { getSmartResponse } = require('../../../services/smartResponseRouter');
 
-async function handleSmartResponse(req, res, tenant, from, userQuery, intentResult) {
+async function handleSmartResponse(req, res, tenant, from, userQuery, intentResult, conversation) {
     console.log('[SMART_HANDLER] Processing with Smart Response Router');
 
     // Since discount requests are handled first, we don't need to skip here anymore
@@ -22,28 +22,31 @@ async function handleSmartResponse(req, res, tenant, from, userQuery, intentResu
 
                 const { supabase } = require('../../../services/config');
 
-                // Get current conversation
-                const { data: conversation } = await supabase
-                    .from('conversations')
-                    .select('id, context_data')
-                    .eq('tenant_id', tenant.id)
-                    .eq('end_user_phone', from)
-                    .single();
+                // Prefer the already-loaded conversation to avoid brittle lookups in local SQLite mode.
+                let conversationId = conversation?.id || null;
+                if (!conversationId) {
+                    const { data: convoRow } = await supabase
+                        .from('conversations')
+                        .select('id')
+                        .eq('tenant_id', tenant.id)
+                        .eq('end_user_phone', from)
+                        .maybeSingle();
+                    conversationId = convoRow?.id || null;
+                }
 
-                if (conversation) {
-                    // Save quoted products
+                if (conversationId) {
                     await supabase
                         .from('conversations')
                         .update({
                             last_quoted_products: JSON.stringify(smartResponse.quotedProducts),
-                            context_data: {
-                                ...(conversation.context_data || {}),
-                                lastQuotedAt: new Date().toISOString()
-                            }
+                            state: 'awaiting_order_confirmation',
+                            updated_at: new Date().toISOString()
                         })
-                        .eq('id', conversation.id);
+                        .eq('id', conversationId);
 
                     console.log('[SMART_HANDLER] Saved', smartResponse.quotedProducts.length, 'quoted products');
+                } else {
+                    console.warn('[SMART_HANDLER] No conversation found; cannot persist quoted products');
                 }
             }
 

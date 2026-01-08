@@ -31,7 +31,7 @@ const checkSubscriptionStatus = async (tenantId) => {
     if (tenant.subscription_status === 'active' && new Date(tenant.subscription_end_date) < now) {
         // Subscription has expired, update the status
         await supabase.from('tenants').update({ subscription_status: 'expired' }).eq('id', tenantId);
-        return { status: 'expired', message: 'Your subscription has expired. Please use a new activation key.' };
+        return { status: 'expired', message: 'Your subscription has expired. Please contact support to renew.' };
     }
     if (tenant.subscription_status === 'active') {
         const endDate = new Date(tenant.subscription_end_date).toLocaleDateString();
@@ -42,14 +42,14 @@ const checkSubscriptionStatus = async (tenantId) => {
     if (tenant.subscription_status === 'trial' && new Date(tenant.trial_ends_at) < now) {
         // Trial has expired, update the status
         await supabase.from('tenants').update({ subscription_status: 'expired' }).eq('id', tenantId);
-        return { status: 'expired', message: 'Your free trial has ended. Please use an activation key to continue.' };
+        return { status: 'expired', message: 'Your free trial has ended. Please contact support to renew.' };
     }
     if (tenant.subscription_status === 'trial') {
         const endDate = new Date(tenant.trial_ends_at).toLocaleDateString();
         return { status: 'trial', message: `You are on a free trial until ${endDate}.` };
     }
 
-    return { status: 'expired', message: 'Your subscription is inactive. Please use an activation key.' };
+    return { status: 'expired', message: 'Your subscription is inactive. Please contact support to renew.' };
 };
 
 /**

@@ -1,4 +1,4 @@
-const { supabase } = require('./config');
+const { supabase, db, USE_LOCAL_DB } = require('./config');
 const { formatPersonalizedPriceDisplay, createPriceMessage } = require('./pricingDisplayService');
 const { searchWebsiteForQuery, isProductInfoQuery } = require('./websiteContentIntegration');
 const { detectLanguage } = require('./multiLanguageService');
@@ -131,6 +131,70 @@ function extractMissingColumnName(error) {
     if (m?.[1]) return m[1];
 
     return null;
+}
+
+function isPriceLikeQuery(text) {
+    const q = String(text || '').toLowerCase();
+    return /\b(price|prices|rate|cost|quotation|quote|kitna|₹|rs\b|amount)\b/.test(q);
+}
+
+function normalizeProductSearchNeedle(text) {
+    let needle = String(text || '').trim();
+    needle = needle.replace(/%/g, '').trim();
+    needle = needle.replace(/^(show\s+me|give\s+me|what\s+is|tell\s+me\s+about|do\s+you\s+have|i\s+want|i\s+need|add|get)\s+/i, '').trim();
+    return needle;
+}
+
+async function searchProductsForTenant(tenantId, rawNeedle, limit = 10) {
+    const needle = normalizeProductSearchNeedle(rawNeedle);
+    if (!tenantId || !needle || needle.length < 2) return [];
+
+    const cappedLimit = Math.max(1, Math.min(Number(limit) || 10, 25));
+
+    if (USE_LOCAL_DB) {
+        const searchPattern = `%${needle}%`;
+        const sql = `
+            SELECT id, name, sku, description, category, price, units_per_carton, packaging_unit
+            FROM products
+            WHERE tenant_id = ?
+              AND (
+                name LIKE ?
+                OR sku LIKE ?
+                OR description LIKE ?
+                OR category LIKE ?
+              )
+            ORDER BY name ASC
+            LIMIT ?
+        `;
+
+        try {
+            const stmt = db.prepare(sql);
+            return stmt.all(tenantId, searchPattern, searchPattern, searchPattern, searchPattern, cappedLimit) || [];
+        } catch (e) {
+            console.error('[PRODUCT_SEARCH][SQLITE] Error:', e?.message || e);
+            return [];
+        }
+    }
+
+    // Remote (Supabase/PostgREST)
+    try {
+        const { data, error } = await supabase
+            .from('products')
+            .select('id, name, sku, description, category, price, units_per_carton, packaging_unit')
+            .eq('tenant_id', tenantId)
+            .or(`name.ilike.%${needle}%,sku.ilike.%${needle}%,description.ilike.%${needle}%,category.ilike.%${needle}%`)
+            .order('name', { ascending: true })
+            .limit(cappedLimit);
+
+        if (error) {
+            console.error('[PRODUCT_SEARCH][REMOTE] Error:', error.message || error);
+            return [];
+        }
+        return data || [];
+    } catch (e) {
+        console.error('[PRODUCT_SEARCH][REMOTE] Exception:', e?.message || e);
+        return [];
+    }
 }
 
 function isContextDependentQueryLocal(query) {
@@ -542,15 +606,39 @@ async function buildTenantDocumentsContext(tenantId, userQuery, { limit = 2 } = 
     }
 }
 
-async function buildProductsInfoContext(tenantId, userQuery, { limit = 3 } = {}) {
+async function buildProductsInfoContext(tenantId, userQuery, { limit = 10 } = {}) {
     try {
         const q = String(userQuery || '').trim();
         if (!tenantId || q.length < 3) return null;
 
-        const needle = q.slice(0, 120).replace(/%/g, '').trim();
+        // Extract keywords by removing common query words
+        let needle = q.slice(0, 120).replace(/%/g, '').trim();
+        // Remove common question/command words to get just the product keywords
+        needle = needle.replace(/^(show\s+me|give\s+me|what\s+is|tell\s+me\s+about|do\s+you\s+have|i\s+want|i\s+need|add|get)\s+/i, '').trim();
         if (!needle) return null;
 
         const runQuery = async ({ selectFields, includeSubcategoryInOr }) => {
+            if (USE_LOCAL_DB) {
+                // SQLite-compatible search using LIKE
+                const searchPattern = `%${needle}%`;
+                const fields = selectFields.join(', ');
+                const subcategoryClause = includeSubcategoryInOr ? ' OR subcategory LIKE ?' : '';
+                const query = `SELECT ${fields} FROM products WHERE tenant_id = ? AND (name LIKE ? OR sku LIKE ? OR description LIKE ? OR category LIKE ?${subcategoryClause}) ORDER BY created_at DESC LIMIT ?`;
+                
+                const params = includeSubcategoryInOr 
+                    ? [tenantId, searchPattern, searchPattern, searchPattern, searchPattern, searchPattern, limit]
+                    : [tenantId, searchPattern, searchPattern, searchPattern, searchPattern, limit];
+                
+                try {
+                    const stmt = db.prepare(query);
+                    const products = stmt.all(...params);
+                    return { data: products, error: null };
+                } catch (err) {
+                    return { data: null, error: err };
+                }
+            }
+
+            // Supabase PostgREST syntax for remote DB
             const orParts = [
                 `name.ilike.%${needle}%`,
                 `sku.ilike.%${needle}%`,
@@ -570,7 +658,7 @@ async function buildProductsInfoContext(tenantId, userQuery, { limit = 3 } = {})
                 .limit(limit);
         };
 
-        let selectFields = ['id', 'name', 'sku', 'description', 'category', 'subcategory', 'technical_details', 'units_per_carton', 'packaging_unit'];
+        let selectFields = ['id', 'name', 'sku', 'description', 'category', 'subcategory', 'technical_details', 'price', 'units_per_carton', 'packaging_unit'];
         let includeSubcategoryInOr = true;
 
         let products = null;
@@ -609,6 +697,9 @@ async function buildProductsInfoContext(tenantId, userQuery, { limit = 3 } = {})
             const sku = String(p.sku || '').trim();
             const cat = [p.category, p.subcategory].filter(Boolean).join(' / ');
             const desc = String(p.description || '').trim();
+            const price = (p.price !== null && p.price !== undefined && p.price !== '') ? Number(p.price) : null;
+            const unit = String(p.packaging_unit || 'carton').trim();
+            const upc = p.units_per_carton ? Number(p.units_per_carton) : null;
             const tech = typeof p.technical_details === 'string'
                 ? p.technical_details
                 : (p.technical_details ? JSON.stringify(p.technical_details) : '');
@@ -616,6 +707,7 @@ async function buildProductsInfoContext(tenantId, userQuery, { limit = 3 } = {})
             const body = [
                 sku ? `SKU: ${sku}` : null,
                 cat ? `Category: ${cat}` : null,
+                (price !== null && !Number.isNaN(price)) ? `Price: ₹${price}/${unit}${upc ? ` (${upc} pcs/carton)` : ''}` : null,
                 desc ? `Description: ${desc.slice(0, 900)}` : null,
                 tech ? `Technical: ${String(tech).slice(0, 900)}` : null
             ].filter(Boolean).join('\n');
@@ -787,18 +879,20 @@ const searchProductsWithAI = async (tenantId, searchTerm, queryType) => {
             searchTerms = [searchTerm.toLowerCase()];
         }
 
-        // Get all active products with ALL searchable fields (be tolerant if some columns don't exist in SQLite)
+        // Get all products with ALL searchable fields (be tolerant if some columns don't exist)
+        // NOTE: Do NOT filter by price/is_active here.
+        // - Dashboard uploads often start with price=0 or unset; filtering makes the bot think there are “no products”.
+        // - Some deployments (SQLite/local) may not reliably support all filter columns.
         const runAllProductsQuery = async (selectFields) => {
             return await supabase
                 .from('products')
                 .select(selectFields.join(', '))
                 .eq('tenant_id', tenantId)
-                .or('is_active.eq.true,is_active.eq.1')
-                .gt('price', 0)
                 .order('name');
         };
 
-        let selectFields = ['id', 'name', 'description', 'price', 'packaging_unit', 'units_per_carton', 'technical_details', 'category', 'subcategory', 'search_keywords'];
+        // Include SKU because many users query by item code/sku (dashboard bulk upload stores it).
+        let selectFields = ['id', 'name', 'sku', 'description', 'price', 'packaging_unit', 'units_per_carton', 'technical_details', 'category', 'subcategory', 'search_keywords'];
         let allProducts = null;
         let productsError = null;
 
@@ -834,6 +928,7 @@ const searchProductsWithAI = async (tenantId, searchTerm, queryType) => {
         let matchedProducts = allProducts.filter(product => {
             const searchableText = [
                 product.name || '',
+                product.sku || '',
                 product.description || '',
                 product.category || '',
                 product.subcategory || '',
@@ -860,6 +955,7 @@ const searchProductsWithAI = async (tenantId, searchTerm, queryType) => {
             matchedProducts = allProducts.filter(product => {
                 const searchableText = [
                     product.name || '',
+                    product.sku || '',
                     product.description || '',
                     product.category || '',
                     product.subcategory || '',
@@ -958,8 +1054,11 @@ Keep it concise and scannable.`
 
 Products:
 ${products.map(p => {
-    const perPiece = p.units_per_carton ? (p.price / p.units_per_carton).toFixed(2) : p.price;
-    return `- ${p.name}: ₹${p.price}/carton (${p.units_per_carton || 1} pcs, ₹${perPiece}/pc)`;
+    const unitsPerCarton = p.units_per_carton || 1;
+    const unitLabel = p.packaging_unit || 'unit';
+    const perUnit = Number(p.price) || 0;
+    const perCarton = perUnit * unitsPerCarton;
+    return `- ${p.name}: ₹${perUnit}/${unitLabel} (₹${perCarton}/carton, ${unitsPerCarton} pcs/carton)`;
 }).join('\n')}`
         };
         
@@ -994,11 +1093,16 @@ ${products.map(p => {
         // Fallback formatting
         let response = '💰 **Latest Pricing Information:**\n\n';
         for (const p of products) {
-            const perPiece = p.units_per_carton ? (p.price / p.units_per_carton).toFixed(2) : p.price;
+            const unitsPerCarton = p.units_per_carton || 1;
+            const unitLabel = p.packaging_unit || 'unit';
+            const perUnit = Number(p.price) || 0;
+            const perCarton = perUnit * unitsPerCarton;
+            const perPiece = perUnit.toFixed(2);
             response += `📦 **${p.name}**\n`;
             response += `   🔹 ₹${perPiece}/pc per piece\n`;
-            response += `   📦 ₹${p.price}/${p.packaging_unit || 'carton'}\n`;
-            response += `   (${p.units_per_carton || 1} pcs/${p.packaging_unit || 'carton'})\n\n`;
+            response += `   💰 ₹${perUnit}/${unitLabel}\n`;
+            response += `   📦 ₹${perCarton}/carton\n`;
+            response += `   (${unitsPerCarton} pcs/carton)\n\n`;
         }
         response += '\n✅ To order, reply with product code and quantity (e.g., "8x80 - 10 cartons")';
         return response;
@@ -1010,13 +1114,14 @@ ${products.map(p => {
  */
 const calculateQuoteAmount = (product, quantity, unit, isPieces) => {
     const unitsPerCarton = product.units_per_carton || 1;
-    const pricePerCarton = product.price;
+    const perUnit = Number(product.price) || 0;
+    const pricePerCarton = perUnit * unitsPerCarton;
     
     if (isPieces || unit === 'pieces') {
         // Convert pieces to cartons for total
         const cartonsNeeded = quantity / unitsPerCarton;
         const totalAmount = cartonsNeeded * pricePerCarton;
-        const pricePerPiece = pricePerCarton / unitsPerCarton;
+        const pricePerPiece = perUnit;
         
         return {
             displayQuantity: quantity,
@@ -2505,6 +2610,178 @@ Respond in JSON format:
         if (businessResponse) return { response: businessResponse, source: 'cached' };
     }
 
+    // IMPORTANT: Check product catalog availability BEFORE falling back to website/docs.
+    // This prevents "do you have X?" queries from getting "not on our website" answers when X is in the products table.
+    // Fast-path local catalog lookup (SQLite-safe): show matching products + prices.
+    try {
+        const q = String(userQuery || '').toLowerCase().trim();
+
+        const isAddToCartIntent = /\b(add\s+to\s+cart|add\b|put\s+in\s+cart|to\s+cart)\b/.test(q);
+
+        const looksLikeAvailabilityQuery = /\b(do\s*u\s*have|do\s+you\s+have|have\s+you\s+got|available|in\s+stock|stock|price\s+(of|for)|cost\s+(of|for)|rate\s+(of|for)|quotation\s+(for|of)|need|want|looking\s+for|can\s+i\s+get|can\s+you\s+provide|can\s+you\s+arrange)\b/.test(q);
+        const looksLikeNonProductContext = /\b(website|software|app|dashboard|whatsapp\s*bot|automation|integration|service|services)\b/.test(q);
+        const looksLikeShortProductQuery = q.split(/\s+/).filter(Boolean).length <= 6;
+        const wantsPrice = isPriceLikeQuery(q);
+
+        function extractItemPhrase(q0) {
+            const patterns = [
+                /\b(?:do\s*u\s*have|do\s+you\s+have|have\s+you\s+got)\s+(?<item>.+)$/i,
+                /\b(?:price|cost|rate|quotation)\s+(?:of|for)\s+(?<item>.+)$/i,
+                /\b(?:need|want|looking\s+for)\s+(?<item>.+)$/i,
+                /\b(?<item>.+?)\s+(?:available|in\s+stock)\b/i,
+                /\b(?:add|put)\s+\d+\s*(?:pieces?|pcs?|cartons?|ctns?)?\s*(?:of\s+)?(?<item>.+?)(?:\s+to\s+(?:my\s+)?cart)?$/i,
+            ];
+            for (const p of patterns) {
+                const m = q0.match(p);
+                const item = (m && (m.groups?.item || m[1])) ? String(m.groups?.item || m[1]) : '';
+                if (item && item.trim().length >= 3) {
+                    return item
+                        .replace(/[?!.;,]+$/g, '')
+                        .replace(/^\s*(a|an|any|the)\s+/i, '')
+                        .trim();
+                }
+            }
+            return '';
+        }
+
+        function extractAddToCartDetails(q0) {
+            // Supports:
+            //  - "add 10 pieces notebook scale"
+            //  - "add 10 pcs of notebook scale to cart"
+            //  - "add notebook scale 10 pieces"
+            const p1 = q0.match(/\b(?:add|put)\s+(?<qty>\d+)\s*(?<unit>pieces?|pcs?|cartons?|ctns?)?\s*(?:of\s+)?(?<item>.+?)(?:\s+to\s+(?:my\s+)?cart)?$/i);
+            if (p1?.groups?.qty && p1?.groups?.item) {
+                return {
+                    qty: parseInt(p1.groups.qty, 10),
+                    unit: String(p1.groups.unit || '').toLowerCase(),
+                    item: String(p1.groups.item || '').trim()
+                };
+            }
+
+            const p2 = q0.match(/\b(?:add|put)\s+(?<item>.+?)\s+(?<qty>\d+)\s*(?<unit>pieces?|pcs?|cartons?|ctns?)\b/i);
+            if (p2?.groups?.qty && p2?.groups?.item) {
+                return {
+                    qty: parseInt(p2.groups.qty, 10),
+                    unit: String(p2.groups.unit || '').toLowerCase(),
+                    item: String(p2.groups.item || '').trim()
+                };
+            }
+            return null;
+        }
+
+        if (tenantId && !looksLikeNonProductContext && (looksLikeAvailabilityQuery || looksLikeShortProductQuery || wantsPrice || isAddToCartIntent)) {
+            const addDetails = isAddToCartIntent ? extractAddToCartDetails(q) : null;
+            const itemPhrase = (addDetails?.item ? addDetails.item : (extractItemPhrase(q) || q));
+
+            // Avoid extremely generic/empty searches
+            const needle = normalizeProductSearchNeedle(itemPhrase);
+            if (needle && needle.length >= 2) {
+                const rows = await searchProductsForTenant(tenantId, needle, wantsPrice ? 10 : 12);
+                const hits = Array.isArray(rows) ? rows.filter(p => p && p.name) : [];
+
+                if (hits.length) {
+                    // Add-to-cart quote flow: return quotedProducts so main handler can add on "yes".
+                    if (isAddToCartIntent && addDetails?.qty && addDetails.qty > 0) {
+                        if (hits.length === 1) {
+                            const p = hits[0];
+                            const unitsPerCarton = (p.units_per_carton ? Number(p.units_per_carton) : 1) || 1;
+                            const isPieces = /^pc|^pcs|piece/.test(String(addDetails.unit || ''));
+                            const qtyForCartons = isPieces ? Math.ceil(addDetails.qty / Math.max(1, unitsPerCarton)) : addDetails.qty;
+                            const unitDisplay = isPieces ? 'pieces' : 'cartons';
+                            const conversionNote = isPieces && unitsPerCarton > 1
+                                ? ` (≈ ${qtyForCartons} carton${qtyForCartons === 1 ? '' : 's'} @ ${unitsPerCarton} pcs/carton)`
+                                : '';
+
+                            const sku = String(p.sku || '').trim();
+                            const msg = `Got it. I will add ${addDetails.qty} ${unitDisplay} of *${p.name}*${sku ? ` (SKU: ${sku})` : ''} to your cart${conversionNote}.
+\nReply *yes* to proceed or *no* to cancel.`;
+
+                            return {
+                                response: msg,
+                                source: 'add_to_cart_quote_fastpath',
+                                aiPowered: false,
+                                quotedProducts: [{
+                                    productId: p.id,
+                                    productName: p.name,
+                                    price: p.price,
+                                    quantity: qtyForCartons,
+                                    unit: 'cartons',
+                                    unitsPerCarton: p.units_per_carton
+                                }]
+                            };
+                        }
+
+                        // Multiple matches: ask user to choose a SKU/name explicitly.
+                        let msg = `I found multiple matches for *${needle}*.
+\nPlease reply with the exact *SKU* (or full name) and quantity to add (e.g., "add 10 pieces SKU123").\n\nMatches:\n`;
+                        for (const p of hits.slice(0, 8)) {
+                            const name = String(p.name || '').trim();
+                            const sku = String(p.sku || '').trim();
+                            msg += `• *${name}*${sku ? ` (SKU: ${sku})` : ''}\n`;
+                        }
+                        return { response: msg, source: 'add_to_cart_disambiguation_fastpath', aiPowered: false };
+                    }
+
+                    // If user explicitly asks for price, answer with price formatting.
+                    if (wantsPrice) {
+                        if (hits.length === 1) {
+                            const msg = await formatProductPrice(hits[0], tenantId, phoneNumber, String(userQuery || ''));
+                            return { response: msg, source: 'product_price_fastpath', aiPowered: false };
+                        }
+
+                        let msg = `Here are the closest matches for *${needle}* with pricing:\n\n`;
+                        for (const p of hits.slice(0, 10)) {
+                            const name = String(p.name || '').trim();
+                            const sku = String(p.sku || '').trim();
+                            const unitLabel = String(p.packaging_unit || 'carton').trim();
+                            const upc = p.units_per_carton ? Number(p.units_per_carton) : null;
+                            const perUnit = (p.price !== null && p.price !== undefined && p.price !== '') ? Number(p.price) : null;
+                            const cartonPrice = (perUnit !== null && !Number.isNaN(perUnit) && upc) ? (perUnit * upc) : null;
+
+                            msg += `• *${name}*`;
+                            if (sku) msg += ` (SKU: ${sku})`;
+                            if (perUnit !== null && !Number.isNaN(perUnit)) {
+                                msg += ` — ₹${perUnit}/${unitLabel}`;
+                                if (cartonPrice !== null && !Number.isNaN(cartonPrice)) msg += ` (₹${cartonPrice.toFixed(2)}/carton)`;
+                            }
+                            if (upc) msg += ` (${upc} pcs/carton)`;
+                            msg += `\n`;
+                        }
+
+                        msg += `\nReply with the exact product name/SKU for a full quote (e.g., "price of ${hits[0].sku || hits[0].name}").`;
+                        return { response: msg, source: 'product_price_list_fastpath', aiPowered: false };
+                    }
+
+                    // Otherwise: list products + prices (previous behavior)
+                    let msg = `Here are the closest matches for *${needle}* in your product catalog:\n\n`;
+                    for (const p of hits.slice(0, 12)) {
+                        const name = String(p.name || '').trim();
+                        const sku = String(p.sku || '').trim();
+                        const unitLabel = String(p.packaging_unit || 'carton').trim();
+                        const upc = p.units_per_carton ? Number(p.units_per_carton) : null;
+                        const perUnit = (p.price !== null && p.price !== undefined && p.price !== '') ? Number(p.price) : null;
+                        const cartonPrice = (perUnit !== null && !Number.isNaN(perUnit) && upc) ? (perUnit * upc) : null;
+
+                        msg += `• *${name}*`;
+                        if (sku) msg += ` (SKU: ${sku})`;
+                        if (perUnit !== null && !Number.isNaN(perUnit)) {
+                            msg += ` — ₹${perUnit}/${unitLabel}`;
+                            if (cartonPrice !== null && !Number.isNaN(cartonPrice)) msg += ` (₹${cartonPrice.toFixed(2)}/carton)`;
+                        }
+                        if (upc) msg += ` (${upc} pcs/carton)`;
+                        msg += `\n`;
+                    }
+                    msg += `\nAsk "price of <name/SKU>" for a full quote, or tell quantity to add to cart.`;
+
+                    return { response: msg, source: 'product_search_fastpath', aiPowered: false };
+                }
+            }
+        }
+    } catch (e) {
+        console.error('[SMART_ROUTER][PRODUCT_LOOKUP] Fast-path failed:', e?.message || e);
+        // Continue to website/docs fallback
+    }
+
     // FINAL FALLBACK: Check if it's a general product info query that could be in website content
     if (isProductInfoQuery(userQuery)) {
         console.log('[SMART_ROUTER] Query appears to be asking for product info, searching website...');
@@ -2830,12 +3107,16 @@ const handleGeneralPriceInquiry = async (tenantId, query, phoneNumber = null) =>
         let response = "📋 **Current Pricing:**\n\n";
         products.forEach(product => {
             const unitsPerCarton = parseInt(product.units_per_carton) || 1;
-            const pricePerPiece = (product.price / unitsPerCarton).toFixed(2);
+            const unitLabel = product.packaging_unit || 'unit';
+            const perUnit = Number(product.price) || 0;
+            const cartonPrice = perUnit * unitsPerCarton;
+            const pricePerPiece = perUnit.toFixed(2);
             
             response += `📦 **${product.name}**\n`;
             response += `🔹 ₹${pricePerPiece}/pc per piece\n`;
-            response += `📦 *₹${product.price}/${product.packaging_unit || 'carton'}*\n`;
-            response += `   (${unitsPerCarton} pcs/${product.packaging_unit || 'carton'})\n\n`;
+            response += `💰 *₹${perUnit}/${unitLabel}*\n`;
+            response += `📦 *₹${cartonPrice}/carton*\n`;
+            response += `   (${unitsPerCarton} pcs/carton)\n\n`;
         });
         
         response += "💬 For specific products, ask: 'price of [product name]'";
@@ -2865,7 +3146,10 @@ const formatProductPrice = async (product, tenantId, phoneNumber = null, origina
         // Fallback to basic pricing if no phoneNumber or personalization unavailable
         console.log('[FORMAT_PRICE] Using basic pricing display');
         const unitsPerCarton = parseInt(product.units_per_carton) || 1;
-        const pricePerPiece = (product.price / unitsPerCarton).toFixed(2);
+        const unitLabel = product.packaging_unit || 'unit';
+        const perUnit = Number(product.price) || 0;
+        const cartonPrice = perUnit * unitsPerCarton;
+        const pricePerPiece = perUnit.toFixed(2);
         
         // Check if quantity was mentioned in the original query
         const quantityMatch = originalQuery.match(/(\d+)\s*(?:pcs?|pieces?|cartons?|ctns?)/i);
@@ -2873,7 +3157,8 @@ const formatProductPrice = async (product, tenantId, phoneNumber = null, origina
         response += `💵 *Price*\n`;
         response += `━━━━━━━━━━━━━━━━━\n`;
         response += `🔹 *₹${pricePerPiece}/pc* per piece\n`;
-        response += `📦 *₹${product.price}/${product.packaging_unit || 'carton'}*\n\n`;
+        response += `💰 *₹${perUnit}/${unitLabel}*\n`;
+        response += `📦 *₹${cartonPrice}/carton*\n\n`;
         
         if (quantityMatch) {
             const quantity = parseInt(quantityMatch[1]);
@@ -2885,19 +3170,19 @@ const formatProductPrice = async (product, tenantId, phoneNumber = null, origina
                 const exactCartons = (quantity / unitsPerCarton).toFixed(2);
                 const roundedCartons = Math.ceil(quantity / unitsPerCarton);
                 finalQuantity = roundedCartons;
-                totalAmount = (roundedCartons * product.price).toFixed(2);
+                totalAmount = (roundedCartons * cartonPrice).toFixed(2);
                 
                 response += `📊 *Quote for ${quantity.toLocaleString('en-IN')} pieces:*\n`;
                 response += `   ${quantity.toLocaleString('en-IN')} pcs ÷ ${unitsPerCarton} pcs/carton = ${exactCartons} cartons\n`;
                 response += `   (Rounded to ${roundedCartons} carton${roundedCartons !== 1 ? 's' : ''})\n`;
-                response += `   ${roundedCartons} carton${roundedCartons !== 1 ? 's' : ''} × ₹${product.price.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})} = *₹${parseFloat(totalAmount).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}*\n\n`;
+                response += `   ${roundedCartons} carton${roundedCartons !== 1 ? 's' : ''} × ₹${cartonPrice.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})} = *₹${parseFloat(totalAmount).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}*\n\n`;
             } else {
                 // Already in cartons
                 finalQuantity = quantity;
-                totalAmount = (quantity * product.price).toFixed(2);
+                totalAmount = (quantity * cartonPrice).toFixed(2);
                 
                 response += `📊 *Quote for ${quantity} carton${quantity !== 1 ? 's' : ''}:*\n`;
-                response += `   ${quantity} carton${quantity !== 1 ? 's' : ''} × ₹${product.price.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})} = *₹${parseFloat(totalAmount).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}*\n\n`;
+                response += `   ${quantity} carton${quantity !== 1 ? 's' : ''} × ₹${cartonPrice.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})} = *₹${parseFloat(totalAmount).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}*\n\n`;
             }
             
             response += `💡 *Volume Discounts:*\n`;
@@ -2906,7 +3191,7 @@ const formatProductPrice = async (product, tenantId, phoneNumber = null, origina
             response += `🛒 Ready to add ${quantity.toLocaleString('en-IN')} ${unit} to your cart? Just say "yes"!`;
         } else {
             response += `📊 *Breakdown:*\n`;
-            response += `   ₹${pricePerPiece}/pc × ${unitsPerCarton} pcs = ₹${product.price}/${product.packaging_unit || 'carton'}\n\n`;
+            response += `   ₹${pricePerPiece}/pc × ${unitsPerCarton} pcs = ₹${cartonPrice.toFixed(2)}/carton\n\n`;
             response += `💡 *Volume Discounts:*\n`;
             response += `* 11-25 ctns: 2-3% • 26-50 ctns: 3-5%\n`;
             response += `* 51-100 ctns: 5-7% • 100+ ctns: 7-10%\n\n`;
@@ -2919,13 +3204,14 @@ const formatProductPrice = async (product, tenantId, phoneNumber = null, origina
         console.error('[FORMAT_PRICE] Error:', error.message);
         // Fallback to simple format
         let response = `💰 **${product.name} Pricing**\n\n`;
-        response += `Price: ₹${product.price}/carton\n`;
+        const upcFallback = product.units_per_carton && product.units_per_carton > 0 ? product.units_per_carton : 1;
+        const unitLabelFallback = product.packaging_unit || 'unit';
+        const perUnitFallback = Number(product.price) || 0;
+        const cartonPriceFallback = perUnitFallback * upcFallback;
+        response += `Price: ₹${perUnitFallback}/${unitLabelFallback}\n`;
+        response += `Carton: ₹${cartonPriceFallback}/carton (${upcFallback} pcs/carton)\n`;
         
-        if (product.units_per_carton && product.units_per_carton > 1) {
-            const perPiece = (product.price / product.units_per_carton).toFixed(2);
-            response += `Carton contains: ${product.units_per_carton} pieces\n`;
-            response += `Per piece: ₹${perPiece}\n`;
-        }
+        if (upcFallback > 1) response += `Per piece: ₹${perUnitFallback.toFixed(2)}\n`;
         
         response += `\nReady to place an order? Just let me know the quantity!`;
         return response;
@@ -2941,6 +3227,15 @@ const handleAvailabilityQueries = async (query, tenantId) => {
         /(?:aapke paas|do you have|paas).*(\d+[x*]\d+)/i,
         /(\d+[x*]\d+)\s+(?:hain|hai)/i  // Direct pattern like "8x80 hain"
     ];
+
+    const nameAvailabilityPatterns = [
+        // English + Hinglish: "do you have notebook scale", "aapke paas notebook scale hai"
+        /(?:do\s+you\s+have|do\s+u\s+have|have\s+you\s+got|aapke\s+paas|aap\s+ke\s+paas|paas)\s+(?:any\s+)?(.+?)(?:\?|$)/i,
+        // "is notebook scale available"
+        /(?:is|are)\s+(.+?)\s+(?:available|in\s+stock|stock\s+mein|stock\s+me|milega|hai|hain)(?:\?|$)/i,
+        // "notebook scale available?"
+        /^(.+?)\s+(?:available|in\s+stock|stock\s+mein|stock\s+me)\??$/i
+    ];
     
     console.log('[AVAILABILITY] Checking query:', query);
     
@@ -2953,14 +3248,120 @@ const handleAvailabilityQueries = async (query, tenantId) => {
             
             if (product) {
                 console.log('[AVAILABILITY] Product found:', product.name);
-                return `✅ **Haan, ${product.name} available hai!**\n\nPrice: ₹${product.price}/carton\n${product.units_per_carton ? `(${product.units_per_carton} pcs/carton)\n` : ''}\nKitne cartons chahiye?`;
+                const upc = parseInt(product.units_per_carton, 10) > 0 ? parseInt(product.units_per_carton, 10) : 1;
+                const unitLabel = product.packaging_unit || 'unit';
+                const perUnit = Number(product.price) || 0;
+                const cartonPrice = perUnit * upc;
+                return `✅ **Haan, ${product.name} available hai!**\n\nPrice: ₹${perUnit}/${unitLabel}\nCarton: ₹${cartonPrice}/carton (${upc} pcs/carton)\n\nKitne cartons chahiye?`;
             } else {
                 console.log('[AVAILABILITY] Product not found:', productCode);
             }
         }
     }
+
+    // If no size/code matched, try name-based availability (e.g., "do you have notebook scale")
+    for (const pattern of nameAvailabilityPatterns) {
+        const match = query.match(pattern);
+        if (!match) continue;
+
+        const rawName = String(match[1] || '').trim();
+        if (!rawName || rawName.length < 2) continue;
+
+        // Guard against generic non-product asks (discounts, services, etc.)
+        const lowered = rawName.toLowerCase();
+        const ignoreIfContains = [
+            'discount', 'offer', 'scheme',
+            'service', 'services', 'products', 'catalog',
+            'website', 'software', 'chatbot', 'crm', 'whatsapp', 'integration'
+        ];
+        if (ignoreIfContains.some(w => lowered.includes(w))) continue;
+
+        console.log('[AVAILABILITY] Name-based lookup for:', rawName);
+        const product = await findProductByName(tenantId, rawName);
+        if (product) {
+            const stockLine = (product.stock_quantity !== undefined && product.stock_quantity !== null)
+                ? `Stock: ${product.stock_quantity}\n`
+                : '';
+            const skuLine = product.sku ? `SKU: ${product.sku}\n` : '';
+
+            const upc = parseInt(product.units_per_carton, 10) > 0 ? parseInt(product.units_per_carton, 10) : 1;
+            const unitLabel = product.packaging_unit || 'unit';
+            const perUnit = Number(product.price) || 0;
+            const cartonPrice = perUnit * upc;
+            return `✅ Yes — *${product.name}* is available.\n\nPrice: ₹${perUnit}/${unitLabel}\nCarton: ₹${cartonPrice}/carton (${upc} pcs/carton)\n${stockLine}${skuLine}\nHow many cartons would you like?`;
+        }
+    }
+
     console.log('[AVAILABILITY] No pattern matched');
     return null;
+};
+
+/**
+ * Find product by a free-text name/keyword.
+ * Keeps it simple: exact name → name LIKE/ILIKE → sku LIKE/ILIKE → description LIKE/ILIKE.
+ */
+const findProductByName = async (tenantId, rawSearch) => {
+    try {
+        const search = String(rawSearch || '')
+            .trim()
+            .replace(/[\r\n\t]+/g, ' ')
+            .replace(/[\?\!\.,]+/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        if (!search || search.length < 2) return null;
+
+        // Exact name first
+        const { data: exact } = await supabase
+            .from('products')
+            .select('*')
+            .eq('tenant_id', tenantId)
+            .or('is_active.eq.true,is_active.eq.1')
+            .eq('name', search)
+            .maybeSingle();
+
+        if (exact) return exact;
+
+        async function searchField(field) {
+            let { data } = await supabase
+                .from('products')
+                .select('*')
+                .eq('tenant_id', tenantId)
+                .or('is_active.eq.true,is_active.eq.1')
+                .ilike(field, `%${search.toLowerCase()}%`)
+                .neq('price', 0);
+
+            if (!data || data.length === 0) {
+                const likeAttempt = await supabase
+                    .from('products')
+                    .select('*')
+                    .eq('tenant_id', tenantId)
+                    .or('is_active.eq.true,is_active.eq.1')
+                    .like(field, `%${search.toLowerCase()}%`)
+                    .neq('price', 0);
+                data = likeAttempt.data;
+            }
+            return Array.isArray(data) ? data : [];
+        }
+
+        let products = await searchField('name');
+        if (products.length === 0) products = await searchField('sku');
+        if (products.length === 0) products = await searchField('description');
+        if (products.length === 0) return null;
+
+        // Prefer the closest match: more matched words in the product name
+        const words = search.toLowerCase().split(' ').filter(w => w.length >= 2);
+        const scored = products.map(p => {
+            const name = String(p.name || '').toLowerCase();
+            const score = words.reduce((acc, w) => acc + (name.includes(w) ? 1 : 0), 0);
+            return { p, score };
+        }).sort((a, b) => b.score - a.score);
+
+        return scored[0]?.p || products[0];
+    } catch (error) {
+        console.error('[PRODUCT_SEARCH] Error finding product by name:', error.message);
+        return null;
+    }
 };
 
 // Handle specification queries

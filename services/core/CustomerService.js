@@ -11,7 +11,7 @@
  * @module services/core/CustomerService
  */
 
-const { supabase } = require('../config');
+const { supabase, USE_LOCAL_DB } = require('../config');
 const { toWhatsAppFormat, normalizePhone } = require('../../utils/phoneUtils');
 
 /**
@@ -54,16 +54,17 @@ async function ensureCustomerProfile(tenantId, phoneNumber) {
     try {
         validateTenantId(tenantId);
         validatePhone(phoneNumber);
-        
-        const whatsappPhone = toWhatsAppFormat(phoneNumber);
-        console.log(`[CustomerService] Ensuring profile exists: ${whatsappPhone}`);
+
+        const phoneCol = USE_LOCAL_DB ? 'phone_number' : 'phone';
+        const storedPhone = USE_LOCAL_DB ? normalizePhone(phoneNumber) : toWhatsAppFormat(phoneNumber);
+        console.log(`[CustomerService] Ensuring profile exists: ${storedPhone}`);
         
         // First, try to get existing profile
         const { data: existingProfile, error: fetchError } = await supabase
             .from('customer_profiles')
             .select('*')
             .eq('tenant_id', tenantId)
-            .eq('phone', whatsappPhone)
+            .eq(phoneCol, storedPhone)
             .maybeSingle();
         
         if (fetchError && fetchError.code !== 'PGRST116') {
@@ -78,24 +79,36 @@ async function ensureCustomerProfile(tenantId, phoneNumber) {
         }
         
         // Profile doesn't exist - create it
-        console.log(`[CustomerService] Creating new profile for: ${whatsappPhone}`);
-        const profileData = {
-            tenant_id: tenantId,
-            phone: whatsappPhone,
-            customer_tier: 'standard',
-            credit_limit: '0.00',
-            payment_terms: 'cod',
-            total_orders: 0,
-            total_spent: '0.00',
-            communication_preference: 'whatsapp',
-            business_verified: false,
-            onboarding_completed: false,
-            customer_source: 'whatsapp',
-            retail_visit_count: 0,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-            first_contact_date: new Date().toISOString()
-        };
+        console.log(`[CustomerService] Creating new profile for: ${storedPhone}`);
+        const now = new Date().toISOString();
+        const profileData = USE_LOCAL_DB
+            ? {
+                tenant_id: tenantId,
+                [phoneCol]: storedPhone,
+                customer_type: 'retail',
+                lead_score: 0,
+                total_orders: 0,
+                total_spent: 0,
+                created_at: now,
+                updated_at: now
+              }
+            : {
+                tenant_id: tenantId,
+                [phoneCol]: storedPhone,
+                customer_tier: 'standard',
+                credit_limit: '0.00',
+                payment_terms: 'cod',
+                total_orders: 0,
+                total_spent: '0.00',
+                communication_preference: 'whatsapp',
+                business_verified: false,
+                onboarding_completed: false,
+                customer_source: 'whatsapp',
+                retail_visit_count: 0,
+                created_at: now,
+                updated_at: now,
+                first_contact_date: now
+              };
         
         const { data: newProfile, error: createError } = await supabase
             .from('customer_profiles')
@@ -113,7 +126,7 @@ async function ensureCustomerProfile(tenantId, phoneNumber) {
                     .from('customer_profiles')
                     .select('*')
                     .eq('tenant_id', tenantId)
-                    .eq('phone', whatsappPhone)
+                    .eq(phoneCol, storedPhone)
                     .single();
                 
                 if (retryProfile) {
@@ -146,13 +159,14 @@ async function getCustomerProfile(tenantId, phoneNumber) {
         validateTenantId(tenantId);
         validatePhone(phoneNumber);
         
-        const whatsappPhone = toWhatsAppFormat(phoneNumber);
+        const phoneCol = USE_LOCAL_DB ? 'phone_number' : 'phone';
+        const storedPhone = USE_LOCAL_DB ? normalizePhone(phoneNumber) : toWhatsAppFormat(phoneNumber);
         
         const { data, error } = await supabase
             .from('customer_profiles')
             .select('*')
             .eq('tenant_id', tenantId)
-            .eq('phone', whatsappPhone)
+            .eq(phoneCol, storedPhone)
             .maybeSingle();
         
         if (error && error.code !== 'PGRST116') {

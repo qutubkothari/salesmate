@@ -59,7 +59,7 @@ async function startRegistration(phoneNumber, sendMessageFn, tenantId = null) {
 
 You're about to create your own AI-powered sales bot! Here's what you get:
 
-✅ *7-Day FREE Trial*
+✅ *14-Day FREE Trial*
 ✅ AI-powered customer conversations
 ✅ Product catalog management
 ✅ Order processing & tracking
@@ -229,9 +229,9 @@ To start over, type *"register"* again.`;
         // Generate referral code
         const referralCode = `REF-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
 
-        // Calculate trial end date (7 days)
+        // Calculate trial end date (14 days)
         const trialEndsAt = new Date();
-        trialEndsAt.setDate(trialEndsAt.getDate() + 7);
+        trialEndsAt.setDate(trialEndsAt.getDate() + 14);
 
         // Create new tenant
         const { data: newTenant, error: tenantError } = await supabase

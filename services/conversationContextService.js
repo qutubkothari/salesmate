@@ -65,7 +65,7 @@ const handleContextualPriceQuery = async (userQuery, conversation, tenantId) => 
                 const unitsPerCarton = product.units_per_carton || 
                                      (product.units_per_packet * product.packets_per_carton) || 
                                      1;
-                const pricePerPiece = (product.price / unitsPerCarton).toFixed(2);
+                const pricePerPiece = (Number(product.price) || 0).toFixed(2);
                 
                 // Human-like response
                 const responses = [
@@ -126,18 +126,20 @@ const handleQuantityQueries = async (userQuery, conversation, tenantId) => {
                 
                 if (unit.toLowerCase().includes('carton') || unit.toLowerCase().includes('ctn')) {
                     // Customer asked for cartons
-                    totalPrice = (product.price * quantity).toFixed(2);
+                    const cartonPrice = (Number(product.price) || 0) * unitsPerCarton;
+                    totalPrice = (cartonPrice * quantity).toFixed(2);
                     const totalPieces = quantity * unitsPerCarton;
                     description = `${quantity} cartons = ${totalPieces} pieces`;
                 } else {
                     // Customer asked for pieces
                     const cartonsNeeded = Math.ceil(quantity / unitsPerCarton);
-                    const pricePerPiece = product.price / unitsPerCarton;
+                    const pricePerPiece = Number(product.price) || 0;
                     totalPrice = (pricePerPiece * quantity).toFixed(2);
                     
                     if (quantity < unitsPerCarton) {
                         description = `${quantity} pieces (minimum 1 carton = ${unitsPerCarton} pieces)`;
-                        totalPrice = product.price.toFixed(2);
+                        const cartonPrice = pricePerPiece * unitsPerCarton;
+                        totalPrice = cartonPrice.toFixed(2);
                     } else {
                         description = `${quantity} pieces`;
                     }

@@ -62,7 +62,8 @@ const calculateComprehensivePricing = async (tenantId, cartItems, options = {}) 
             customerPhone = null,
             discountAmount = 0,
             roundTotals = true,
-            isReturningCustomer = false
+            isReturningCustomer = false,
+            includeGST = true
         } = options;
 
         // Fetch last purchase prices for returning customers
@@ -138,19 +139,28 @@ const calculateComprehensivePricing = async (tenantId, cartItems, options = {}) 
         let totalCartons = 0;
         const itemBreakdown = [];
 
+        // Used later to decide whether to apply automatic volume discounts.
+        // If any item uses negotiated/override pricing or last-purchase pricing, we treat it as personalized.
+        let hasAnyPersonalizedPrice = false;
+
         cartItems.forEach((item, index) => {
             const product = item.product;
             const quantity = item.quantity || 1;
+            const unitsPerCarton = parseInt(product.units_per_carton, 10) > 0 ? parseInt(product.units_per_carton, 10) : 1;
             
             // ✅ CRITICAL FIX: Proper priority with discount detection
             let unitPrice = product.price;
             let priceSource = 'catalog';
             
             // First, establish the base price (catalog or last purchase)
-            const catalogPrice = product.price;
+            // `products.price` is per-unit; cart totals and customer history are per-carton.
+            const catalogUnitPrice = Number(product.price) || 0;
+            const catalogPrice = catalogUnitPrice * unitsPerCarton;
             const lastPurchasePrice = lastPurchasePrices[product.id];
             
             console.log(`[PRICING] 🔍 DEBUG - Processing ${product.name}:`, {
+                catalogUnitPrice,
+                unitsPerCarton,
                 catalogPrice,
                 lastPurchasePrice,
                 carton_price_override: item.carton_price_override,
@@ -170,11 +180,13 @@ const calculateComprehensivePricing = async (tenantId, cartItems, options = {}) 
                 // RETURNING customer - show their loyal customer pricing
                 unitPrice = lastPurchasePrice;
                 priceSource = 'last_purchase';
+                hasAnyPersonalizedPrice = true;
                 console.log(`[PRICING] ✅ RETURNING customer, using last purchase price: ₹${unitPrice}`);
             } else if (lastPurchasePrice) {
                 // Has last purchase but not flagged as returning - use last purchase
                 unitPrice = lastPurchasePrice;
                 priceSource = 'last_purchase';
+                hasAnyPersonalizedPrice = true;
             }
             
             // ✅ CRITICAL: If carton_price_override exists AND is different from base price,
@@ -187,6 +199,7 @@ const calculateComprehensivePricing = async (tenantId, cartItems, options = {}) 
 
                 unitPrice = item.carton_price_override;
                 priceSource = 'negotiated_discount';
+                hasAnyPersonalizedPrice = true;
                 console.log(`[PRICING] ✅ Using negotiated/discounted price for ${product.name}: ₹${unitPrice} (was ₹${lastPurchasePrice || catalogPrice})`);
             } else if (!options.ignorePriceOverride &&
                        item.carton_price_override &&
@@ -194,11 +207,13 @@ const calculateComprehensivePricing = async (tenantId, cartItems, options = {}) 
                 // carton_price_override matches last purchase price - no additional discount
                 unitPrice = lastPurchasePrice;
                 priceSource = 'last_purchase';
+                hasAnyPersonalizedPrice = true;
                 console.log(`[PRICING] Using last purchase price for ${product.name}: ₹${unitPrice} (was ₹${catalogPrice})`);
             } else if (options.ignorePriceOverride && item.carton_price_override) {
                 // Explicitly ignoring price override - use catalog or last purchase price
                 console.log(`[PRICING] ⚠️ Ignoring carton_price_override (₹${item.carton_price_override}) for ${product.name}, using ${priceSource} price: ₹${unitPrice}`);
             } else if (priceSource === 'last_purchase') {
+                hasAnyPersonalizedPrice = true;
                 console.log(`[PRICING] Using last purchase price for ${product.name}: ₹${unitPrice} (was ₹${catalogPrice})`);
             } else {
                 console.log(`[PRICING] Using catalog price for ${product.name}: ₹${unitPrice}`);
@@ -259,9 +274,23 @@ const calculateComprehensivePricing = async (tenantId, cartItems, options = {}) 
         const shippingCalc = await calculateShippingCharges(tenantId, totalCartons, discountedSubtotal);
         
         // Calculate GST on subtotal + shipping using your existing service
-        const isInterstate = await determineIfInterstate(tenantId, customerState);
         const taxableAmount = discountedSubtotal + shippingCalc.shippingCharges;
-        const gstCalc = await calculateGST(tenantId, taxableAmount, isInterstate);
+
+        let gstCalc;
+        if (includeGST === false) {
+            gstCalc = {
+                gstRate: 0,
+                gstAmount: 0,
+                cgstAmount: 0,
+                sgstAmount: 0,
+                igstAmount: 0,
+                isInterstate: false
+            };
+            console.log('[PRICING] GST skipped (includeGST=false)');
+        } else {
+            const isInterstate = await determineIfInterstate(tenantId, customerState);
+            gstCalc = await calculateGST(tenantId, taxableAmount, isInterstate);
+        }
 
         console.log('[PRICING] GST calculation result:', {
             taxableAmount,

@@ -31,8 +31,8 @@ const findOrCreateTenant = async (phoneNumber, botPhoneNumber) => {
         }
 
         // 3. If the tenant does not exist, create a new one.
-        const sevenDaysFromNow = new Date();
-        sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
+        const trialEndsAt = new Date();
+        trialEndsAt.setDate(trialEndsAt.getDate() + 14);
 
         const newReferralCode = generateReferralCode();
 
@@ -41,7 +41,7 @@ const findOrCreateTenant = async (phoneNumber, botPhoneNumber) => {
             .insert({
                 owner_whatsapp_number: phoneNumber,  // FIXED
                 bot_phone_number: botPhoneNumber,
-                trial_ends_at: sevenDaysFromNow.toISOString(),
+                trial_ends_at: trialEndsAt.toISOString(),
                 referral_code: newReferralCode
             })
             .select('*')
