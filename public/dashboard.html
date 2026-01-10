@@ -5028,18 +5028,25 @@
 
         const sendVia = (document.getElementById('broadcastSendVia')?.value || 'auto');
 
+        // Get bot delivery method from saved features (used to decide if WhatsApp Web checks are needed)
+        const savedFeatures = JSON.parse(localStorage.getItem(`tenant_features_${tenantId}`)) || {};
+        const botDeliveryMethod = savedFeatures.bot_delivery_method || 'desktop';
+
         // Check WhatsApp Web status before sending (only when relevant)
-        const waWebStatus = await checkWhatsAppWebStatus();
-        if (sendVia === 'whatsapp_web') {
-            if (!waWebStatus.connected) {
-                showNotification('WhatsApp Web is disconnected. Please connect WhatsApp Web or choose Maytapi.', 'error');
-                return;
-            }
-        } else if (sendVia === 'auto') {
-            if (!waWebStatus.connected) {
-                const proceed = confirm('⚠️ WhatsApp Web is disconnected. Broadcasts may fallback to Maytapi (Paid) if configured.\n\nDo you want to continue?');
-                if (!proceed) {
+        const needsWaWeb = (sendVia === 'whatsapp_web') || (sendVia === 'auto' && botDeliveryMethod === 'cloud');
+        if (needsWaWeb) {
+            const waWebStatus = await checkWhatsAppWebStatus();
+            if (sendVia === 'whatsapp_web') {
+                if (!waWebStatus.connected) {
+                    showNotification('WhatsApp Web is disconnected. Please connect WhatsApp Web or choose Maytapi.', 'error');
                     return;
+                }
+            } else if (sendVia === 'auto') {
+                if (!waWebStatus.connected) {
+                    const proceed = confirm('⚠️ WhatsApp Web is disconnected. Broadcasts may fallback to Maytapi (Paid) if configured.\n\nDo you want to continue?');
+                    if (!proceed) {
+                        return;
+                    }
                 }
             }
         }
@@ -5059,10 +5066,6 @@
             showNotification('Please upload an image', 'error');
             return;
         }
-
-        // Get bot delivery method from saved features
-        const savedFeatures = JSON.parse(localStorage.getItem(`tenant_features_${tenantId}`)) || {};
-        const botDeliveryMethod = savedFeatures.bot_delivery_method || 'desktop';
 
         // Provider forcing for broadcast (paid clients can choose per broadcast)
         let forceMethod = null;
