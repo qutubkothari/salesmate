@@ -1,4 +1,4 @@
-// ...existing code...
+﻿// ...existing code...
 // --- Outbound send guard: digits-only, payload normalize, provider logging ---
 try {
   const { initOutbound } = require('./services/outboundGuard');
@@ -63,7 +63,7 @@ const { processBroadcastQueue } = require('./services/broadcastService');
 const { runScheduledTasks } = require('./scheduler');
 
 // Import monitoring dependencies
-const { supabase } = require('./services/config');
+const { dbClient } = require('./services/config');
 
 try {
   statusWebhookRouter = require('./routes/statusWebhook');
@@ -180,6 +180,45 @@ app.get('/_ah/health', (_req, res) => {
   res.status(200).send('ok');
 });
 
+// Public tracked-link redirect (click tracking)
+// NOTE: No auth required; recipients will hit this from WhatsApp.
+app.get('/t/:code', async (req, res) => {
+  try {
+    const code = String(req.params.code || '').trim();
+    if (!code) return res.status(404).send('Not found');
+
+    const { data: link, error } = await dbClient
+      .from('tracked_links')
+      .select('original_url, click_count')
+      .eq('short_code', code)
+      .limit(1)
+      .single();
+
+    if (error || !link || !link.original_url) return res.status(404).send('Not found');
+
+    const originalUrl = String(link.original_url);
+    if (!/^https?:\/\//i.test(originalUrl)) return res.status(400).send('Invalid link');
+
+    // Best-effort increment
+    try {
+      const now = new Date().toISOString();
+      const currentCount = Number(link.click_count || 0);
+      await dbClient
+        .from('tracked_links')
+        .update({
+          click_count: currentCount + 1,
+          last_clicked_at: now
+        })
+        .eq('short_code', code);
+    } catch (_) {}
+
+    return res.redirect(302, originalUrl);
+  } catch (e) {
+    console.error('[TRACKED_LINK] redirect error:', e?.message || e);
+    return res.status(500).send('Server error');
+  }
+});
+
 // Desktop Agent Endpoints (MUST be before app.use('/api', apiRouter))
 app.post('/api/desktop-agent/register', async (req, res) => {
   try {
@@ -192,7 +231,7 @@ app.post('/api/desktop-agent/register', async (req, res) => {
     console.log(`[DESKTOP_AGENT] Agent connected: ${tenantId} | Phone: ${phoneNumber} | Device: ${deviceName}`);
 
     // Update tenant WhatsApp connection status
-    const { data, error } = await supabase
+    const { data, error } = await dbClient
       .from('tenants')
       .update({
         whatsapp_phone: phoneNumber,
@@ -201,7 +240,7 @@ app.post('/api/desktop-agent/register', async (req, res) => {
       .eq('id', tenantId);
 
     if (error) {
-      console.error('[DESKTOP_AGENT] Supabase error:', error);
+      console.error('[DESKTOP_AGENT] dbClient error:', error);
       // Don't fail if database update fails - agent can still work
       console.warn('[DESKTOP_AGENT] Continuing despite database error...');
     }
@@ -230,7 +269,7 @@ app.post('/api/desktop-agent/process-message', async (req, res) => {
     console.log(`[DESKTOP_AGENT] Message from ${from} (${tenantId}): ${message.substring(0, 50)}...`);
 
     // Fetch tenant
-    const { data: tenant, error: tenantError } = await supabase
+    const { data: tenant, error: tenantError } = await dbClient
       .from('tenants')
       .select('*')
       .eq('id', tenantId)
@@ -403,7 +442,7 @@ app.post('/api/admin/restart-waha', async (req, res) => {
 // Clear Tenant Data (preserve products)
 app.post('/api/admin/clear-tenant-data', async (req, res) => {
   try {
-    const { supabase } = require('./config/database');
+    const { dbClient } = require('./config/database');
     
     console.log('[ADMIN] Starting tenant data cleanup (preserving products)...');
     
@@ -424,13 +463,13 @@ app.post('/api/admin/clear-tenant-data', async (req, res) => {
     const results = {};
     
     for (const table of tables) {
-      const { data: countBefore, error: countError } = await supabase
+      const { data: countBefore, error: countError } = await dbClient
         .from(table)
         .select('*', { count: 'exact', head: true });
       
       const beforeCount = countError ? 0 : (countBefore?.length || 0);
       
-      const { error: deleteError, count } = await supabase
+      const { error: deleteError, count } = await dbClient
         .from(table)
         .delete()
         .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all
@@ -445,7 +484,7 @@ app.post('/api/admin/clear-tenant-data', async (req, res) => {
     }
     
     // Check products are preserved
-    const { count: productCount, error: prodError } = await supabase
+    const { count: productCount, error: prodError } = await dbClient
       .from('products')
       .select('*', { count: 'exact', head: true });
     
@@ -631,6 +670,21 @@ app.post('/api/waha/send-message', async (req, res) => {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
+    // Global opt-out enforcement
+    try {
+      const { isUnsubscribed, toDigits } = require('./services/unsubscribeService');
+      const { isBypassNumber } = require('./services/outboundPolicy');
+      const digits = toDigits(phone);
+      if (digits) {
+        const bypass = await isBypassNumber(digits);
+        if (!bypass && (await isUnsubscribed(digits))) {
+          return res.status(400).json({ ok: false, skipped: true, reason: 'unsubscribed' });
+        }
+      }
+    } catch (e) {
+      // Fail-open if policy lookup fails
+    }
+
     console.log(`[WAHA] Sending message via ${sessionName} to ${phone}`);
     
     const response = await wahaRequest('POST', '/api/sendText', {
@@ -665,6 +719,22 @@ app.post('/api/waha/webhook', async (req, res) => {
       const from = String(payload.from || '').replace('@c.us', '');
       const message = String(payload.body || '');
 
+      // Global opt-out enforcement for replies
+      try {
+        const { isUnsubscribed, toDigits } = require('./services/unsubscribeService');
+        const { isBypassNumber } = require('./services/outboundPolicy');
+        const digits = toDigits(from);
+        if (digits) {
+          const bypass = await isBypassNumber(digits);
+          if (!bypass && (await isUnsubscribed(digits))) {
+            console.warn('[WAHA] Skipped reply (unsubscribed):', digits);
+            return res.json({ ok: true, skipped: true, reason: 'unsubscribed' });
+          }
+        }
+      } catch (e) {
+        // Fail-open if policy lookup fails
+      }
+
       // Resolve tenantId
       let tenantId = null;
       if (typeof session === 'string' && session.startsWith('tenant_')) {
@@ -672,8 +742,8 @@ app.post('/api/waha/webhook', async (req, res) => {
       } else {
         // Fallback: map session_name -> tenant_id (common in local/dev)
         try {
-          const { supabase } = require('./services/config');
-          const { data: conn } = await supabase
+          const { dbClient } = require('./services/config');
+          const { data: conn } = await dbClient
             .from('whatsapp_connections')
             .select('tenant_id')
             .eq('session_name', String(session))
@@ -815,106 +885,13 @@ app.post('/api/waha/session/:sessionName/restart', async (req, res) => {
   }
 });
 
-// Send broadcast via Waha (helper function for broadcast.js)
-async function sendBroadcastViaWaha(sessionName, recipients, message, imageBase64 = null, delays = {}) {
-  const results = [];
-  const batchSize = delays.batchSize || 10;
-  const messageDelay = delays.messageDelay || 500;
-  const batchDelay = delays.batchDelay || 2000;
-
-  // Preflight: session must be WORKING or sending will silently fail depending on WAHA config
-  try {
-    const statusRes = await wahaRequest('GET', `/api/sessions/${sessionName}`);
-    const sessionStatus = statusRes?.data?.status;
-    if (sessionStatus !== 'WORKING') {
-      throw new Error(`WAHA session '${sessionName}' not ready (status=${sessionStatus || 'unknown'})`);
-    }
-  } catch (e) {
-    console.error('[WAHA_BROADCAST] Session preflight failed:', e.response?.data || e.message);
-    throw e;
-  }
-
-  console.log(`[WAHA_BROADCAST] Starting broadcast to ${recipients.length} recipients`);
-  console.log(`[WAHA_BROADCAST] Settings: batchSize=${batchSize}, messageDelay=${messageDelay}ms, batchDelay=${batchDelay}ms`);
-
-  for (let i = 0; i < recipients.length; i += batchSize) {
-    const batch = recipients.slice(i, i + batchSize);
-    console.log(`[WAHA_BROADCAST] Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(recipients.length / batchSize)}`);
-
-    for (const recipient of batch) {
-      try {
-        const phone = recipient.phone || recipient;
-        const normalized = normalizePhone(phone);
-        const chatId = toWhatsAppFormat(normalized);
-        if (!chatId) {
-          throw new Error('Invalid recipient phone number');
-        }
-
-        if (imageBase64) {
-          // Send image with caption
-          const resp = await wahaRequest('POST', '/api/sendImage', {
-            session: sessionName,
-            chatId: chatId,
-            file: {
-              mimetype: 'image/jpeg',
-              data: imageBase64
-            },
-            caption: message
-          });
-          if (resp?.data?.error) {
-            throw new Error(resp.data.error);
-          }
-        } else {
-          // Send text message
-          const resp = await wahaRequest('POST', '/api/sendText', {
-            session: sessionName,
-            chatId: chatId,
-            text: message
-          });
-          if (resp?.data?.error) {
-            throw new Error(resp.data.error);
-          }
-        }
-
-        results.push({ phone: normalized || String(phone), success: true });
-        console.log(`[WAHA_BROADCAST] ✅ Sent to ${normalized || phone}`);
-
-        // Delay between messages in batch
-        if (messageDelay > 0) {
-          await new Promise(resolve => setTimeout(resolve, messageDelay));
-        }
-
-      } catch (error) {
-        results.push({ phone: recipient.phone || recipient, success: false, error: error.message });
-        console.error(`[WAHA_BROADCAST] ❌ Failed to send to ${recipient.phone || recipient}:`, error.response?.data || error.message);
-      }
-    }
-
-    // Delay between batches
-    if (i + batchSize < recipients.length && batchDelay > 0) {
-      console.log(`[WAHA_BROADCAST] Waiting ${batchDelay}ms before next batch...`);
-      await new Promise(resolve => setTimeout(resolve, batchDelay));
-    }
-  }
-
-  const totalSent = results.filter(r => r.success).length;
-  const totalFailed = results.filter(r => !r.success).length;
-
-  console.log(`[WAHA_BROADCAST] Complete! Sent: ${totalSent}, Failed: ${totalFailed}`);
-
-  return {
-    success: true,
-    totalSent,
-    totalFailed,
-    results,
-    summary: {
-      successRate: `${Math.round((totalSent / recipients.length) * 100)}%`
-    }
-  };
+// Export for use in broadcast.js (kept for backward compatibility)
+try {
+  const { sendBroadcastViaWaha } = require('./services/wahaService');
+  module.exports.sendBroadcastViaWaha = sendBroadcastViaWaha;
+} catch (_) {
+  // Fail-closed: server can run without WAHA helper
 }
-
-// Export for use in broadcast.js
-module.exports.sendBroadcastViaWaha = sendBroadcastViaWaha;
 
 // Agent Login API (MUST be before app.use('/api', apiRouter))
 app.post('/api/agent-login', async (req, res) => {
@@ -929,7 +906,7 @@ app.post('/api/agent-login', async (req, res) => {
     phone = phone.replace(/[^0-9]/g, '');
 
     // Query tenant by owner_whatsapp_number (unified field for all systems)
-    const { data: tenant, error } = await supabase
+    const { data: tenant, error } = await dbClient
       .from('tenants')
       .select('*')
       .eq('owner_whatsapp_number', phone)
@@ -978,7 +955,7 @@ app.post('/api/agent-register', async (req, res) => {
     }
 
     // Check if phone already exists
-    const { data: existingTenant } = await supabase
+    const { data: existingTenant } = await dbClient
       .from('tenants')
       .select('id')
       .eq('owner_whatsapp_number', phone)
@@ -988,7 +965,7 @@ app.post('/api/agent-register', async (req, res) => {
       return res.status(400).json({ error: 'Phone number already registered' });
     }
 
-    // Prepare insert data (let Supabase generate UUID, email is optional)
+    // Prepare insert data (let dbClient generate UUID, email is optional)
     const insertData = {
       owner_whatsapp_number: phone,  // Unified phone field for all systems
       business_name: businessName,
@@ -1004,14 +981,14 @@ app.post('/api/agent-register', async (req, res) => {
     // Note: Email column doesn't exist in tenants table - storing phone only
 
     // Create tenant with password
-    const { data, error } = await supabase
+    const { data, error } = await dbClient
       .from('tenants')
       .insert(insertData)
       .select()
       .single();
 
     if (error) {
-      console.error('[AGENT_REGISTER] Supabase error:', error);
+      console.error('[AGENT_REGISTER] dbClient error:', error);
       return res.status(500).json({ error: 'Registration failed: ' + error.message });
     }
 
@@ -1046,7 +1023,7 @@ app.post('/api/agent-get-tenant', async (req, res) => {
     console.log(`[AGENT_GET_TENANT] Looking up phone: ${cleanPhone}`);
 
     // Query tenant by owner_whatsapp_number
-    const { data: tenant, error } = await supabase
+    const { data: tenant, error } = await dbClient
       .from('tenants')
       .select('id, business_name, owner_whatsapp_number')
       .eq('owner_whatsapp_number', cleanPhone)
@@ -1080,7 +1057,7 @@ app.get('/api/desktop-agent/status/:tenantId', async (req, res) => {
     console.log(`[DESKTOP_AGENT_STATUS] Checking agent for tenant: ${tenantId}`);
 
     // Get tenant's desktop agent URL (default to localhost:3001)
-    const { data: tenant } = await supabase
+    const { data: tenant } = await dbClient
       .from('tenants')
       .select('desktop_agent_url')
       .eq('id', tenantId)
@@ -1096,7 +1073,7 @@ app.get('/api/desktop-agent/status/:tenantId', async (req, res) => {
       });
 
       if (response.data && response.data.status === 'running') {
-        console.log(`[DESKTOP_AGENT_STATUS] ✅ Agent online for tenant ${tenantId}`);
+        console.log(`[DESKTOP_AGENT_STATUS] âœ… Agent online for tenant ${tenantId}`);
         return res.json({
           online: true,
           status: 'running',
@@ -1105,7 +1082,7 @@ app.get('/api/desktop-agent/status/:tenantId', async (req, res) => {
         });
       }
     } catch (agentError) {
-      console.log(`[DESKTOP_AGENT_STATUS] ⚠️  Agent offline for tenant ${tenantId}`);
+      console.log(`[DESKTOP_AGENT_STATUS] âš ï¸  Agent offline for tenant ${tenantId}`);
     }
 
     // Agent not reachable
@@ -1126,6 +1103,14 @@ app.use('/webhook', webhookRouter);
 app.use('/status', statusWebhookRouter);
 app.use('/api', apiRouter);
 app.use('/api/dashboard', dashboardRouter);
+
+// Leads API (mounted directly for robustness)
+try {
+  const leadsRouter = require('./routes/api/leads');
+  app.use('/api/leads', leadsRouter);
+} catch (e) {
+  console.warn('[BOOT] Leads API failed to load:', e?.message || e);
+}
 
 app.use('/api/orders', ordersRouter);
 app.use('/api', gstRoutes);
@@ -1193,7 +1178,7 @@ app.get('/health', async (req, res) => {
   try {
     // Database health check
     const dbStart = Date.now();
-    const { data, error } = await supabase
+    const { data, error } = await dbClient
       .from('tenants')
       .select('id', { count: 'exact', head: true })
       .limit(1);
@@ -1237,7 +1222,7 @@ app.get('/health', async (req, res) => {
 
     // Broadcast queue metrics
     try {
-      const { data: queueStats } = await supabase
+      const { data: queueStats } = await dbClient
         .from('bulk_schedules')
         .select('status')
         .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
@@ -1302,10 +1287,10 @@ app.get('/metrics', async (req, res) => {
     // Database metrics
     try {
       const [tenants, conversations, broadcasts, products] = await Promise.all([
-        supabase.from('tenants').select('count(*)'),
-        supabase.from('conversations').select('count(*)').gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()),
-        supabase.from('bulk_schedules').select('status, count(*)').gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()),
-        supabase.from('products').select('count(*)')
+        dbClient.from('tenants').select('count(*)'),
+        dbClient.from('conversations').select('count(*)').gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()),
+        dbClient.from('bulk_schedules').select('status, count(*)').gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()),
+        dbClient.from('products').select('count(*)')
       ]);
 
       metrics.database = {
@@ -1332,7 +1317,7 @@ app.get('/api/broadcast/status', async (req, res) => {
       return res.status(403).json({ error: 'forbidden' });
     }
 
-    const { data: queueData, error } = await supabase
+    const { data: queueData, error } = await dbClient
       .from('bulk_schedules')
       .select('*')
       .order('created_at', { ascending: false })
@@ -1431,6 +1416,21 @@ app.get('/api/debug/maytapi', async (req, res) => {
 
     const base = `https://api.maytapi.com/api/${PROD}/${PHONE}`;
 
+    // Global opt-out enforcement for the sanity ping number
+    try {
+      const { isUnsubscribed, toDigits } = require('./services/unsubscribeService');
+      const { isBypassNumber } = require('./services/outboundPolicy');
+      const digits = toDigits('918484830021');
+      if (digits) {
+        const bypass = await isBypassNumber(digits);
+        if (!bypass && (await isUnsubscribed(digits))) {
+          return res.json({ ok: false, skipped: true, reason: 'unsubscribed', number: digits });
+        }
+      }
+    } catch (e) {
+      // Fail-open if policy lookup fails
+    }
+
     // 1) Header style (per docs)
     const r1 = await fetch(`${base}/sendMessage`, {
       method: 'POST',
@@ -1458,33 +1458,6 @@ app.get('/api/debug/maytapi', async (req, res) => {
   }
 });
 
-// --- ADD: Supabase provider sanity ---
-app.get('/api/debug/supabase', async (req, res) => {
-  try {
-    const adminToken = process.env.ADMIN_TOKEN || '';
-    if (adminToken && req.get('x-admin-token') !== adminToken) {
-      return res.status(403).json({ ok:false, error:'forbidden' });
-    }
-    const { supabase } = require('./services/config');
-    const out = { ok: true, env: {} };
-
-    out.env.url_set  = !!process.env.SUPABASE_URL;
-    out.env.svc_key_set = !!(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY);
-    out.env.which_key = process.env.SUPABASE_SERVICE_ROLE_KEY ? 'SERVICE_ROLE_KEY' :
-                        (process.env.SUPABASE_SERVICE_KEY ? 'SERVICE_KEY' : 'none');
-
-    // simple probe: list 1 tenant id
-    const r = await supabase.from('tenants').select('id').limit(1);
-    out.query_status = r.error ? 'error' : 'ok';
-    out.query_error  = r.error ? (r.error.message || r.error) : null;
-    out.sample       = (r.data && r.data[0]) ? r.data[0] : null;
-
-    res.json(out);
-  } catch (e) {
-    res.status(200).json({ ok:false, error:String(e) });
-  }
-});
-
 // --- ADD: OpenAI env peek (safe, masked)
 app.get('/api/debug/env/openai', (req, res) => {
   const admin = process.env.ADMIN_TOKEN || '';
@@ -1500,7 +1473,7 @@ app.get('/api/debug/env/openai', (req, res) => {
     project_set: !!proj,
     model_fast: fast,
     model_smart: smart,
-    key_mask: key ? `${key.slice(0,6)}…${key.slice(-4)}` : null
+    key_mask: key ? `${key.slice(0,6)}â€¦${key.slice(-4)}` : null
   });
 });
 
@@ -1650,7 +1623,6 @@ app.get('/api/debug/health', async (req, res) => {
         fast: process.env.AI_MODEL_FAST || 'gpt-4o-mini',
         smart: process.env.AI_MODEL_SMART || 'gpt-4o',
         embed: process.env.EMBEDDING_MODEL || process.env.AI_EMBEDDING_MODEL || 'text-embedding-3-small',
-        supabase: !!process.env.SUPABASE_URL && !!process.env.SUPABASE_SERVICE_ROLE_KEY,
         maytapi: !!process.env.MAYTAPI_API_KEY,
       }
     };
@@ -1728,7 +1700,7 @@ app.get('/api/test/lead-score/:phone', async (req, res) => {
   const tenantId = req.query.tenant_id || 'default';
   
   try {
-    const { data: conversation } = await supabase
+    const { data: conversation } = await dbClient
       .from('conversations')
       .select('lead_score, context_analysis, follow_up_at, follow_up_count')
       .eq('tenant_id', tenantId)
@@ -1785,52 +1757,60 @@ app.get('/api/test/realtime-status', (req, res) => {
 
 // 2. Simulate a customer message (starts timer)
 app.post('/api/test/simulate-customer-message', (req, res) => {
-  const { phone, message } = req.body;
+  const { tenantId, tenant_id, phone, message } = req.body || {};
+  const resolvedTenantId = String(tenantId || tenant_id || '1');
   
   if (!phone) {
     return res.status(400).json({ error: 'Phone number required' });
   }
 
-  if (global.realtimeTestingService) {
-    global.realtimeTestingService.trackCustomerMessage(phone, {
-      type: 'text',
-      content: message || 'Test message',
-      timestamp: new Date()
-    });
-
-    res.json({
-      success: true,
-      message: `Customer message tracked for ${phone}`,
-      timerStarted: true,
-      timeoutIn: '5 minutes'
-    });
-  } else {
+  try {
+    const { trackCustomerMessage } = require('./services/realtimeTestingService');
+    trackCustomerMessage(resolvedTenantId, String(phone), String(message || 'Test message'))
+      .then(() => {
+        res.json({
+          success: true,
+          tenantId: resolvedTenantId,
+          phone: String(phone),
+          message: 'Customer message tracked',
+          timerStarted: true,
+          timeoutIn: '5 minutes'
+        });
+      })
+      .catch((e) => {
+        res.status(500).json({ error: e?.message || String(e) });
+      });
+  } catch (e) {
     res.status(500).json({ error: 'Realtime service not available' });
   }
 });
 
 // 3. Simulate a bot response (resets timer)
 app.post('/api/test/simulate-bot-response', (req, res) => {
-  const { phone, response } = req.body;
+  const { tenantId, tenant_id, phone, response } = req.body || {};
+  const resolvedTenantId = String(tenantId || tenant_id || '1');
   
   if (!phone) {
     return res.status(400).json({ error: 'Phone number required' });
   }
 
-  if (global.realtimeTestingService) {
-    global.realtimeTestingService.trackBotResponse(phone, {
-      type: 'text',
-      content: response || 'Test bot response',
-      timestamp: new Date()
-    });
-
-    res.json({
-      success: true,
-      message: `Bot response tracked for ${phone}`,
-      timerReset: true,
-      newTimeoutIn: '5 minutes'
-    });
-  } else {
+  try {
+    const { trackBotMessage } = require('./services/realtimeTestingService');
+    trackBotMessage(resolvedTenantId, String(phone), String(response || 'Test bot response'))
+      .then(() => {
+        res.json({
+          success: true,
+          tenantId: resolvedTenantId,
+          phone: String(phone),
+          message: 'Bot response tracked',
+          timerReset: true,
+          newTimeoutIn: '5 minutes'
+        });
+      })
+      .catch((e) => {
+        res.status(500).json({ error: e?.message || String(e) });
+      });
+  } catch (e) {
     res.status(500).json({ error: 'Realtime service not available' });
   }
 });
@@ -1949,7 +1929,7 @@ app.post('/api/test/preview-full-response', async (req, res) => {
       return res.json({ success: true, source: 'ai_fallback', result: { response: responseText } });
     } catch (aiErr) {
       console.warn('[TEST] AI fallback unavailable, using local search:', aiErr?.message || aiErr);
-      const { supabase } = require('./services/config');
+      const { dbClient } = require('./services/config');
       const needle = String(message || '').trim().slice(0, 120);
 
       // Local SQLite wrapper doesn't reliably support PostgREST-style `.or()` and `.ilike()`.
@@ -1958,17 +1938,17 @@ app.post('/api/test/preview-full-response', async (req, res) => {
       const safeIncludes = (haystack) => String(haystack || '').toLowerCase().includes(needleLower);
 
       const [docsRes, productsRes, websiteRes] = await Promise.all([
-        supabase
+        dbClient
           .from('tenant_documents')
           .select('original_name, filename, extracted_text')
           .eq('tenant_id', String(tenantId))
           .limit(50),
-        supabase
+        dbClient
           .from('products')
           .select('name, description, price')
           .eq('tenant_id', String(tenantId))
           .limit(200),
-        supabase
+        dbClient
           .from('website_embeddings')
           .select('content, chunk_text, source_url, url, page_title')
           .eq('tenant_id', String(tenantId))
@@ -1991,7 +1971,7 @@ app.post('/api/test/preview-full-response', async (req, res) => {
       if (products.length) {
         response += 'Products I found:\n';
         for (const p of products) {
-          response += `- ${p.name}${p.price ? ` (₹${p.price})` : ''}${p.description ? `: ${String(p.description).slice(0, 120)}` : ''}\n`;
+          response += `- ${p.name}${p.price ? ` (â‚¹${p.price})` : ''}${p.description ? `: ${String(p.description).slice(0, 120)}` : ''}\n`;
         }
         response += '\n';
       }
@@ -2000,7 +1980,7 @@ app.post('/api/test/preview-full-response', async (req, res) => {
         docs.forEach((d, i) => {
           const name = d.original_name || d.filename || `document ${i + 1}`;
           const snippet = String(d.extracted_text || '').trim().slice(0, 300);
-          response += `- ${name}: ${snippet}${snippet ? '…' : ''}\n`;
+          response += `- ${name}: ${snippet}${snippet ? 'â€¦' : ''}\n`;
         });
         response += '\n';
       }
@@ -2008,7 +1988,7 @@ app.post('/api/test/preview-full-response', async (req, res) => {
         response += 'From website indexing:\n';
         pages.forEach((p, i) => {
           const snippet = String(p.content || '').trim().slice(0, 300);
-          response += `- Source ${i + 1}: ${snippet}${snippet ? '…' : ''}${p.source_url ? `\n  ${p.source_url}` : ''}\n`;
+          response += `- Source ${i + 1}: ${snippet}${snippet ? 'â€¦' : ''}${p.source_url ? `\n  ${p.source_url}` : ''}\n`;
         });
         response += '\n';
       }
@@ -2031,23 +2011,76 @@ app.post('/api/test/preview-full-response', async (req, res) => {
 
 // 4. Force trigger timeout (for immediate testing)
 app.post('/api/test/force-timeout', (req, res) => {
-  const { phone } = req.body;
+  const { tenantId, tenant_id, phone } = req.body || {};
+  const resolvedTenantId = String(tenantId || tenant_id || '1');
   
   if (!phone) {
     return res.status(400).json({ error: 'Phone number required' });
   }
 
-  if (global.realtimeTestingService) {
-    // Trigger timeout immediately
-    global.realtimeTestingService.handleConversationTimeout(phone);
-
-    res.json({
-      success: true,
-      message: `Timeout manually triggered for ${phone}`,
-      note: 'Check logs for follow-up creation'
-    });
-  } else {
+  try {
+    const { triggerTestAnalysis } = require('./services/realtimeTestingService');
+    triggerTestAnalysis(resolvedTenantId, String(phone))
+      .then((ok) => {
+        res.json({
+          success: !!ok,
+          tenantId: resolvedTenantId,
+          phone: String(phone),
+          message: ok ? 'Timeout/analysis triggered' : 'No active conversation found'
+        });
+      })
+      .catch((e) => res.status(500).json({ error: e?.message || String(e) }));
+  } catch (e) {
     res.status(500).json({ error: 'Realtime service not available' });
+  }
+});
+
+// 4.1 Force lead scoring (and auto-triage for HOT) - best for local smoke testing
+app.post('/api/test/score-lead', async (req, res) => {
+  const adminToken = process.env.ADMIN_TOKEN || '';
+  if (adminToken && req.get('x-admin-token') !== adminToken) {
+    return res.status(403).json({ error: 'forbidden' });
+  }
+
+  const { tenantId, tenant_id, phone } = req.body || {};
+  const resolvedTenantId = String(tenantId || tenant_id || '1');
+  if (!phone) return res.status(400).json({ error: 'phone required' });
+
+  try {
+    const { scoreLead } = require('./services/leadScoringService');
+    await scoreLead(resolvedTenantId, String(phone));
+
+    const { data: conversation } = await dbClient
+      .from('conversations')
+      .select('id, lead_score')
+      .eq('tenant_id', resolvedTenantId)
+      .eq('end_user_phone', String(phone))
+      .single();
+
+    const convId = conversation?.id || null;
+    let triage = [];
+    if (convId) {
+      const triageRes = await dbClient
+        .from('triage_queue')
+        .select('id, status, type, created_at')
+        .eq('tenant_id', resolvedTenantId)
+        .eq('conversation_id', convId)
+        .order('created_at', { ascending: false })
+        .limit(5);
+      triage = triageRes?.data || [];
+    }
+
+    return res.json({
+      success: true,
+      tenantId: resolvedTenantId,
+      phone: String(phone),
+      conversationId: convId,
+      leadScore: conversation?.lead_score || null,
+      triage
+    });
+  } catch (error) {
+    console.error('[TEST] score-lead error:', error);
+    return res.status(500).json({ error: error?.message || 'Failed to score lead' });
   }
 });
 
@@ -2214,7 +2247,7 @@ app.post('/api/register-tenant', async (req, res) => {
     }
 
     // Save tenant to database
-    const { data, error } = await supabase
+    const { data, error } = await dbClient
       .from('tenants')
       .upsert({
         id: tenantId,
@@ -2227,7 +2260,7 @@ app.post('/api/register-tenant', async (req, res) => {
       });
 
     if (error) {
-      console.error('[REGISTER_TENANT] Supabase error:', error);
+      console.error('[REGISTER_TENANT] dbClient error:', error);
       return res.status(500).json({ error: 'Failed to register tenant' });
     }
 
@@ -2259,20 +2292,20 @@ app.get('/api/status', async (req, res) => {
 
     // Get message count for today
     const today = new Date().toISOString().split('T')[0];
-    const { data: messages, error: msgError } = await supabase
+    const { data: messages, error: msgError } = await dbClient
       .from('messages')
       .select('id', { count: 'exact', head: true })
       .eq('tenant_id', tenantId)
       .gte('created_at', today);
 
     // Get order count
-    const { data: orders, error: orderError } = await supabase
+    const { data: orders, error: orderError } = await dbClient
       .from('orders')
       .select('id', { count: 'exact', head: true })
       .eq('tenant_id', tenantId);
 
     // Get unique customer count
-    const { data: customers, error: custError } = await supabase
+    const { data: customers, error: custError } = await dbClient
       .from('customers')
       .select('phone', { count: 'exact', head: true })
       .eq('tenant_id', tenantId);
@@ -2346,7 +2379,7 @@ const server = app.listen(PORT, async () => {
     }
 });
 
-console.log('🧪 Test endpoints loaded:');
+console.log('ðŸ§ª Test endpoints loaded:');
 console.log('  GET  /api/test/realtime-status');
 console.log('  POST /api/test/simulate-customer-message');
 console.log('  POST /api/test/simulate-bot-response'); 
@@ -2362,9 +2395,9 @@ try {
   const shipmentTrackingCron = require('./schedulers/shipmentTrackingCron');
   console.log('[SHIPMENT_TRACKING] Initializing cron job...');
   shipmentTrackingCron.start();
-  console.log('[SHIPMENT_TRACKING] ✅ Cron job started - checking daily at 9 AM');
+  console.log('[SHIPMENT_TRACKING] âœ… Cron job started - checking daily at 9 AM');
 } catch (error) {
-  console.error('[SHIPMENT_TRACKING] ❌ Failed to start cron:', error.message);
+  console.error('[SHIPMENT_TRACKING] âŒ Failed to start cron:', error.message);
   console.error('[SHIPMENT_TRACKING] Stack:', error.stack);
 }
 
@@ -2446,15 +2479,25 @@ module.exports = {
 };
 
 // Initialize intelligence scheduler
-require('./schedulers/intelligenceRunner')
+try {
+  require('./schedulers/intelligenceRunner');
+  console.log('[INIT] Intelligence scheduler initialized');
+} catch (e) {
+  console.warn('[INIT] Intelligence scheduler failed to load:', e?.message || e);
+}
 
 // Initialize follow-up schedulers
-const { initializeFollowUpScheduler } = require('./schedulers/followUpCron');
-const { initializeIntelligentFollowUpScheduler } = require('./schedulers/intelligentFollowUpCron');
+try {
+  const { initializeFollowUpScheduler } = require('./schedulers/followUpCron');
+  const { initializeIntelligentFollowUpScheduler } = require('./schedulers/intelligentFollowUpCron');
+  
+  // Start follow-up schedulers
+  initializeFollowUpScheduler();  // Manual "remind me" follow-ups (every 5 minutes)
+  initializeIntelligentFollowUpScheduler();  // Intelligent behavioral follow-ups (daily at 9 AM)
+  
+  console.log('[INIT] Follow-up schedulers initialized');
+} catch (e) {
+  console.warn('[INIT] Follow-up schedulers failed to load:', e?.message || e);
+}
 
-// Start follow-up schedulers
-initializeFollowUpScheduler();  // Manual "remind me" follow-ups (every 5 minutes)
-initializeIntelligentFollowUpScheduler();  // Intelligent behavioral follow-ups (daily at 9 AM)
-
-console.log('[INIT] Follow-up schedulers initialized');
 

@@ -1,5 +1,5 @@
-require('dotenv').config();
-const { supabase } = require('./config/database');
+﻿require('dotenv').config();
+const { dbClient } = require('./config/database');
 
 (async () => {
   const phone = '96567709452@c.us';
@@ -8,7 +8,7 @@ const { supabase } = require('./config/database');
   console.log('Checking discount context for:', phone);
 
   // Get conversation
-  const { data: conv } = await supabase
+  const { data: conv } = await dbClient
     .from('conversations')
     .select('*')
     .eq('end_user_phone', phone)
@@ -27,7 +27,7 @@ const { supabase } = require('./config/database');
   console.log('Last Quoted Products:', conv.last_quoted_products);
 
   // Get cart
-  const { data: cart } = await supabase
+  const { data: cart } = await dbClient
     .from('carts')
     .select('id, cart_items(*, products(*))')
     .eq('conversation_id', conv.id)
@@ -42,7 +42,7 @@ const { supabase } = require('./config/database');
   }
 
   // Check customer profile and orders
-  const { data: profile } = await supabase
+  const { data: profile } = await dbClient
     .from('customer_profiles')
     .select('id')
     .eq('phone_number', phone)
@@ -50,7 +50,7 @@ const { supabase } = require('./config/database');
     .maybeSingle();
 
   if (profile) {
-    const { count } = await supabase
+    const { count } = await dbClient
       .from('orders')
       .select('*', { count: 'exact', head: true })
       .eq('customer_profile_id', profile.id)
@@ -62,3 +62,4 @@ const { supabase } = require('./config/database');
     console.log('Is Returning Customer:', count > 0);
   }
 })();
+

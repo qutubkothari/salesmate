@@ -1,8 +1,8 @@
-/**
+﻿/**
  * @title AI Conversation Tagging Service
  * @description Manages the logic for automatically analyzing and tagging conversations using AI.
  */
-const { supabase, openai } = require('./config');
+const { dbClient, openai } = require('./config');
 const { getConversationId } = require('./historyService');
 const { normalizeConversationHistory, conversationHistoryToText, getConversationTextForAnalysis } = require('./followUpService');
 
@@ -15,7 +15,7 @@ const { normalizeConversationHistory, conversationHistoryToText, getConversation
 const getOrCreateTags = async (tenantId, tagNames) => {
     // Upsert the tags. This will create any tags that don't exist and do nothing for those that do.
     // The `onConflict` option ensures we don't create duplicate tags for the same tenant.
-    const { data, error } = await supabase
+    const { data, error } = await dbClient
         .from('tags')
         .upsert(
             tagNames.map(name => ({ tenant_id: tenantId, tag_name: name.toLowerCase() })),
@@ -37,7 +37,7 @@ const analyzeAndTagConversation = async (tenantId, endUserPhone) => {
         const conversationId = await getConversationId(tenantId, endUserPhone);
         if (!conversationId) return;
 
-        const { data: messages, error: messagesError } = await supabase
+        const { data: messages, error: messagesError } = await dbClient
             .from('messages')
             .select('sender, message_body')
             .eq('conversation_id', conversationId)
@@ -107,7 +107,7 @@ const analyzeAndTagConversation = async (tenantId, endUserPhone) => {
         }));
 
         // 3. Insert the links, ignoring any duplicates
-        await supabase.from('conversation_tags').upsert(conversationTags, { onConflict: 'conversation_id, tag_id' });
+        await dbClient.from('conversation_tags').upsert(conversationTags, { onConflict: 'conversation_id, tag_id' });
 
         console.log(`Applied tags to conversation with ${endUserPhone}: ${tagNames.join(', ')}`);
 
@@ -127,7 +127,7 @@ const listConversationTags = async (tenantId, endUserPhone) => {
         const conversationId = await getConversationId(tenantId, endUserPhone);
         if (!conversationId) return `No conversation found for ${endUserPhone}.`;
 
-        const { data, error } = await supabase
+        const { data, error } = await dbClient
             .from('conversation_tags')
             .select(`
                 tag:tags (tag_name)
@@ -152,3 +152,4 @@ module.exports = {
     analyzeAndTagConversation,
     listConversationTags,
 };
+

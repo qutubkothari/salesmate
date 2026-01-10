@@ -1,6 +1,6 @@
-// services/pdfUploadService.js
+﻿// services/pdfUploadService.js
 const { bucket } = require('./config');
-const { supabase } = require('./config');
+const { dbClient } = require('./config');
 const fetch = require('node-fetch');
 const crypto = require('crypto');
 
@@ -66,7 +66,7 @@ const uploadPDFToGCS = async (pdfUrl, tenantId, category = 'customer_documents',
  */
 const savePDFMetadata = async (tenantId, phoneNumber, originalUrl, gcsUrl, analysis, filename) => {
     try {
-        const { data, error } = await supabase
+        const { data, error } = await dbClient
             .from('uploaded_documents')
             .insert({
                 tenant_id: tenantId,

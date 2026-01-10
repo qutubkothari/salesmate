@@ -1,11 +1,11 @@
-/**
+﻿/**
  * Dashboard API Routes for Website Content Management
  * Handles crawling, embedding, and searching website content
  */
 
 const express = require('express');
 const router = express.Router();
-const { supabase } = require('../../services/config');
+const { dbClient } = require('../../services/config');
 const { crawlWebsite, crawlMultipleUrls, crawlEntireWebsite, parseSitemap, normalizeUrl } = require('../../services/webCrawlerService');
 const { processWebsiteContent, deleteWebsiteEmbeddings } = require('../../services/websiteEmbeddingService');
 const { 
@@ -31,7 +31,7 @@ router.post('/website-content/crawl/:tenantId', async (req, res) => {
         console.log(`[Dashboard] Starting crawl for tenant ${tenantId}: ${url}`);
 
         // Create crawl job
-        const { data: job, error: jobError } = await supabase
+        const { data: job, error: jobError } = await dbClient
             .from('crawl_jobs')
             .insert({
                 tenant_id: tenantId,
@@ -52,7 +52,7 @@ router.post('/website-content/crawl/:tenantId', async (req, res) => {
 
         if (!crawlResult.success) {
             // Update job as failed
-            await supabase
+            await dbClient
                 .from('crawl_jobs')
                 .update({
                     status: 'failed',
@@ -71,7 +71,7 @@ router.post('/website-content/crawl/:tenantId', async (req, res) => {
         const embeddingResult = await processWebsiteContent(crawlResult, tenantId);
 
         // Update job as completed
-        await supabase
+        await dbClient
             .from('crawl_jobs')
             .update({
                 status: 'completed',
@@ -115,7 +115,7 @@ router.post('/website-content/crawl-all/:tenantId', async (req, res) => {
         console.log(`[Dashboard] Starting full website crawl for tenant ${tenantId}: ${url}`);
 
         // Create master job
-        const { data: masterJob, error: jobError } = await supabase
+        const { data: masterJob, error: jobError } = await dbClient
             .from('crawl_jobs')
             .insert({
                 tenant_id: tenantId,
@@ -192,7 +192,7 @@ router.post('/website-content/crawl-all/:tenantId', async (req, res) => {
         }
 
         // Update master job
-        await supabase
+        await dbClient
             .from('crawl_jobs')
             .update({
                 status: 'completed',
@@ -238,7 +238,7 @@ router.post('/website-content/crawl-batch/:tenantId', async (req, res) => {
 
         for (const url of urls) {
             // Create job
-            const { data: job } = await supabase
+            const { data: job } = await dbClient
                 .from('crawl_jobs')
                 .insert({
                     tenant_id: tenantId,
@@ -254,7 +254,7 @@ router.post('/website-content/crawl-batch/:tenantId', async (req, res) => {
             if (crawlResult.success) {
                 const embeddingResult = await processWebsiteContent(crawlResult, tenantId);
                 
-                await supabase
+                await dbClient
                     .from('crawl_jobs')
                     .update({
                         status: 'completed',
@@ -270,7 +270,7 @@ router.post('/website-content/crawl-batch/:tenantId', async (req, res) => {
                     chunksCreated: embeddingResult.chunksCreated
                 });
             } else {
-                await supabase
+                await dbClient
                     .from('crawl_jobs')
                     .update({
                         status: 'failed',
@@ -412,7 +412,7 @@ router.get('/website-content/jobs/:tenantId', async (req, res) => {
     const { limit = 20 } = req.query;
 
     try {
-        const { data, error } = await supabase
+        const { data, error } = await dbClient
             .from('crawl_jobs')
             .select('*')
             .eq('tenant_id', tenantId)
@@ -457,3 +457,4 @@ router.get('/website-content/product/:tenantId/:productCode', async (req, res) =
 });
 
 module.exports = router;
+

@@ -1,14 +1,14 @@
-// services/humanHandoverService.js
-const { supabase } = require('./config');
+﻿// services/humanHandoverService.js
+const { dbClient } = require('./config');
 const { sendMessage } = require('./whatsappService');
 const { logMessage } = require('./historyService');
 
 const detectHandoverTriggers = (userQuery) => {
-    // ✅ CRITICAL FIX: Remove ALL discount/pricing patterns
+    // âœ… CRITICAL FIX: Remove ALL discount/pricing patterns
     // Discount negotiation should be handled by discountNegotiationService, NOT handover
     
     const handoverPatterns = [
-        // ✅ ONLY explicit human interaction requests
+        // âœ… ONLY explicit human interaction requests
         /(?:speak|talk)\s+(?:to|with)\s+(?:a\s+)?(?:human|person|someone|agent|representative|team|manager)/i,
         /(?:connect|transfer)\s+me\s+(?:to|with)\s+(?:a\s+)?(?:human|person|agent|team)/i,
         /\bneed\s+(?:to\s+)?(?:speak|talk)\s+(?:to|with)\s+(?:a\s+)?(?:human|person|someone)/i,
@@ -16,21 +16,21 @@ const detectHandoverTriggers = (userQuery) => {
         /\bactual\s+(?:person|human)\b/i,
         /\bcustomer\s+(?:service|support|care)\b/i,
         
-        // ✅ Complaints and issues (but NOT pricing complaints)
+        // âœ… Complaints and issues (but NOT pricing complaints)
         /\b(?:complaint|complain|not\s+happy|disappointed|angry|furious)\b/i,
         /\b(?:broken|damaged|defective|faulty|wrong\s+item)\b/i,
         /\bnot\s+working\b/i,
         /\bvery\s+(?:bad|poor|terrible)\s+(?:service|quality|experience)\b/i,
         
-        // ✅ Custom/special requirements
+        // âœ… Custom/special requirements
         /\bcustom\s+(?:order|product|solution|requirement)\b/i,
         /\bspecial\s+(?:requirement|request|order)\b/i,
         /\bmodification\b/i,
         
-        // ✅ Urgent matters
+        // âœ… Urgent matters
         /\b(?:urgent|emergency|asap|immediately|right\s+now)\b.*(?:help|need|require)/i,
         
-        // ✅ Hinglish patterns for human interaction
+        // âœ… Hinglish patterns for human interaction
         /\b(?:insaan|aadmi|vyakti)\s+(?:se|ko)\s+(?:baat|bat)\b/i,
         /\bmanushya\s+se\s+(?:baat|sampark)\b/i
     ];
@@ -38,7 +38,7 @@ const detectHandoverTriggers = (userQuery) => {
     const hasHandoverTrigger = handoverPatterns.some(pattern => pattern.test(userQuery.toLowerCase()));
     
     if (hasHandoverTrigger) {
-        console.log('[HANDOVER] ✅ Explicit human interaction request detected');
+        console.log('[HANDOVER] âœ… Explicit human interaction request detected');
     }
     
     return hasHandoverTrigger;
@@ -72,7 +72,7 @@ const notifySalesTeam = async (tenant, customerPhone, userQuery, conversationCon
 
 const getSalesNumbers = async (tenantId) => {
     try {
-        const { data: tenant } = await supabase
+        const { data: tenant } = await dbClient
             .from('tenants')
             .select('sales_phone_primary, sales_phone_secondary, sales_team_phones')
             .eq('id', tenantId)
@@ -108,7 +108,7 @@ const getSalesNumbers = async (tenantId) => {
 const createHandoverMessage = (tenant, customerPhone, userQuery, context) => {
     const timestamp = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
     
-    return `🔔 **Customer Needs Assistance**
+    return `ðŸ”” **Customer Needs Assistance**
     
 **Business:** ${tenant.business_name}
 **Customer:** ${customerPhone}
@@ -120,7 +120,7 @@ const createHandoverMessage = (tenant, customerPhone, userQuery, context) => {
 **Context:**
 ${context.lastProduct ? `Last discussed: ${context.lastProduct}` : ''}
 ${context.cartItems ? `Cart: ${context.cartItems} items` : ''}
-${context.orderValue ? `Order Value: ₹${context.orderValue}` : ''}
+${context.orderValue ? `Order Value: â‚¹${context.orderValue}` : ''}
 
 **Action Required:**
 ${getActionSuggestion(userQuery)}
@@ -132,20 +132,20 @@ const getActionSuggestion = (query) => {
     const lowerQuery = query.toLowerCase();
     
     if (/complaint|problem|issue|not\s+working|broken|damaged/i.test(lowerQuery)) {
-        return "⚠️ Customer has a complaint/issue - needs immediate attention";
+        return "âš ï¸ Customer has a complaint/issue - needs immediate attention";
     } else if (/custom|special|modification/i.test(lowerQuery)) {
-        return "🔧 Customer needs custom solution or special requirements";
+        return "ðŸ”§ Customer needs custom solution or special requirements";
     } else if (/urgent|emergency|asap/i.test(lowerQuery)) {
-        return "🚨 URGENT: Customer needs immediate assistance";
+        return "ðŸš¨ URGENT: Customer needs immediate assistance";
     } else {
-        return "💬 Customer requesting human assistance";
+        return "ðŸ’¬ Customer requesting human assistance";
     }
 };
 
 const sendHandoverResponse = async (customerPhone, tenantId, userLanguage = 'english') => {
     const responses = {
-        english: "I've connected you with our sales team for personalized assistance. A team member will contact you shortly to help with your specific requirements. Thank you for your patience! 🙏",
-        hinglish: "Main aapko hamare sales team se connect kar diya hai personalized help ke liye. Ek team member aapko jaldi contact karega aapki specific requirements ke liye. Thank you for your patience! 🙏"
+        english: "I've connected you with our sales team for personalized assistance. A team member will contact you shortly to help with your specific requirements. Thank you for your patience! ðŸ™",
+        hinglish: "Main aapko hamare sales team se connect kar diya hai personalized help ke liye. Ek team member aapko jaldi contact karega aapki specific requirements ke liye. Thank you for your patience! ðŸ™"
     };
     
     const message = responses[userLanguage] || responses.english;
@@ -159,3 +159,4 @@ module.exports = {
     sendHandoverResponse,
     getSalesNumbers
 };
+

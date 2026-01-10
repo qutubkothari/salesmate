@@ -1,5 +1,5 @@
-// services/customerProfileService.js
-const { supabase } = require('./config');
+﻿// services/customerProfileService.js
+const { dbClient } = require('./config');
 const { normalizePhone, toWhatsAppFormat } = require('../utils/phoneUtils');
 
 const USE_LOCAL_DB = process.env.USE_LOCAL_DB === 'true';
@@ -19,7 +19,7 @@ function normalizeCustomerRow(row) {
  */
 async function searchCustomers(params) {
     const { tenantId, phone, name, minSpent, maxSpent, minOrderDate, maxOrderDate } = params;
-    let query = supabase
+    let query = dbClient
         .from('customer_profiles')
         .select('*')
         .eq('tenant_id', tenantId);
@@ -47,7 +47,7 @@ async function getCustomerByPhone(tenantId, rawPhone) {
     const normalizedPhone = normalizePhone(rawPhone);
     if (!tenantId || !normalizedPhone) return { customer: null, error: null };
 
-    const { data, error } = await supabase
+    const { data, error } = await dbClient
         .from('customer_profiles')
         .select('*')
         .eq('tenant_id', tenantId)
@@ -87,7 +87,7 @@ async function upsertCustomerByPhone(tenantId, rawPhone, profileData) {
     const { customer: existing } = await getCustomerByPhone(tenantId, normalizedPhone);
 
     if (existing && existing.id) {
-        const { data, error } = await supabase
+        const { data, error } = await dbClient
             .from('customer_profiles')
             .update({ ...allowed, updated_at: now })
             .eq('tenant_id', tenantId)
@@ -107,7 +107,7 @@ async function upsertCustomerByPhone(tenantId, rawPhone, profileData) {
         updated_at: now
     };
 
-    const { data, error } = await supabase
+    const { data, error } = await dbClient
         .from('customer_profiles')
         .insert(insertPayload)
         .select('*')
@@ -133,11 +133,11 @@ async function getCustomerProfile(tenantId, rawPhone) {
         normalized: normalizedPhone
     });
     
-    const { data: profile, error } = await supabase
+    const { data: profile, error } = await dbClient
         .from('customer_profiles')
         .select('*')
         .eq('tenant_id', tenantId)
-        .eq(CUSTOMER_PHONE_COL, normalizedPhone)  // ✅ Use normalized phone
+        .eq(CUSTOMER_PHONE_COL, normalizedPhone)  // âœ… Use normalized phone
         .maybeSingle();
     
     if (error && error.code !== 'PGRST116') {
@@ -165,9 +165,9 @@ async function upsertCustomerProfile(tenantId, rawPhone, profileData) {
         data: profileData
     });
     
-    // Supabase has upsert; local SQLite wrapper does not.
-    if (!USE_LOCAL_DB && typeof supabase.from('customer_profiles').upsert === 'function') {
-        const { data, error } = await supabase
+    // dbClient has upsert; local SQLite wrapper does not.
+    if (!USE_LOCAL_DB && typeof dbClient.from('customer_profiles').upsert === 'function') {
+        const { data, error } = await dbClient
             .from('customer_profiles')
             .upsert({
                 tenant_id: tenantId,
@@ -208,7 +208,7 @@ const syncCustomerProfile = async (tenantId, phoneNumber, whatsappProfile = null
         }
 
         // Get existing conversation
-        const { data: conversation, error: convErr } = await supabase
+        const { data: conversation, error: convErr } = await dbClient
             .from('conversations')
             .select('id, customer_name, customer_name_updated_at')
             .eq('tenant_id', tenantId)
@@ -229,7 +229,7 @@ const syncCustomerProfile = async (tenantId, phoneNumber, whatsappProfile = null
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString()
             };
-            const { data: profile, error } = await supabase
+            const { data: profile, error } = await dbClient
                 .from('customer_profiles')
                 .upsert(profileData, { onConflict: 'tenant_id,phone' })
                 .select()
@@ -243,7 +243,7 @@ const syncCustomerProfile = async (tenantId, phoneNumber, whatsappProfile = null
 
         // Conversation exists - ensure customer_profiles record exists too
         const whatsappPhone = toWhatsAppFormat(phoneNumber);
-        const { data: existingProfile, error: profileCheckError } = await supabase
+        const { data: existingProfile, error: profileCheckError } = await dbClient
             .from('customer_profiles')
             .select('id')
             .eq('tenant_id', tenantId)
@@ -258,7 +258,7 @@ const syncCustomerProfile = async (tenantId, phoneNumber, whatsappProfile = null
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString()
             };
-            const { error: createError } = await supabase
+            const { error: createError } = await dbClient
                 .from('customer_profiles')
                 .insert(profileData);
             
@@ -294,7 +294,7 @@ const syncCustomerProfile = async (tenantId, phoneNumber, whatsappProfile = null
         }
 
         // Update customer name
-        const { data: updated, error } = await supabase
+        const { data: updated, error } = await dbClient
             .from('conversations')
             .update({
                 customer_name: newName,
@@ -463,7 +463,7 @@ const batchSyncCustomerProfiles = async (tenantId, batchSize = 10) => {
 
         // Get conversations that need profile updates
         // Priority: conversations without names or old updates
-        const { data: conversations, error } = await supabase
+        const { data: conversations, error } = await dbClient
             .from('conversations')
             .select('id, end_user_phone, customer_name, customer_name_updated_at')
             .eq('tenant_id', tenantId)
@@ -532,7 +532,7 @@ const cleanupCustomerNames = async (tenantId) => {
         console.log('[CUSTOMER_PROFILE] Starting name cleanup for tenant:', tenantId);
 
         // Find conversations with potentially invalid names
-        const { data: conversations, error } = await supabase
+        const { data: conversations, error } = await dbClient
             .from('conversations')
             .select('id, customer_name')
             .eq('tenant_id', tenantId)
@@ -552,7 +552,7 @@ const cleanupCustomerNames = async (tenantId) => {
                 const cleanedName = cleanupName(name);
                 
                 if (cleanedName !== name) {
-                    const { error: updateError } = await supabase
+                    const { error: updateError } = await dbClient
                         .from('conversations')
                         .update({ 
                             customer_name: cleanedName,
@@ -623,7 +623,7 @@ module.exports = {
     fetchWhatsAppProfile,
     extractNameFromProfile,
     getCustomerProfile,
-    upsertCustomerProfile,  // ✅ Export new function
+    upsertCustomerProfile,  // âœ… Export new function
     getCustomerByPhone,
     upsertCustomerByPhone,
     batchSyncCustomerProfiles,
@@ -631,3 +631,4 @@ module.exports = {
     shouldUpdateCustomerName,
     searchCustomers
 };
+

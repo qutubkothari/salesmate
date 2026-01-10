@@ -1,5 +1,5 @@
-// services/automation/proactiveMessaging.js
-const { supabase } = require('../config');
+﻿// services/automation/proactiveMessaging.js
+const { dbClient } = require('../config');
 const { sendMessage } = require('../whatsappService');
 const anomalyDetector = require('../intelligence/anomalyDetector');
 
@@ -16,7 +16,7 @@ async function sendProactiveReminders() {
             const today = new Date();
             const results = { checked: 0, reminded: 0, skipped: 0, errors: 0 };
             // Get all active customer profiles with order history
-            const { data: customers, error } = await supabase
+            const { data: customers, error } = await dbClient
                 .from('customer_profiles')
                 .select('id, phone, first_name, tenant_id, last_order_date')
                 .not('last_order_date', 'is', null)
@@ -31,7 +31,7 @@ async function sendProactiveReminders() {
                 results.checked++;
                 try {
                     // Check if reminder was sent recently (don't spam)
-                    const { data: recentReminder } = await supabase
+                    const { data: recentReminder } = await dbClient
                         .from('proactive_messages')
                         .select('id, sent_at')
                         .eq('customer_profile_id', customer.id)
@@ -44,10 +44,10 @@ async function sendProactiveReminders() {
                         continue;
                     }
                     // Check if customer recently messaged us (don't interrupt active conversations)
-                    const { data: recentMessage } = await supabase
+                    const { data: recentMessage } = await dbClient
                         .from('messages')
                         .select('created_at')
-                        .eq('conversation_id', (await supabase
+                        .eq('conversation_id', (await dbClient
                             .from('conversations')
                             .select('id')
                             .eq('end_user_phone', customer.phone)
@@ -85,7 +85,7 @@ async function sendProactiveReminders() {
                     const regularProducts = affinity.filter(p => p.is_regular_product);
                     let productMention = '';
                     if (regularProducts.length > 0) {
-                        const { data: products } = await supabase
+                        const { data: products } = await dbClient
                             .from('products')
                             .select('name')
                             .in('id', regularProducts.slice(0, 3).map(p => p.product_id));
@@ -103,7 +103,7 @@ async function sendProactiveReminders() {
                     // Send reminder
                     await sendMessage(customer.phone, message);
                     // Log the proactive message
-                    await supabase
+                    await dbClient
                         .from('proactive_messages')
                         .insert({
                             customer_profile_id: customer.id,
@@ -114,7 +114,7 @@ async function sendProactiveReminders() {
                             days_since_last_order: daysSinceLastOrder,
                             expected_reorder_date: frequency.expected_next_order
                         });
-                    console.log(`[PROACTIVE] ✅ Sent reminder to ${customer.first_name} (${daysSinceLastOrder} days since last order)`);
+                    console.log(`[PROACTIVE] âœ… Sent reminder to ${customer.first_name} (${daysSinceLastOrder} days since last order)`);
                     results.reminded++;
                     // Small delay between messages to avoid rate limits
                     await new Promise(resolve => setTimeout(resolve, 2000));
@@ -135,7 +135,7 @@ async function sendProactiveReminders() {
 async function sendManagerAlerts(tenantId, alertType, data) {
         try {
             // Get tenant's admin phones
-            const { data: tenant } = await supabase
+            const { data: tenant } = await dbClient
                 .from('tenants')
                 .select('admin_phones, sales_phone_primary')
                 .eq('id', tenantId)
@@ -148,16 +148,16 @@ async function sendManagerAlerts(tenantId, alertType, data) {
             let alertMessage = '';
             switch (alertType) {
                 case 'large_order':
-                    alertMessage = `🚨 Large Order Alert!\n\nCustomer: ${data.customerName}\nOrder Value: ₹${data.orderValue}\nProducts: ${data.productCount} items`;
+                    alertMessage = `ðŸš¨ Large Order Alert!\n\nCustomer: ${data.customerName}\nOrder Value: â‚¹${data.orderValue}\nProducts: ${data.productCount} items`;
                     break;
                 case 'vip_activity':
-                    alertMessage = `⭐ VIP Customer Activity\n\nCustomer: ${data.customerName}\nAction: ${data.action}\nLifetime Value: ₹${data.lifetimeValue}`;
+                    alertMessage = `â­ VIP Customer Activity\n\nCustomer: ${data.customerName}\nAction: ${data.action}\nLifetime Value: â‚¹${data.lifetimeValue}`;
                     break;
                 case 'unusual_pattern':
-                    alertMessage = `⚠️ Unusual Pattern Detected\n\nCustomer: ${data.customerName}\nPattern: ${data.pattern}\nAction: ${data.action}`;
+                    alertMessage = `âš ï¸ Unusual Pattern Detected\n\nCustomer: ${data.customerName}\nPattern: ${data.pattern}\nAction: ${data.action}`;
                     break;
                 default:
-                    alertMessage = `📢 Alert: ${alertType}\n\n${JSON.stringify(data, null, 2)}`;
+                    alertMessage = `ðŸ“¢ Alert: ${alertType}\n\n${JSON.stringify(data, null, 2)}`;
             }
             // Send to all admin phones
             for (const phone of adminPhones) {

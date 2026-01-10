@@ -1,8 +1,8 @@
-/**
+﻿/**
  * @title Order Management Service
  * @description Manages the logic for fetching and updating order statuses.
  */
-const { supabase } = require('./config');
+const { dbClient } = require('./config');
 
 /**
  * Fetches the status of the most recent order for an end-user.
@@ -12,12 +12,12 @@ const { supabase } = require('./config');
  */
 const getOrderStatus = async (tenantId, endUserPhone) => {
     try {
-        const conversationId = (await supabase.from('conversations').select('id').eq('tenant_id', tenantId).eq('end_user_phone', endUserPhone).single())?.data?.id;
+        const conversationId = (await dbClient.from('conversations').select('id').eq('tenant_id', tenantId).eq('end_user_phone', endUserPhone).single())?.data?.id;
         if (!conversationId) {
             return "You do not have any order history with us.";
         }
 
-        const { data: order, error } = await supabase
+        const { data: order, error } = await dbClient
             .from('orders')
             .select('id, status, created_at')
             .eq('conversation_id', conversationId)
@@ -55,12 +55,12 @@ const updateOrderStatus = async (tenantId, endUserPhone, newStatus) => {
     }
 
     try {
-        const conversationId = (await supabase.from('conversations').select('id').eq('tenant_id', tenantId).eq('end_user_phone', endUserPhone).single())?.data?.id;
+        const conversationId = (await dbClient.from('conversations').select('id').eq('tenant_id', tenantId).eq('end_user_phone', endUserPhone).single())?.data?.id;
         if (!conversationId) {
             return `No order history found for customer ${endUserPhone}.`;
         }
 
-        const { data: order, error: findError } = await supabase
+        const { data: order, error: findError } = await dbClient
             .from('orders')
             .select('id')
             .eq('conversation_id', conversationId)
@@ -72,7 +72,7 @@ const updateOrderStatus = async (tenantId, endUserPhone, newStatus) => {
             return `No order history found for customer ${endUserPhone}.`;
         }
 
-        const { error: updateError } = await supabase
+        const { error: updateError } = await dbClient
             .from('orders')
             .update({ status: newStatus.toLowerCase() })
             .eq('id', order.id);
@@ -91,3 +91,4 @@ module.exports = {
     getOrderStatus,
     updateOrderStatus,
 };
+

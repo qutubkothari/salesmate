@@ -1,7 +1,7 @@
-// routes/api/followups.js
+﻿// routes/api/followups.js
 const express = require('express');
 const router = express.Router();
-const { supabase } = require('../../services/config');
+const { dbClient } = require('../../services/config');
 const { scheduleFollowUp, generateFollowUpConfirmation } = require('../../services/followUpSchedulerService');
 const { sendMessage } = require('../../services/whatsappService');
 const { getConversationId } = require('../../services/historyService');
@@ -68,7 +68,7 @@ router.get('/:tenantId', async (req, res) => {
         const { tenantId } = req.params;
         const { status, customer_phone, limit = 100 } = req.query;
 
-        let query = supabase
+        let query = dbClient
             .from('scheduled_followups')
             .select('*')
             .eq('tenant_id', tenantId)
@@ -90,7 +90,7 @@ router.get('/:tenantId', async (req, res) => {
         // Manually fetch customer profiles for each follow-up
         const followupsWithCustomers = await Promise.all(
             (followups || []).map(async (followup) => {
-                const { data: customer } = await supabase
+                const { data: customer } = await dbClient
                     .from('customer_profiles')
                     .select('phone, name, business_name')
                     .eq('phone', followup.end_user_phone)
@@ -128,7 +128,7 @@ router.get('/:tenantId/stats', async (req, res) => {
         const { tenantId } = req.params;
 
         // Get counts by status
-        const { data: stats, error } = await supabase
+        const { data: stats, error } = await dbClient
             .from('scheduled_followups')
             .select('status')
             .eq('tenant_id', tenantId);
@@ -152,7 +152,7 @@ router.get('/:tenantId/stats', async (req, res) => {
         const now = new Date();
         const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
-        const { data: upcoming, error: upcomingError } = await supabase
+        const { data: upcoming, error: upcomingError } = await dbClient
             .from('scheduled_followups')
             .select('id')
             .eq('tenant_id', tenantId)
@@ -192,7 +192,7 @@ router.get('/:tenantId/leads', async (req, res) => {
         const { tenantId } = req.params;
         const { lead_type, limit = 200 } = req.query;
 
-        const { data: conversations, error } = await supabase
+        const { data: conversations, error } = await dbClient
             .from('conversations')
             .select('id, end_user_phone, created_at, last_message_at, lead_type')
             .eq('tenant_id', tenantId)
@@ -208,7 +208,7 @@ router.get('/:tenantId/leads', async (req, res) => {
             // Best-effort persistence (ignore schema mismatch in non-local deployments)
             if (c?.id && c.lead_type !== computed) {
                 try {
-                    await supabase
+                    await dbClient
                         .from('conversations')
                         .update({ lead_type: computed })
                         .eq('id', c.id)
@@ -270,7 +270,7 @@ router.post('/:tenantId', async (req, res) => {
         }
 
         // Create follow-up
-        const { data: followUp, error } = await supabase
+        const { data: followUp, error } = await dbClient
             .from('scheduled_followups')
             .insert({
                 tenant_id: tenantId,
@@ -320,7 +320,7 @@ router.put('/:tenantId/:followupId', async (req, res) => {
         if (description) updates.description = description;
         if (status) updates.status = status;
 
-        const { data: followUp, error } = await supabase
+        const { data: followUp, error } = await dbClient
             .from('scheduled_followups')
             .update(updates)
             .eq('id', followupId)
@@ -353,7 +353,7 @@ router.delete('/:tenantId/:followupId', async (req, res) => {
     try {
         const { tenantId, followupId } = req.params;
 
-        const { error } = await supabase
+        const { error } = await dbClient
             .from('scheduled_followups')
             .update({ status: 'cancelled' })
             .eq('id', followupId)
@@ -384,7 +384,7 @@ router.post('/:tenantId/:followupId/send-now', async (req, res) => {
         const { tenantId, followupId } = req.params;
 
         // Get the follow-up
-        const { data: followUp, error: fetchError } = await supabase
+        const { data: followUp, error: fetchError } = await dbClient
             .from('scheduled_followups')
             .select('*')
             .eq('id', followupId)
@@ -446,7 +446,7 @@ router.get('/:tenantId/suggestions', async (req, res) => {
         const suggestions = [];
 
         // Abandoned carts
-        const { data: abandonedCarts } = await supabase
+        const { data: abandonedCarts } = await dbClient
             .from('carts')
             .select(`
                 conversation_id,
@@ -470,7 +470,7 @@ router.get('/:tenantId/suggestions', async (req, res) => {
                     customer_name: cart.conversations.customer?.business_name || cart.conversations.customer?.name,
                     reason: 'Cart abandoned for 3+ days',
                     suggested_time: new Date(Date.now() + 2 * 60 * 60 * 1000), // 2 hours from now
-                    message_template: '👋 Hi! I noticed you left some items in your cart. Would you like to complete your order?'
+                    message_template: 'ðŸ‘‹ Hi! I noticed you left some items in your cart. Would you like to complete your order?'
                 });
             });
         }
@@ -516,3 +516,4 @@ router.post('/:tenantId/trigger-intelligent', async (req, res) => {
 });
 
 module.exports = router;
+

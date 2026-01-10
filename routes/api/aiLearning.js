@@ -1,6 +1,6 @@
-const express = require('express');
+﻿const express = require('express');
 const router = express.Router();
-const { supabase } = require('../../config/database');
+const { dbClient } = require('../../config/database');
 const { getLearningInsights } = require('../../services/aiConversationContextService');
 
 /**
@@ -14,7 +14,7 @@ router.get('/ai-learning', async (req, res) => {
         const insights = await getLearningInsights();
         
         // Get overall stats
-        const { data: stats } = await supabase
+        const { data: stats } = await dbClient
             .from('ai_context_analysis_log')
             .select('outcome_correct, ai_confidence')
             .not('outcome_correct', 'is', null);
@@ -28,14 +28,14 @@ router.get('/ai-learning', async (req, res) => {
             : 0;
         
         // Get recent analyses
-        const { data: recentAnalyses } = await supabase
+        const { data: recentAnalyses } = await dbClient
             .from('ai_context_analysis_log')
             .select('*')
             .order('created_at', { ascending: false })
             .limit(50);
         
         // Get insights view
-        const { data: performanceByIntent } = await supabase
+        const { data: performanceByIntent } = await dbClient
             .from('ai_context_learning_insights')
             .select('*')
             .order('occurrence_count', { ascending: false });
@@ -58,7 +58,7 @@ router.get('/ai-learning', async (req, res) => {
                 aiAction: a.ai_action,
                 confidence: a.ai_confidence,
                 reasoning: a.ai_reasoning,
-                outcome: a.outcome_correct === true ? '✅ Correct' : a.outcome_correct === false ? '❌ Incorrect' : '⏳ Pending',
+                outcome: a.outcome_correct === true ? 'âœ… Correct' : a.outcome_correct === false ? 'âŒ Incorrect' : 'â³ Pending',
                 timestamp: a.created_at
             }))
         });
@@ -74,7 +74,7 @@ router.post('/ai-learning/:id/mark-correct', async (req, res) => {
         const { id } = req.params;
         const { outcome } = req.body;
         
-        await supabase
+        await dbClient
             .from('ai_context_analysis_log')
             .update({
                 outcome_correct: true,
@@ -95,7 +95,7 @@ router.post('/ai-learning/:id/mark-incorrect', async (req, res) => {
         const { id } = req.params;
         const { actualIntent, actualAction } = req.body;
         
-        await supabase
+        await dbClient
             .from('ai_context_analysis_log')
             .update({
                 outcome_correct: false,
@@ -112,3 +112,4 @@ router.post('/ai-learning/:id/mark-incorrect', async (req, res) => {
 });
 
 module.exports = router;
+

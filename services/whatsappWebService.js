@@ -1,11 +1,11 @@
-/**
+﻿/**
  * WhatsApp Web Service using whatsapp-web.js
  * Standalone broadcast system with QR code authentication
  */
 
-const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
+const { Client, LocalAuth, MessageMedia, Buttons, List } = require('whatsapp-web.js');
 const qrcode = require('qrcode');
-const { supabase } = require('./config');
+const { dbClient } = require('./config');
 const { toWhatsAppFormat } = require('./phoneUtils');
 const puppeteer18 = require('puppeteer18');
 const fs = require('fs');
@@ -95,7 +95,7 @@ async function initializeClient(tenantId) {
 
         // Cache tenant record for message routing
         try {
-            const { data: tenant, error } = await supabase
+            const { data: tenant, error } = await dbClient
                 .from('tenants')
                 .select('*')
                 .eq('id', tenantId)
@@ -149,7 +149,7 @@ async function initializeClient(tenantId) {
                     const sessionName = 'default';
                     let existing = null;
                     try {
-                        const r = await supabase
+                        const r = await dbClient
                             .from('whatsapp_connections')
                             .select('*')
                             .eq('tenant_id', tenantId)
@@ -162,7 +162,7 @@ async function initializeClient(tenantId) {
                     }
 
                     if (existing?.id) {
-                        await supabase
+                        await dbClient
                             .from('whatsapp_connections')
                             .update({
                                 qr_code: qrDataUrl,
@@ -171,7 +171,7 @@ async function initializeClient(tenantId) {
                             })
                             .eq('id', existing.id);
                     } else {
-                        await supabase
+                        await dbClient
                             .from('whatsapp_connections')
                             .insert({
                                 tenant_id: tenantId,
@@ -201,7 +201,7 @@ async function initializeClient(tenantId) {
                 console.log(`[WA_WEB] Phone info:`, info.wid.user);
                 
                 // Update database - use update instead of upsert to avoid conflict
-                const { data, error } = await supabase
+                const { data, error } = await dbClient
                     .from('whatsapp_connections')
                     .update({
                         phone_number: info.wid.user,
@@ -222,7 +222,7 @@ async function initializeClient(tenantId) {
             }
         });
 
-        // Inbound message → route through existing AI handler and reply via WhatsApp Web
+        // Inbound message â†’ route through existing AI handler and reply via WhatsApp Web
         client.on('message', async (msg) => {
             try {
                 if (!msg || msg.fromMe) return;
@@ -234,10 +234,38 @@ async function initializeClient(tenantId) {
                 const from = String(msg.from || '').replace(/@c\.us$/i, '').trim();
                 if (!from) return;
 
+                // Best-effort: store inbound message for reply tracking
+                try {
+                    const fromDigits = String(from).replace(/\D/g, '');
+                    if (fromDigits) {
+                        const messageId = (() => {
+                            try {
+                                if (typeof msg.id === 'string') return msg.id;
+                                if (msg.id && typeof msg.id.id === 'string') return msg.id.id;
+                                return null;
+                            } catch {
+                                return null;
+                            }
+                        })();
+
+                        await dbClient
+                            .from('inbound_messages')
+                            .insert({
+                                tenant_id: tenantId,
+                                from_phone: fromDigits,
+                                body,
+                                received_at: new Date().toISOString(),
+                                message_id: messageId
+                            });
+                    }
+                } catch (e) {
+                    // Non-critical
+                }
+
                 const tenant = tenantCache.get(tenantId);
                 if (!tenant) {
                     // Best-effort re-fetch
-                    const { data: t } = await supabase
+                    const { data: t } = await dbClient
                         .from('tenants')
                         .select('*')
                         .eq('id', tenantId)
@@ -286,6 +314,22 @@ async function initializeClient(tenantId) {
                     global.capturedMessage = prevCaptured;
                     global.capturedMessages = prevCapturedMessages;
 
+                    // Global opt-out enforcement for replies
+                    try {
+                        const { isUnsubscribed, toDigits } = require('./unsubscribeService');
+                        const { isBypassNumber } = require('./outboundPolicy');
+                        const digits = toDigits(from);
+                        if (digits) {
+                            const bypass = await isBypassNumber(digits);
+                            if (!bypass && (await isUnsubscribed(digits))) {
+                                console.warn('[WA_WEB] Skipped reply (unsubscribed):', digits);
+                                return;
+                            }
+                        }
+                    } catch (e) {
+                        // Fail-open if policy lookup fails
+                    }
+
                     // Send captured responses via WhatsApp Web (if any)
                     for (const text of outgoing) {
                         if (typeof text !== 'string' || !text.trim()) continue;
@@ -311,7 +355,7 @@ async function initializeClient(tenantId) {
             
             // Update database
             try {
-                await supabase
+                await dbClient
                     .from('whatsapp_connections')
                     .update({
                         status: 'disconnected',
@@ -332,7 +376,7 @@ async function initializeClient(tenantId) {
             await destroyAndCleanupClient(tenantId, 'auth_failed');
             
             // Update database
-            await supabase
+            await dbClient
                 .from('whatsapp_connections')
                 .update({
                     status: 'auth_failed',
@@ -355,7 +399,7 @@ async function initializeClient(tenantId) {
 
             // Best-effort update DB so UI reflects reality.
             try {
-                await supabase
+                await dbClient
                     .from('whatsapp_connections')
                     .update({
                         status: 'timeout',
@@ -433,7 +477,7 @@ async function disconnectClient(tenantId) {
         }
 
         // Update database
-        await supabase
+        await dbClient
             .from('whatsapp_connections')
             .update({
                 status: 'disconnected',
@@ -461,6 +505,23 @@ async function sendWebMessage(tenantId, phoneNumber, message) {
     const status = clientStatus.get(tenantId);
     if (status !== 'ready') {
         throw new Error(`WhatsApp client not ready. Current status: ${status}`);
+    }
+
+    // Global opt-out enforcement
+    try {
+        const { isUnsubscribed, toDigits } = require('./unsubscribeService');
+        const { isBypassNumber } = require('./outboundPolicy');
+        const digits = toDigits(phoneNumber);
+        if (digits) {
+            const bypass = await isBypassNumber(digits);
+            if (!bypass && (await isUnsubscribed(digits))) {
+                throw new Error('User unsubscribed');
+            }
+        }
+    } catch (e) {
+        // If the policy modules load but the check itself throws 'User unsubscribed', bubble it.
+        if (String(e?.message || e).includes('User unsubscribed')) throw e;
+        // Otherwise fail-open to avoid breaking WA web service unexpectedly.
     }
 
     try {
@@ -491,6 +552,123 @@ async function sendWebMessage(tenantId, phoneNumber, message) {
     }
 }
 
+async function ensureWebReadyAndRecipient(tenantId, phoneNumber) {
+    const client = clients.get(tenantId);
+    if (!client) {
+        throw new Error('WhatsApp client not initialized. Please connect via QR code first.');
+    }
+
+    const status = clientStatus.get(tenantId);
+    if (status !== 'ready') {
+        throw new Error(`WhatsApp client not ready. Current status: ${status}`);
+    }
+
+    // Global opt-out enforcement
+    try {
+        const { isUnsubscribed, toDigits } = require('./unsubscribeService');
+        const { isBypassNumber } = require('./outboundPolicy');
+        const digits = toDigits(phoneNumber);
+        if (digits) {
+            const bypass = await isBypassNumber(digits);
+            if (!bypass && (await isUnsubscribed(digits))) {
+                throw new Error('User unsubscribed');
+            }
+        }
+    } catch (e) {
+        if (String(e?.message || e).includes('User unsubscribed')) throw e;
+    }
+
+    const chatId = toWhatsAppFormat(phoneNumber);
+    if (!chatId) {
+        throw new Error('Invalid recipient phone number');
+    }
+
+    const isRegistered = await client.isRegisteredUser(chatId);
+    if (!isRegistered) {
+        throw new Error('Recipient is not registered on WhatsApp');
+    }
+
+    return { client, chatId };
+}
+
+function normalizeButtonsPayload(payload) {
+    const body = String(payload?.body || payload?.text || '');
+    const title = payload?.header != null ? String(payload.header) : (payload?.title != null ? String(payload.title) : '');
+    const footer = payload?.footer != null ? String(payload.footer) : '';
+    const inputButtons = Array.isArray(payload?.buttons) ? payload.buttons : [];
+
+    // whatsapp-web.js buttons expect up to 3 buttons generally.
+    const mapped = inputButtons
+        .filter(Boolean)
+        .slice(0, 3)
+        .map((b, i) => ({ body: String(b?.title || b?.text || b?.body || b?.id || `Option ${i + 1}`) }));
+
+    return { body, title, footer, buttons: mapped };
+}
+
+function normalizeListPayload(payload) {
+    const body = String(payload?.body || payload?.text || '');
+    const buttonText = String(payload?.buttonText || payload?.button || 'Choose');
+    const title = payload?.title != null ? String(payload.title) : '';
+    const footer = payload?.footer != null ? String(payload.footer) : '';
+
+    const inputSections = Array.isArray(payload?.sections) ? payload.sections : [];
+    const sections = inputSections
+        .filter(Boolean)
+        .slice(0, 10)
+        .map((s, si) => {
+            const sTitle = s?.title != null ? String(s.title) : `Section ${si + 1}`;
+            const rowsIn = Array.isArray(s?.rows) ? s.rows : [];
+            const rows = rowsIn
+                .filter(Boolean)
+                .slice(0, 25)
+                .map((r, ri) => ({
+                    title: String(r?.title || r?.text || `Item ${ri + 1}`),
+                    description: r?.description != null ? String(r.description) : '',
+                    rowId: String(r?.id || r?.rowId || `${si + 1}-${ri + 1}`)
+                }));
+            return { title: sTitle, rows };
+        });
+
+    return { body, buttonText, sections, title, footer };
+}
+
+async function sendWebButtonsMessage(tenantId, phoneNumber, payload) {
+    if (typeof Buttons !== 'function') {
+        throw new Error('Buttons are not supported by this whatsapp-web.js build');
+    }
+
+    const { client, chatId } = await ensureWebReadyAndRecipient(tenantId, phoneNumber);
+    const { body, buttons, title, footer } = normalizeButtonsPayload(payload);
+
+    if (!body) throw new Error('buttons body/text is required');
+    if (!buttons.length) throw new Error('buttons[] is required');
+
+    const buttonsMessage = new Buttons(body, buttons, title || undefined, footer || undefined);
+    const sentMessage = await client.sendMessage(chatId, buttonsMessage);
+
+    return { success: true, messageId: sentMessage.id.id };
+}
+
+async function sendWebListMessage(tenantId, phoneNumber, payload) {
+    if (typeof List !== 'function') {
+        throw new Error('Lists are not supported by this whatsapp-web.js build');
+    }
+
+    const { client, chatId } = await ensureWebReadyAndRecipient(tenantId, phoneNumber);
+    const { body, buttonText, sections, title, footer } = normalizeListPayload(payload);
+
+    if (!body) throw new Error('list body/text is required');
+    if (!sections.length || !sections.some(s => Array.isArray(s.rows) && s.rows.length)) {
+        throw new Error('list sections/rows are required');
+    }
+
+    const listMessage = new List(body, buttonText, sections, title || undefined, footer || undefined);
+    const sentMessage = await client.sendMessage(chatId, listMessage);
+
+    return { success: true, messageId: sentMessage.id.id };
+}
+
 /**
  * Send image message via WhatsApp Web
  */
@@ -504,6 +682,21 @@ async function sendWebImageMessage(tenantId, phoneNumber, caption, imageBase64Or
     const status = clientStatus.get(tenantId);
     if (status !== 'ready') {
         throw new Error(`WhatsApp client not ready. Current status: ${status}`);
+    }
+
+    // Global opt-out enforcement
+    try {
+        const { isUnsubscribed, toDigits } = require('./unsubscribeService');
+        const { isBypassNumber } = require('./outboundPolicy');
+        const digits = toDigits(phoneNumber);
+        if (digits) {
+            const bypass = await isBypassNumber(digits);
+            if (!bypass && (await isUnsubscribed(digits))) {
+                throw new Error('User unsubscribed');
+            }
+        }
+    } catch (e) {
+        if (String(e?.message || e).includes('User unsubscribed')) throw e;
     }
 
     try {
@@ -551,6 +744,70 @@ async function sendWebImageMessage(tenantId, phoneNumber, caption, imageBase64Or
 }
 
 /**
+ * Send document message via WhatsApp Web
+ */
+async function sendWebDocumentMessage(tenantId, phoneNumber, documentBase64OrBuffer, filename, caption = '') {
+    const client = clients.get(tenantId);
+
+    if (!client) {
+        throw new Error('WhatsApp client not initialized. Please connect via QR code first.');
+    }
+
+    const status = clientStatus.get(tenantId);
+    if (status !== 'ready') {
+        throw new Error(`WhatsApp client not ready. Current status: ${status}`);
+    }
+
+    // Global opt-out enforcement
+    try {
+        const { isUnsubscribed, toDigits } = require('./unsubscribeService');
+        const { isBypassNumber } = require('./outboundPolicy');
+        const digits = toDigits(phoneNumber);
+        if (digits) {
+            const bypass = await isBypassNumber(digits);
+            if (!bypass && (await isUnsubscribed(digits))) {
+                throw new Error('User unsubscribed');
+            }
+        }
+    } catch (e) {
+        if (String(e?.message || e).includes('User unsubscribed')) throw e;
+    }
+
+    try {
+        const chatId = toWhatsAppFormat(phoneNumber);
+        if (!chatId) {
+            throw new Error('Invalid recipient phone number');
+        }
+
+        const isRegistered = await client.isRegisteredUser(chatId);
+        if (!isRegistered) {
+            throw new Error('Recipient is not registered on WhatsApp');
+        }
+
+        const base64 = Buffer.isBuffer(documentBase64OrBuffer)
+            ? documentBase64OrBuffer.toString('base64')
+            : String(documentBase64OrBuffer || '');
+
+        const lower = String(filename || '').toLowerCase();
+        const mimetype = lower.endsWith('.pdf') ? 'application/pdf' : 'application/octet-stream';
+
+        const media = new MessageMedia(mimetype, base64, filename || 'document');
+
+        const sentMessage = await client.sendMessage(chatId, media, caption ? { caption } : undefined);
+
+        console.log(`[WA_WEB] Document sent to ${phoneNumber} via tenant ${tenantId}`);
+
+        return {
+            success: true,
+            messageId: sentMessage.id.id
+        };
+    } catch (error) {
+        console.error(`[WA_WEB] Error sending document to ${phoneNumber}:`, error);
+        throw error;
+    }
+}
+
+/**
  * Check if number is registered on WhatsApp
  */
 async function isRegisteredUser(tenantId, phoneNumber) {
@@ -592,7 +849,7 @@ async function autoInitializeConnectedClients() {
     try {
         console.log('[WA_WEB] Auto-initializing connected clients on server startup...');
         
-        const { data: connections, error } = await supabase
+        const { data: connections, error } = await dbClient
             .from('whatsapp_connections')
             .select('tenant_id, status')
             .eq('status', 'connected');
@@ -631,9 +888,13 @@ module.exports = {
     getClientStatus,
     disconnectClient,
     sendWebMessage,
+    sendWebButtonsMessage,
+    sendWebListMessage,
     sendWebImageMessage,
+    sendWebDocumentMessage,
     sendWebMessageWithMedia: sendWebImageMessage, // Alias for broadcast compatibility
     isRegisteredUser,
     getAllConnections,
     autoInitializeConnectedClients
 };
+

@@ -1,8 +1,8 @@
-/**
+﻿/**
  * @title System Health Check Service
  * @description Manages diagnostic checks for the platform's external dependencies.
  */
-const { supabase, openai } = require('./config');
+const { dbClient, openai } = require('./config');
 
 /**
  * Runs a series of checks to verify the status of external services.
@@ -10,16 +10,16 @@ const { supabase, openai } = require('./config');
  */
 const runHealthChecks = async () => {
     console.log('Running system health checks...');
-    let report = '🩺 *System Health Check Report*\n\n';
+    let report = 'ðŸ©º *System Health Check Report*\n\n';
     let allSystemsOperational = true;
 
-    // 1. Check Supabase Connection
+    // 1. Check dbClient Connection
     try {
-        const { error } = await supabase.from('tenants').select('id').limit(1);
+        const { error } = await dbClient.from('tenants').select('id').limit(1);
         if (error) throw error;
-        report += '- Supabase DB Connection: ✅ Operational\n';
+        report += '- dbClient DB Connection: âœ… Operational\n';
     } catch (error) {
-        report += `- Supabase DB Connection: ❌ FAILED\n  - Error: ${error.message}\n`;
+        report += `- dbClient DB Connection: âŒ FAILED\n  - Error: ${error.message}\n`;
         allSystemsOperational = false;
     }
 
@@ -27,9 +27,9 @@ const runHealthChecks = async () => {
     try {
         // A lightweight call to list models to verify the API key and connectivity.
         await openai.models.list({ limit: 1 });
-        report += '- OpenAI API Connection: ✅ Operational\n';
+        report += '- OpenAI API Connection: âœ… Operational\n';
     } catch (error) {
-        report += `- OpenAI API Connection: ❌ FAILED\n  - Error: ${error.message}\n`;
+        report += `- OpenAI API Connection: âŒ FAILED\n  - Error: ${error.message}\n`;
         allSystemsOperational = false;
     }
 
@@ -48,3 +48,4 @@ const runHealthChecks = async () => {
 module.exports = {
     runHealthChecks,
 };
+

@@ -1,8 +1,8 @@
-/**
+﻿/**
  * @title Conversation History Service
  * @description Manages logging messages and retrieving conversation transcripts.
  */
-const { supabase } = require('./config');
+const { dbClient } = require('./config');
 
 /**
  * Finds or creates a conversation record and returns its ID.
@@ -13,7 +13,7 @@ const { supabase } = require('./config');
 const getConversationId = async (tenantId, endUserPhone) => {
     try {
         // First, try to find an existing conversation
-        let { data: conversation, error: findError } = await supabase
+        let { data: conversation, error: findError } = await dbClient
             .from('conversations')
             .select('id')
             .eq('tenant_id', tenantId)
@@ -30,7 +30,7 @@ const getConversationId = async (tenantId, endUserPhone) => {
         }
 
         // If not found, create a new one
-        const { data: newConversation, error: createError } = await supabase
+        const { data: newConversation, error: createError } = await dbClient
             .from('conversations')
             .insert({
                 tenant_id: tenantId,
@@ -77,7 +77,7 @@ const logMessage = async (tenantId, endUserPhone, sender, messageBody, messageTy
             payload.tenant_id = tenantId;
         }
 
-        const { error } = await supabase
+        const { error } = await dbClient
             .from('messages')
             .insert(payload);
 
@@ -102,7 +102,7 @@ const getConversationHistory = async (tenantId, endUserPhone) => {
             return `No conversation history found for ${endUserPhone}.`;
         }
 
-        const { data: messages, error } = await supabase
+        const { data: messages, error } = await dbClient
             .from('messages')
             .select('sender, message_body, created_at')
             .eq('conversation_id', conversationId)
@@ -134,4 +134,5 @@ module.exports = {
     getConversationHistory,
     getConversationId
 };
+
 

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Shipment Tracking Service
  * 
  * Handles shipment tracking for various logistics providers
@@ -8,7 +8,7 @@
 
 const axios = require('axios');
 const cheerio = require('cheerio');
-const { supabase } = require('../config/database');
+const { dbClient } = require('../config/database');
 
 // Cloud Run scraper service URL
 const SCRAPER_SERVICE_URL = process.env.VRL_SCRAPER_URL || 'https://vrl-scraper-557586370061.asia-south1.run.app';
@@ -237,7 +237,7 @@ function parseVRLResponse(html, lrNumber) {
  */
 async function saveShipmentTracking(orderId, lrNumber, transporter, trackingData) {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await dbClient
       .from('shipment_tracking')
       .upsert({
         order_id: orderId,
@@ -273,7 +273,7 @@ async function saveShipmentTracking(orderId, lrNumber, transporter, trackingData
  */
 async function getShipmentStatus(orderId) {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await dbClient
       .from('shipment_tracking')
       .select('*')
       .eq('order_id', orderId)
@@ -360,14 +360,14 @@ async function processShippingSlipUpload(tenantId, orderId = null, imageUrl, pho
     if (!extraction.success) {
       return {
         success: false,
-        message: '❌ Could not read LR number from shipping slip. Please provide it manually.'
+        message: 'âŒ Could not read LR number from shipping slip. Please provide it manually.'
       };
     }
 
     // If no orderId provided, find the most recent order without LR number
     let targetOrderId = orderId;
     if (!targetOrderId) {
-      const { data: recentOrders } = await supabase
+      const { data: recentOrders } = await dbClient
         .from('orders')
         .select('id, customer_phone')
         .eq('tenant_id', tenantId)
@@ -381,13 +381,13 @@ async function processShippingSlipUpload(tenantId, orderId = null, imageUrl, pho
       } else {
         return {
           success: false,
-          message: '❌ No recent orders found to associate with this LR copy.'
+          message: 'âŒ No recent orders found to associate with this LR copy.'
         };
       }
     }
 
     // Update order with LR number and slip URL
-    await supabase
+    await dbClient
       .from('orders')
       .update({
         lr_number: extraction.lrNumber,
@@ -397,7 +397,7 @@ async function processShippingSlipUpload(tenantId, orderId = null, imageUrl, pho
       .eq('id', targetOrderId);
 
     // Get transporter name from order
-    const { data: order } = await supabase
+    const { data: order } = await dbClient
       .from('orders')
       .select('transporter_name')
       .eq('id', targetOrderId)
@@ -427,8 +427,8 @@ async function processShippingSlipUpload(tenantId, orderId = null, imageUrl, pho
       lrNumber: extraction.lrNumber,
       trackingData,
       message: trackingData.success 
-        ? `✅ Shipping slip uploaded! LR: ${extraction.lrNumber}\n\n📦 Status: ${trackingData.status || 'In Transit'}`
-        : `✅ Shipping slip uploaded! LR: ${extraction.lrNumber}\n\n📋 Track at: ${trackingData.trackingUrl}`
+        ? `âœ… Shipping slip uploaded! LR: ${extraction.lrNumber}\n\nðŸ“¦ Status: ${trackingData.status || 'In Transit'}`
+        : `âœ… Shipping slip uploaded! LR: ${extraction.lrNumber}\n\nðŸ“‹ Track at: ${trackingData.trackingUrl}`
     };
 
   } catch (error) {
@@ -447,15 +447,15 @@ async function processShippingSlipUpload(tenantId, orderId = null, imageUrl, pho
  */
 function formatTrackingMessage(trackingData) {
   if (!trackingData.success) {
-    return `📦 *Shipment Tracking*\n\nLR Number: ${trackingData.lrNumber}\n\n${trackingData.message || 'Tracking information not available'}\n\n🔗 Track manually: ${trackingData.trackingUrl}`;
+    return `ðŸ“¦ *Shipment Tracking*\n\nLR Number: ${trackingData.lrNumber}\n\n${trackingData.message || 'Tracking information not available'}\n\nðŸ”— Track manually: ${trackingData.trackingUrl}`;
   }
 
-  let message = `📦 *VRL Shipment Tracking*\n\n`;
-  message += `📋 *LR Number:* ${trackingData.lrNumber}\n`;
-  message += `📊 *Status:* ${trackingData.status || 'In Transit'}\n\n`;
+  let message = `ðŸ“¦ *VRL Shipment Tracking*\n\n`;
+  message += `ðŸ“‹ *LR Number:* ${trackingData.lrNumber}\n`;
+  message += `ðŸ“Š *Status:* ${trackingData.status || 'In Transit'}\n\n`;
   
   // Booking Details section
-  message += `*📍 Route Details:*\n`;
+  message += `*ðŸ“ Route Details:*\n`;
   if (trackingData.origin) {
     message += `   From: ${trackingData.origin}\n`;
   }
@@ -476,11 +476,11 @@ function formatTrackingMessage(trackingData) {
   // We'll set this after processing history to use the correct location
   let currentLocationLine = '';
   if (trackingData.currentLocation) {
-    currentLocationLine = `\n📌 *Current Location:* ${trackingData.currentLocation}\n`;
+    currentLocationLine = `\nðŸ“Œ *Current Location:* ${trackingData.currentLocation}\n`;
   }
   
   if (trackingData.latestUpdate) {
-    message += `� *Latest Update:* ${trackingData.latestUpdate}\n`;
+    message += `ï¿½ *Latest Update:* ${trackingData.latestUpdate}\n`;
   }
 
   // Transit history
@@ -499,15 +499,15 @@ function formatTrackingMessage(trackingData) {
     // Use the last location from filtered history as current location if available
     if (filteredHistory.length > 0) {
       const lastLocation = filteredHistory[filteredHistory.length - 1].location;
-      currentLocationLine = `\n📌 *Current Location:* ${lastLocation}\n`;
+      currentLocationLine = `\nðŸ“Œ *Current Location:* ${lastLocation}\n`;
     }
 
     if (filteredHistory.length > 0) {
-      message += `\n*📜 Transit History:*\n`;
+      message += `\n*ðŸ“œ Transit History:*\n`;
       filteredHistory.slice(0, 5).forEach((entry, index) => {
         const dateInfo = entry.datetime ? `${entry.datetime} - ` : '';
         message += `${index + 1}. ${dateInfo}${entry.description || entry.status}\n`;
-        message += `   📍 ${entry.location}\n`;
+        message += `   ðŸ“ ${entry.location}\n`;
       });
     }
   }
@@ -515,7 +515,7 @@ function formatTrackingMessage(trackingData) {
   // Add current location line after history processing
   message += currentLocationLine;
   
-  message += `\n🔗 Track online: https://www.vrlgroup.in/track_consignment.aspx`;
+  message += `\nðŸ”— Track online: https://www.vrlgroup.in/track_consignment.aspx`;
 
   return message;
 }
@@ -528,3 +528,4 @@ module.exports = {
   processShippingSlipUpload,
   formatTrackingMessage
 };
+

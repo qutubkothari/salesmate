@@ -1,66 +1,50 @@
-/**
+﻿/**
  * @title Service Configuration
- * @description Initializes and exports clients for external services like Supabase, OpenAI, and Google Cloud Storage.
- * Compatible with local .env and GAE env vars. Additive, backward-compatible.
- * Supports both local SQLite and Supabase databases.
+ * @description Initializes and exports clients for external services like OpenAI and Google Cloud Storage.
+ * This project currently uses local SQLite for persistence.
  */
 
 require('dotenv').config();
 
-const { createClient } = require('@supabase/supabase-js');
 const OpenAI = require('openai');
 const { Storage } = require('@google-cloud/storage');
 const path = require('path');
 
 const dbg = (...a) => { if (process.env.DEBUG_CONFIG === '1') console.log('[CONFIG]', ...a); };
 
-// ---------- Database Configuration (Local SQLite or Supabase) ----------
-const USE_LOCAL_DB = process.env.USE_LOCAL_DB === 'true';
+// ---------- Database Configuration (SQLite only) ----------
+const USE_LOCAL_DB = true;
 
-let supabase;
+let dbClient;
 let db;
 
-if (USE_LOCAL_DB) {
-  // Use local SQLite
-  dbg('Database: using LOCAL SQLite');
-  
-  const Database = require('better-sqlite3');
-  const dbPath = path.join(__dirname, '..', 'local-database.db');
-  
-  try {
-    db = new Database(dbPath);
-    db.pragma('foreign_keys = ON');
-    console.log('[CONFIG] Local SQLite configured:', dbPath);
+// Use local SQLite
+dbg('Database: using LOCAL SQLite');
 
-    // Ensure required schema exists for local mode (non-destructive)
-    try {
-      ensureSqliteSchema(db);
-    } catch (e) {
-      console.warn('[CONFIG] SQLite schema ensure skipped/failed:', e?.message || e);
-    }
-    
-    // Create a Supabase-compatible wrapper for the local DB
-    supabase = createLocalDbWrapper(db);
-  } catch (error) {
-    console.error('[CONFIG] Failed to initialize SQLite:', error.message);
-    console.error('[CONFIG] Please run: node setup-sqlite-db.js');
-    throw error;
+const Database = require('better-sqlite3');
+const dbPath = process.env.SQLITE_DB_PATH || process.env.DB_PATH || path.join(__dirname, '..', 'local-database.db');
+
+try {
+  db = new Database(dbPath);
+  db.pragma('foreign_keys = ON');
+  console.log('[CONFIG] Local SQLite configured:', dbPath);
+
+  // Ensure required schema exists (non-destructive)
+  try {
+    ensureSqliteSchema(db);
+  } catch (e) {
+    console.warn('[CONFIG] SQLite schema ensure skipped/failed:', e?.message || e);
   }
-  
-} else {
-  // Use Supabase
-  const supabaseUrl = process.env.SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
-  
-  if (!supabaseUrl || !supabaseKey) {
-    throw new Error('Supabase URL and Key must be provided in environment variables when USE_LOCAL_DB is false.');
-  }
-  dbg('Supabase: using', supabaseKey === process.env.SUPABASE_SERVICE_ROLE_KEY ? 'SERVICE_ROLE_KEY' : 'ANON_KEY');
-  
-  supabase = createClient(supabaseUrl, supabaseKey);
+
+  // Create a query-builder wrapper for the local DB
+  dbClient = createLocalDbWrapper(db);
+} catch (error) {
+  console.error('[CONFIG] Failed to initialize SQLite:', error.message);
+  console.error('[CONFIG] Please run: node setup-sqlite-db.js');
+  throw error;
 }
 
-// Create a wrapper to make local SQLite work like Supabase client
+// Create a small query-builder wrapper for local SQLite
 function createLocalDbWrapper(dbInstance) {
   return {
     from: (table) => {
@@ -134,7 +118,7 @@ function createLocalDbWrapper(dbInstance) {
         
         not: function(column, operator, value) {
           const op = String(operator || '').trim().toUpperCase();
-          // Supabase style: .not('col', 'is', null) => SQL: col IS NOT NULL
+          // dbClient style: .not('col', 'is', null) => SQL: col IS NOT NULL
           if (op === 'IS') {
             this._wheres.push({ column, operator: 'IS NOT', value });
           } else if (op === 'IN') {
@@ -327,7 +311,7 @@ function createLocalDbWrapper(dbInstance) {
                 clauses.push(`(${andClause})`);
               }
 
-              // OR clauses (Supabase format: col.op.value,col.op.value,...)
+              // OR clauses (dbClient format: col.op.value,col.op.value,...)
               if (this._orFilters) {
                 const orParts = String(this._orFilters)
                   .split(',')
@@ -342,7 +326,7 @@ function createLocalDbWrapper(dbInstance) {
                     const op = cond.slice(firstDot + 1, secondDot);
                     const rawVal = cond.slice(secondDot + 1);
 
-                    // Supabase encodes % as literal %, keep as-is
+                    // dbClient encodes % as literal %, keep as-is
                     if (op === 'ilike') {
                       values.push(rawVal);
                       return `LOWER(${col}) LIKE LOWER(?)`;
@@ -426,7 +410,7 @@ function createLocalDbWrapper(dbInstance) {
             resolve(result);
           } catch (error) {
             console.error('[SQLite] Query error:', error.message);
-            // Supabase-js does not throw on query errors; it resolves with { data, error }.
+            // dbClient-js does not throw on query errors; it resolves with { data, error }.
             // Many call sites expect `const { error } = await ...` and handle it explicitly.
             if (typeof resolve === 'function') {
               resolve({ data: null, error });
@@ -658,6 +642,111 @@ function ensureSqliteSchema(dbInstance) {
     );
   `);
 
+  // Inbound messages (for reply tracking / SLA / analytics)
+  exec(`
+    CREATE TABLE IF NOT EXISTS inbound_messages (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      tenant_id TEXT,
+      from_phone TEXT,
+      body TEXT,
+      received_at TEXT DEFAULT (DATETIME('now')),
+      message_id TEXT
+    );
+  `);
+
+  // Tracked links (click tracking for broadcasts)
+  exec(`
+    CREATE TABLE IF NOT EXISTS tracked_links (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      tenant_id TEXT,
+      campaign_id TEXT,
+      original_url TEXT,
+      short_code TEXT UNIQUE,
+      click_count INTEGER DEFAULT 0,
+      last_clicked_at TEXT,
+      created_at TEXT DEFAULT (DATETIME('now'))
+    );
+  `);
+
+  // API keys: stable integration auth via x-api-key
+  exec(`
+    CREATE TABLE IF NOT EXISTS api_keys (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      tenant_id TEXT NOT NULL,
+      name TEXT,
+      key_hash TEXT NOT NULL,
+      key_prefix TEXT,
+      last_used_at TEXT,
+      revoked_at TEXT,
+      created_at TEXT DEFAULT (DATETIME('now')),
+      UNIQUE(key_hash)
+    );
+  `);
+
+  // Notifications: per-tenant notification inbox
+  exec(`
+    CREATE TABLE IF NOT EXISTS notifications (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      tenant_id TEXT NOT NULL,
+      title TEXT,
+      body TEXT,
+      type TEXT,
+      is_read INTEGER DEFAULT 0,
+      read_at TEXT,
+      metadata TEXT,
+      created_at TEXT DEFAULT (DATETIME('now'))
+    );
+  `);
+
+  // Multi-bot configuration: per-tenant bot entries
+  exec(`
+    CREATE TABLE IF NOT EXISTS tenant_bots (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      tenant_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      provider TEXT,
+      config TEXT,
+      is_active INTEGER DEFAULT 1,
+      created_at TEXT DEFAULT (DATETIME('now')),
+      updated_at TEXT DEFAULT (DATETIME('now'))
+    );
+  `);
+
+  // Email enquiry ingestion: store inbound email enquiries
+  exec(`
+    CREATE TABLE IF NOT EXISTS email_enquiries (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      tenant_id TEXT NOT NULL,
+      from_email TEXT,
+      subject TEXT,
+      body TEXT,
+      received_at TEXT,
+      raw TEXT,
+      created_at TEXT DEFAULT (DATETIME('now'))
+    );
+  `);
+
+  // Message templates. Some older setups may create this via setup-sqlite-db.js,
+  // but we ensure it here so local startup and APIs don't depend on a one-time init.
+  exec(`
+    CREATE TABLE IF NOT EXISTS message_templates (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      tenant_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      template_text TEXT NOT NULL,
+      message_type TEXT DEFAULT 'text',
+      image_url TEXT,
+      interactive_payload TEXT,
+      category TEXT,
+      variables TEXT DEFAULT '[]',
+      is_active INTEGER DEFAULT 1,
+      usage_count INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (DATETIME('now')),
+      updated_at TEXT DEFAULT (DATETIME('now')),
+      UNIQUE(tenant_id, name)
+    );
+  `);
+
   const tableInfo = (table) => {
     try {
       return dbInstance.prepare(`PRAGMA table_info(${table})`).all();
@@ -696,6 +785,9 @@ function ensureSqliteSchema(dbInstance) {
   // Tenants: broadcasts rely on daily_message_limit existing
   ensureColumns('tenants', [
     { name: 'daily_message_limit', type: 'INTEGER DEFAULT 1000' },
+    // Triage SLA
+    { name: 'triage_sla_enabled', type: 'INTEGER DEFAULT 1' },
+    { name: 'triage_sla_minutes', type: 'INTEGER DEFAULT 60' },
     // Dashboard settings (local mode should not crash on updates)
     { name: 'gst_rate', type: 'REAL DEFAULT 18' },
     { name: 'business_state', type: "TEXT DEFAULT 'maharashtra'" },
@@ -704,7 +796,76 @@ function ensureSqliteSchema(dbInstance) {
     { name: 'bulk_shipping_rate', type: 'REAL DEFAULT 15' },
     { name: 'bulk_threshold', type: 'INTEGER DEFAULT 15' },
     { name: 'gstin', type: 'TEXT' },
-    { name: 'business_address', type: 'TEXT' }
+    { name: 'business_address', type: 'TEXT' },
+    // Tenant-level AI keys (optional)
+    { name: 'openai_api_key', type: 'TEXT' },
+    { name: 'openai_project', type: 'TEXT' },
+    { name: 'openai_model', type: 'TEXT' },
+    { name: 'anthropic_api_key', type: 'TEXT' },
+    { name: 'gemini_api_key', type: 'TEXT' },
+    // Tenant-level Maytapi credentials (optional)
+    { name: 'maytapi_product_id', type: 'TEXT' },
+    { name: 'maytapi_phone_id', type: 'TEXT' },
+    { name: 'maytapi_api_key', type: 'TEXT' }
+  ]);
+
+  ensureColumns('inbound_messages', [
+    { name: 'tenant_id', type: 'TEXT' },
+    { name: 'from_phone', type: 'TEXT' },
+    { name: 'body', type: 'TEXT' },
+    { name: 'received_at', type: "TEXT DEFAULT (DATETIME('now'))" },
+    { name: 'message_id', type: 'TEXT' }
+  ]);
+
+  ensureColumns('tracked_links', [
+    { name: 'tenant_id', type: 'TEXT' },
+    { name: 'campaign_id', type: 'TEXT' },
+    { name: 'original_url', type: 'TEXT' },
+    { name: 'short_code', type: 'TEXT' },
+    { name: 'click_count', type: 'INTEGER DEFAULT 0' },
+    { name: 'last_clicked_at', type: 'TEXT' },
+    { name: 'created_at', type: "TEXT DEFAULT (DATETIME('now'))" }
+  ]);
+
+  ensureColumns('api_keys', [
+    { name: 'tenant_id', type: 'TEXT' },
+    { name: 'name', type: 'TEXT' },
+    { name: 'key_hash', type: 'TEXT' },
+    { name: 'key_prefix', type: 'TEXT' },
+    { name: 'last_used_at', type: 'TEXT' },
+    { name: 'revoked_at', type: 'TEXT' },
+    { name: 'created_at', type: "TEXT DEFAULT (DATETIME('now'))" }
+  ]);
+
+  ensureColumns('notifications', [
+    { name: 'tenant_id', type: 'TEXT' },
+    { name: 'title', type: 'TEXT' },
+    { name: 'body', type: 'TEXT' },
+    { name: 'type', type: 'TEXT' },
+    { name: 'is_read', type: 'INTEGER DEFAULT 0' },
+    { name: 'read_at', type: 'TEXT' },
+    { name: 'metadata', type: 'TEXT' },
+    { name: 'created_at', type: "TEXT DEFAULT (DATETIME('now'))" }
+  ]);
+
+  ensureColumns('tenant_bots', [
+    { name: 'tenant_id', type: 'TEXT' },
+    { name: 'name', type: 'TEXT' },
+    { name: 'provider', type: 'TEXT' },
+    { name: 'config', type: 'TEXT' },
+    { name: 'is_active', type: 'INTEGER DEFAULT 1' },
+    { name: 'created_at', type: "TEXT DEFAULT (DATETIME('now'))" },
+    { name: 'updated_at', type: "TEXT DEFAULT (DATETIME('now'))" }
+  ]);
+
+  ensureColumns('email_enquiries', [
+    { name: 'tenant_id', type: 'TEXT' },
+    { name: 'from_email', type: 'TEXT' },
+    { name: 'subject', type: 'TEXT' },
+    { name: 'body', type: 'TEXT' },
+    { name: 'received_at', type: 'TEXT' },
+    { name: 'raw', type: 'TEXT' },
+    { name: 'created_at', type: "TEXT DEFAULT (DATETIME('now'))" }
   ]);
 
   // Products: align to the fields used throughout dashboard/routes
@@ -737,7 +898,7 @@ function ensureSqliteSchema(dbInstance) {
     { name: 'metadata', type: 'TEXT' },
     { name: 'last_message_at', type: 'TEXT' },
     { name: 'lead_type', type: 'TEXT' },
-    // Lead + triage (SAK-SMS embedding)
+    // Lead + triage
     { name: 'lead_score', type: 'TEXT' },
     { name: 'requires_human_attention', type: 'INTEGER DEFAULT 0' },
     { name: 'triage_status', type: 'TEXT' },
@@ -788,6 +949,14 @@ function ensureSqliteSchema(dbInstance) {
     { name: 'connected_at', type: 'TEXT' }
   ]);
 
+  // Ensure templates have a usage counter for "use" events.
+  ensureColumns('message_templates', [
+    { name: 'usage_count', type: 'INTEGER DEFAULT 0' },
+    { name: 'message_type', type: "TEXT DEFAULT 'text'" },
+    { name: 'image_url', type: 'TEXT' },
+    { name: 'interactive_payload', type: 'TEXT' }
+  ]);
+
   // Messages: required for dashboard analytics and history logging
   exec(`
     CREATE TABLE IF NOT EXISTS messages (
@@ -818,7 +987,7 @@ function ensureSqliteSchema(dbInstance) {
     );
   `);
 
-  // Triage queue: native SAK-SMS-style triage inside Salesmate (local SQLite)
+  // Triage queue (local SQLite)
   exec(`
     CREATE TABLE IF NOT EXISTS triage_queue (
       id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
@@ -837,8 +1006,86 @@ function ensureSqliteSchema(dbInstance) {
     );
   `);
 
+  // Audit logs: immutable event trail for key actions
+  exec(`
+    CREATE TABLE IF NOT EXISTS audit_logs (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      tenant_id TEXT NOT NULL,
+      actor_type TEXT,
+      actor_id TEXT,
+      actor_name TEXT,
+      action TEXT NOT NULL,
+      entity_type TEXT,
+      entity_id TEXT,
+      summary TEXT,
+      metadata TEXT,
+      created_at TEXT DEFAULT (DATETIME('now'))
+    );
+  `);
+
+  // Sales team / assignees for triage (local SQLite)
+  exec(`
+    CREATE TABLE IF NOT EXISTS sales_users (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      tenant_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      phone TEXT,
+      role TEXT,
+      is_active INTEGER DEFAULT 1,
+      created_at TEXT DEFAULT (DATETIME('now')),
+      updated_at TEXT DEFAULT (DATETIME('now'))
+    );
+  `);
+
+  // Ensure optional smart-assign fields exist (safe for older local DBs)
+  ensureColumns('sales_users', [
+    { name: 'capacity', type: 'INTEGER DEFAULT 0' },
+    { name: 'score', type: 'INTEGER DEFAULT 0' },
+  ]);
+
+  // Smart assignment config for triage (local SQLite)
+  exec(`
+    CREATE TABLE IF NOT EXISTS triage_assignment_config (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      tenant_id TEXT NOT NULL UNIQUE,
+      strategy TEXT DEFAULT 'LEAST_ACTIVE',
+      auto_assign INTEGER DEFAULT 1,
+      consider_capacity INTEGER DEFAULT 1,
+      consider_score INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (DATETIME('now')),
+      updated_at TEXT DEFAULT (DATETIME('now'))
+    );
+  `);
+
+  // Leads pipeline stages + per-conversation stage assignment (local SQLite)
+  exec(`
+    CREATE TABLE IF NOT EXISTS lead_pipeline_stages (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      tenant_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      position INTEGER DEFAULT 0,
+      is_won INTEGER DEFAULT 0,
+      is_lost INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (DATETIME('now')),
+      updated_at TEXT DEFAULT (DATETIME('now'))
+    );
+  `);
+
+  exec(`
+    CREATE TABLE IF NOT EXISTS lead_pipeline_items (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      tenant_id TEXT NOT NULL,
+      conversation_id TEXT NOT NULL,
+      stage_id TEXT NOT NULL,
+      created_at TEXT DEFAULT (DATETIME('now')),
+      updated_at TEXT DEFAULT (DATETIME('now'))
+    );
+  `);
+
+
   // Patch bulk_schedules if it existed with an older/partial schema
   ensureColumns('bulk_schedules', [
+    { name: 'name', type: 'TEXT' },
     { name: 'to_phone_number', type: 'TEXT' },
     { name: 'phone_number', type: 'TEXT' },
     { name: 'campaign_id', type: 'TEXT' },
@@ -944,16 +1191,37 @@ function ensureSqliteSchema(dbInstance) {
   tryExec(`CREATE INDEX IF NOT EXISTS idx_broadcast_recipients_campaign_phone ON broadcast_recipients(campaign_id, phone);`);
   tryExec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_bcr_campaign_phone_unique ON broadcast_campaign_recipients(campaign_id, phone);`);
   tryExec(`CREATE INDEX IF NOT EXISTS idx_bcr_tenant_campaign ON broadcast_campaign_recipients(tenant_id, campaign_id);`);
+
+  tryExec(`CREATE INDEX IF NOT EXISTS idx_inbound_messages_tenant_phone_time ON inbound_messages(tenant_id, from_phone, received_at);`);
+  tryExec(`CREATE INDEX IF NOT EXISTS idx_inbound_messages_tenant_time ON inbound_messages(tenant_id, received_at);`);
+
+  tryExec(`CREATE INDEX IF NOT EXISTS idx_tracked_links_campaign ON tracked_links(campaign_id);`);
+  tryExec(`CREATE INDEX IF NOT EXISTS idx_tracked_links_tenant_campaign ON tracked_links(tenant_id, campaign_id);`);
+  tryExec(`CREATE INDEX IF NOT EXISTS idx_tracked_links_code ON tracked_links(short_code);`);
+
+  tryExec(`CREATE INDEX IF NOT EXISTS idx_api_keys_tenant ON api_keys(tenant_id);`);
+  tryExec(`CREATE INDEX IF NOT EXISTS idx_api_keys_prefix ON api_keys(key_prefix);`);
+  tryExec(`CREATE INDEX IF NOT EXISTS idx_notifications_tenant_created ON notifications(tenant_id, created_at);`);
+  tryExec(`CREATE INDEX IF NOT EXISTS idx_notifications_tenant_unread ON notifications(tenant_id, is_read);`);
+  tryExec(`CREATE INDEX IF NOT EXISTS idx_tenant_bots_tenant ON tenant_bots(tenant_id);`);
+  tryExec(`CREATE INDEX IF NOT EXISTS idx_email_enquiries_tenant_received ON email_enquiries(tenant_id, received_at);`);
+
   tryExec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_contact_groups_tenant_group_name ON contact_groups(tenant_id, group_name);`);
   tryExec(`CREATE INDEX IF NOT EXISTS idx_messages_tenant_created ON messages(tenant_id, created_at);`);
   tryExec(`CREATE INDEX IF NOT EXISTS idx_messages_conversation_created ON messages(conversation_id, created_at);`);
   tryExec(`CREATE INDEX IF NOT EXISTS idx_followups_tenant_time ON scheduled_followups(tenant_id, scheduled_time);`);
   tryExec(`CREATE INDEX IF NOT EXISTS idx_followups_status_time ON scheduled_followups(status, scheduled_time);`);
   tryExec(`CREATE INDEX IF NOT EXISTS idx_broadcast_batch_log_completed ON broadcast_batch_log(completed_at);`);
+  tryExec(`CREATE INDEX IF NOT EXISTS idx_lead_pipeline_stages_tenant_pos ON lead_pipeline_stages(tenant_id, position);`);
+  tryExec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_lead_pipeline_items_tenant_conv_unique ON lead_pipeline_items(tenant_id, conversation_id);`);
+  tryExec(`CREATE INDEX IF NOT EXISTS idx_lead_pipeline_items_tenant_stage ON lead_pipeline_items(tenant_id, stage_id);`);
 }
 
 // ---------- OpenAI ----------
 const openaiApiKey = process.env.OPENAI_API_KEY;
+
+// Support OpenAI-compatible endpoints (e.g. xAI) via env
+const openaiBaseUrl = process.env.OPENAI_BASE_URL || process.env.AI_BASE_URL || undefined;
 
 // If you use sk-proj-* keys, pass the project id/slug
 const openaiProject = process.env.OPENAI_PROJECT || undefined;
@@ -969,9 +1237,11 @@ if (!openaiApiKey) {
 } else {
   openai = new OpenAI({
     apiKey: openaiApiKey,
-    ...(openaiProject ? { project: openaiProject } : {})
+    ...(openaiProject ? { project: openaiProject } : {}),
+    ...(openaiBaseUrl ? { baseURL: openaiBaseUrl } : {})
   });
   dbg('OpenAI: project', openaiProject ? 'set' : 'not set');
+  dbg('OpenAI: baseURL', openaiBaseUrl ? 'set' : 'not set');
 }
 
 // ---------- Google Cloud Storage ----------
@@ -997,8 +1267,8 @@ if (!gcsBucketName) {
 }
 
 module.exports = {
-  supabase,
-  // Exposed for local-mode route fallbacks (additive; existing imports remain valid)
+  dbClient,
+  // Exposed for local-mode route fallbacks
   db,
   USE_LOCAL_DB,
   openai,
@@ -1011,7 +1281,11 @@ try {
   const _proj   = process.env.OPENAI_PROJECT; // e.g. proj_HXrnhKI5YuehJumAke2sXqiN
   if (_apiKey && _proj) {
     const OpenAI = require('openai');
-    const _openaiWithProject = new OpenAI({ apiKey: _apiKey, project: _proj });
+    const _openaiWithProject = new OpenAI({
+      apiKey: _apiKey,
+      project: _proj,
+      ...(openaiBaseUrl ? { baseURL: openaiBaseUrl } : {})
+    });
     module.exports.openaiV2 = _openaiWithProject;
     console.log('[CONFIG] OpenAI (project client) enabled');
   }
@@ -1028,3 +1302,4 @@ try {
     console.log('[CONFIG] Models fast/smart:', process.env.AI_MODEL_FAST, process.env.AI_MODEL_SMART);
   }
 } catch (e) {}
+

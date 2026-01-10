@@ -1,10 +1,5 @@
-const OpenAI = require('openai');
+const { openai } = require('../config');
 const { checkCache, storeInCache } = require('./learningCacheService');
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-  project: process.env.OPENAI_PROJECT_ID
-});
 
 /**
  * ENHANCED RESPONSE GENERATOR WITH LEARNING CACHE
@@ -13,6 +8,16 @@ const openai = new OpenAI({
 
 async function generateResponse(query, context, tenantId) {
   try {
+    if (!openai) {
+      return {
+        response: "AI features are disabled in this environment (missing OPENAI_API_KEY).",
+        fromCache: false,
+        tokens: 0,
+        cost: 0,
+        costSaved: 0,
+        responseTime: 0
+      };
+    }
     console.log(`[AI] Processing query: "${query.substring(0, 50)}..."`);
     
     // STEP 1: Check cache first
@@ -42,8 +47,9 @@ async function generateResponse(query, context, tenantId) {
     const userPrompt = buildUserPrompt(query, context);
     
     // Call OpenAI
+    const FAST_MODEL = process.env.AI_MODEL_FAST || 'grok-code-fast-1';
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model: FAST_MODEL,
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }

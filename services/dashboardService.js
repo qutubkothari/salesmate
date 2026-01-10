@@ -1,8 +1,8 @@
-/**
+﻿/**
  * @title Web Dashboard Service
  * @description Manages the logic for fetching data to be displayed on the tenant's web dashboard.
  */
-const { supabase } = require('./config');
+const { dbClient } = require('./config');
 
 /**
  * Gathers key performance indicators for a specific tenant to display on their dashboard.
@@ -20,10 +20,10 @@ const getTenantDashboardData = async (tenantId) => {
             { count: feedbackCount, error: feedbackError },
             { count: handoverRequests, error: handoverError }
         ] = await Promise.all([
-            supabase.from('conversations').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId).gt('created_at', thirtyDaysAgo),
-            supabase.from('orders').select('total_amount').eq('tenant_id', tenantId).gt('created_at', thirtyDaysAgo),
-            supabase.from('feedback_submissions').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId).gt('created_at', thirtyDaysAgo),
-            supabase.from('conversations').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('requires_human_attention', true).gt('updated_at', thirtyDaysAgo)
+            dbClient.from('conversations').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId).gt('created_at', thirtyDaysAgo),
+            dbClient.from('orders').select('total_amount').eq('tenant_id', tenantId).gt('created_at', thirtyDaysAgo),
+            dbClient.from('feedback_submissions').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId).gt('created_at', thirtyDaysAgo),
+            dbClient.from('conversations').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('requires_human_attention', true).gt('updated_at', thirtyDaysAgo)
         ]);
 
         if (leadsError || ordersError || feedbackError || handoverError) {
@@ -56,3 +56,4 @@ const getTenantDashboardData = async (tenantId) => {
 module.exports = {
     getTenantDashboardData,
 };
+

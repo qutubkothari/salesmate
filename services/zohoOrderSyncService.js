@@ -1,4 +1,4 @@
-const { supabase } = require('../config/database');
+﻿const { dbClient } = require('../config/database');
 const axios = require('axios');
 
 /**
@@ -14,7 +14,7 @@ async function syncZohoOrdersToDatabase(tenantId) {
         console.log('[ZOHO_SYNC] Starting order sync for tenant:', tenantId);
 
         // Get tenant's Zoho credentials
-        const { data: tenant } = await supabase
+        const { data: tenant } = await dbClient
             .from('tenants')
             .select('zoho_access_token, zoho_organization_id, zoho_refresh_token')
             .eq('id', tenantId)
@@ -78,7 +78,7 @@ async function syncZohoOrdersToDatabase(tenantId) {
 
         for (const zohoOrder of zohoOrders) {
             // Check if order already exists in our database
-            const { data: existingOrder } = await supabase
+            const { data: existingOrder } = await dbClient
                 .from('orders')
                 .select('id')
                 .eq('zoho_salesorder_id', zohoOrder.salesorder_id)
@@ -128,7 +128,7 @@ async function refreshZohoToken(refreshToken, tenantId) {
 
         if (response.data.access_token) {
             // Update the access token in the database
-            await supabase
+            await dbClient
                 .from('tenants')
                 .update({ 
                     zoho_access_token: response.data.access_token,
@@ -186,7 +186,7 @@ async function updateOrderItemPricesFromZoho(orderId, zohoOrder) {
 
         for (const zohoItem of zohoOrder.line_items) {
             // Find matching product in our database
-            const { data: product } = await supabase
+            const { data: product } = await dbClient
                 .from('products')
                 .select('id')
                 .eq('zoho_item_id', zohoItem.item_id)
@@ -208,7 +208,7 @@ async function updateOrderItemPricesFromZoho(orderId, zohoOrder) {
             const gstAmount = unitPriceBeforeTax * (gstRate / 100) * zohoItem.quantity;
 
             // Update order item with Zoho prices
-            const { error } = await supabase
+            const { error } = await dbClient
                 .from('order_items')
                 .update({
                     unit_price_before_tax: unitPriceBeforeTax.toFixed(2),
@@ -253,7 +253,7 @@ async function createOrderFromZoho(tenantId, zohoOrder) {
         }
 
         // Create order
-        const { data: order, error: orderError } = await supabase
+        const { data: order, error: orderError } = await dbClient
             .from('orders')
             .insert({
                 tenant_id: tenantId,
@@ -277,7 +277,7 @@ async function createOrderFromZoho(tenantId, zohoOrder) {
 
         // Create order items
         for (const zohoItem of zohoOrder.line_items) {
-            const { data: product } = await supabase
+            const { data: product } = await dbClient
                 .from('products')
                 .select('id')
                 .eq('zoho_item_id', zohoItem.item_id)
@@ -295,7 +295,7 @@ async function createOrderFromZoho(tenantId, zohoOrder) {
             // GST amount for all units
             const gstAmount = unitPriceBeforeTax * (gstRate / 100) * zohoItem.quantity;
 
-            await supabase
+            await dbClient
                 .from('order_items')
                 .insert({
                     order_id: order.id,
@@ -324,7 +324,7 @@ async function createOrderFromZoho(tenantId, zohoOrder) {
 async function findOrCreateCustomerFromZoho(tenantId, zohoCustomerId, name, phone) {
     try {
         // Try to find by Zoho customer ID
-        let { data: customer } = await supabase
+        let { data: customer } = await dbClient
             .from('customer_profiles')
             .select('id')
             .eq('tenant_id', tenantId)
@@ -335,7 +335,7 @@ async function findOrCreateCustomerFromZoho(tenantId, zohoCustomerId, name, phon
 
         // Try to find by phone
         if (phone) {
-            const { data: customerByPhone } = await supabase
+            const { data: customerByPhone } = await dbClient
                 .from('customer_profiles')
                 .select('id')
                 .eq('tenant_id', tenantId)
@@ -344,7 +344,7 @@ async function findOrCreateCustomerFromZoho(tenantId, zohoCustomerId, name, phon
 
             if (customerByPhone) {
                 // Update with Zoho ID
-                await supabase
+                await dbClient
                     .from('customer_profiles')
                     .update({ zoho_contact_id: zohoCustomerId })
                     .eq('id', customerByPhone.id);
@@ -355,7 +355,7 @@ async function findOrCreateCustomerFromZoho(tenantId, zohoCustomerId, name, phon
 
         // Create new customer
         const nameParts = name.split(' ');
-        const { data: newCustomer } = await supabase
+        const { data: newCustomer } = await dbClient
             .from('customer_profiles')
             .insert({
                 tenant_id: tenantId,
@@ -382,7 +382,7 @@ async function scheduleZohoOrderSync() {
     console.log('[ZOHO_SYNC] Starting scheduled sync...');
 
     // Get all tenants with Zoho integration
-    const { data: tenants } = await supabase
+    const { data: tenants } = await dbClient
         .from('tenants')
         .select('id')
         .not('zoho_access_token', 'is', null);

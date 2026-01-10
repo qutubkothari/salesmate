@@ -1,18 +1,18 @@
-/**
+﻿/**
  * Tenant Features API Routes
  * Manage feature flags for tenants
  */
 
 const express = require('express');
 const router = express.Router();
-const { supabase } = require('../../services/config');
+const { dbClient } = require('../../services/config');
 
 // Get tenant features
 router.get('/:phone/features', async (req, res) => {
   try {
     const { phone } = req.params;
     
-    const { data: tenant, error } = await supabase
+    const { data: tenant, error } = await dbClient
       .from('tenants')
       .select('*')
       .eq('phone_number', phone)
@@ -57,7 +57,7 @@ router.put('/:phone/features', async (req, res) => {
       return res.json({ success: false, error: 'Features object required' });
     }
     
-    const { data, error } = await supabase
+    const { data, error } = await dbClient
       .from('tenants')
       .update({
         enabled_features: features,
@@ -89,7 +89,7 @@ router.get('/:phone/check/:feature', async (req, res) => {
   try {
     const { phone, feature } = req.params;
     
-    const { data: tenant, error } = await supabase
+    const { data: tenant, error } = await dbClient
       .from('tenants')
       .select('enabled_features')
       .eq('phone_number', phone)
@@ -115,3 +115,4 @@ router.get('/:phone/check/:feature', async (req, res) => {
 });
 
 module.exports = router;
+

@@ -1,5 +1,5 @@
-// services/retailCustomerCaptureService.js
-const { supabase } = require('./config');
+﻿// services/retailCustomerCaptureService.js
+const { dbClient } = require('./config');
 const { sendMessage } = require('./whatsappService');
 
 /**
@@ -15,7 +15,7 @@ const handleRetailConnection = async (tenantId, phoneNumber, billNumber = null, 
     console.log('[RETAIL_CAPTURE] Processing retail connection:', { phoneNumber, billNumber });
 
     // 1. Check if customer already exists
-    const { data: existingCustomer, error: fetchError} = await supabase
+    const { data: existingCustomer, error: fetchError} = await dbClient
       .from('customer_profiles')
       .select('*')
       .eq('tenant_id', tenantId)
@@ -32,7 +32,7 @@ const handleRetailConnection = async (tenantId, phoneNumber, billNumber = null, 
       // Existing customer - update last visit
       const newVisitCount = (existingCustomer.retail_visit_count || 0) + 1;
 
-      await supabase
+      await dbClient
         .from('customer_profiles')
         .update({
           last_retail_visit: new Date().toISOString(),
@@ -57,11 +57,11 @@ const handleRetailConnection = async (tenantId, phoneNumber, billNumber = null, 
         isNew: false,
         customerId: existingCustomer.id,
         visitCount: newVisitCount,
-        message: `Welcome back! 🎉 This is your visit #${newVisitCount}.\n\nI'll keep you updated on:\n✅ Restock reminders\n✅ Exclusive deals\n✅ New arrivals\n\nReply STOP anytime to unsubscribe.`
+        message: `Welcome back! ðŸŽ‰ This is your visit #${newVisitCount}.\n\nI'll keep you updated on:\nâœ… Restock reminders\nâœ… Exclusive deals\nâœ… New arrivals\n\nReply STOP anytime to unsubscribe.`
       };
     } else {
       // New customer - create profile
-      const { data: newCustomer, error: insertError } = await supabase
+      const { data: newCustomer, error: insertError } = await dbClient
         .from('customer_profiles')
         .insert({
           tenant_id: tenantId,
@@ -92,7 +92,7 @@ const handleRetailConnection = async (tenantId, phoneNumber, billNumber = null, 
         isNew: true,
         customerId: newCustomer.id,
         visitCount: 1,
-        message: `Welcome! 👋 Great to have you connected.\n\n✅ You'll get:\n• Restock reminders when you need supplies\n• Exclusive deals & offers\n• Quick reorders via WhatsApp\n• New product alerts\n\nReply STOP anytime to unsubscribe.`
+        message: `Welcome! ðŸ‘‹ Great to have you connected.\n\nâœ… You'll get:\nâ€¢ Restock reminders when you need supplies\nâ€¢ Exclusive deals & offers\nâ€¢ Quick reorders via WhatsApp\nâ€¢ New product alerts\n\nReply STOP anytime to unsubscribe.`
       };
     }
   } catch (error) {
@@ -100,7 +100,7 @@ const handleRetailConnection = async (tenantId, phoneNumber, billNumber = null, 
     return {
       success: false,
       error: error.message,
-      message: `Thanks for connecting! We've saved your details and will send you updates soon. 😊`
+      message: `Thanks for connecting! We've saved your details and will send you updates soon. ðŸ˜Š`
     };
   }
 };
@@ -118,7 +118,7 @@ const linkBillToCustomer = async (tenantId, phoneNumber, billNumber, purchaseDat
     console.log('[RETAIL_CAPTURE] Linking bill to customer:', { billNumber, phoneNumber });
 
     // Create order record from retail purchase
-    const { data: order, error } = await supabase
+    const { data: order, error } = await dbClient
       .from('orders')
       .insert({
         tenant_id: tenantId,
@@ -249,3 +249,4 @@ module.exports = {
   parseRetailMessage,
   generateRetailQRLink
 };
+

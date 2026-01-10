@@ -1,4 +1,4 @@
-/**
+﻿/**
  * ConversationMemory - Enhanced Context Tracking
  * 
  * Provides intelligent context memory for conversations:
@@ -10,7 +10,7 @@
  * @module services/core/ConversationMemory
  */
 
-const { supabase } = require('../config');
+const { dbClient } = require('../config');
 const { toWhatsAppFormat } = require('../../utils/phoneUtils');
 
 /**
@@ -63,7 +63,7 @@ async function getMemory(tenantId, phoneNumber) {
         const whatsappPhone = toWhatsAppFormat(phoneNumber);
         
         // Get conversation ID
-        const { data: conversation } = await supabase
+        const { data: conversation } = await dbClient
             .from('conversations')
             .select('id, last_intent')
             .eq('tenant_id', tenantId)
@@ -86,7 +86,7 @@ async function getMemory(tenantId, phoneNumber) {
         }
         
         // Get recent messages (last N messages)
-        const { data: messages } = await supabase
+        const { data: messages } = await dbClient
             .from('conversation_messages')
             .select('content, sender, created_at, metadata')
             .eq('conversation_id', conversation.id)
@@ -94,7 +94,7 @@ async function getMemory(tenantId, phoneNumber) {
             .limit(MAX_HISTORY_LENGTH);
         
         // Check if cart is active
-        const { data: cart } = await supabase
+        const { data: cart } = await dbClient
             .from('carts')
             .select('id, cart_items(count)')
             .eq('conversation_id', conversation.id)
@@ -161,7 +161,7 @@ async function saveMessage(tenantId, phoneNumber, content, sender, metadata = {}
         const whatsappPhone = toWhatsAppFormat(phoneNumber);
         
         // Get or create conversation
-        const { data: conversation } = await supabase
+        const { data: conversation } = await dbClient
             .from('conversations')
             .select('id')
             .eq('tenant_id', tenantId)
@@ -176,7 +176,7 @@ async function saveMessage(tenantId, phoneNumber, content, sender, metadata = {}
         }
         
         // Save message
-        const { error } = await supabase
+        const { error } = await dbClient
             .from('conversation_messages')
             .insert({
                 conversation_id: conversation.id,
@@ -214,7 +214,7 @@ async function updateIntent(tenantId, phoneNumber, intent) {
         
         const whatsappPhone = toWhatsAppFormat(phoneNumber);
         
-        const { error } = await supabase
+        const { error } = await dbClient
             .from('conversations')
             .update({
                 last_intent: intent,
@@ -252,7 +252,7 @@ function extractEntities(messages) {
         const content = msg.content;
         
         // Extract product codes (e.g., 10x140, 8x80, NFF 8x100)
-        const productPattern = /\b([A-Z]{2,}\s+)?\d+[x*×]\d+\b/gi;
+        const productPattern = /\b([A-Z]{2,}\s+)?\d+[x*Ã—]\d+\b/gi;
         const productMatches = content.match(productPattern);
         if (productMatches) {
             productMatches.forEach(p => products.add(p.trim().toUpperCase()));
@@ -265,8 +265,8 @@ function extractEntities(messages) {
             quantityMatches.forEach(q => quantities.add(q.trim().toLowerCase()));
         }
         
-        // Extract prices (e.g., ₹1.50, 2000/carton, 1.45/pc)
-        const pricePattern = /(?:₹|rs\.?|inr)?\s*\d+(?:,\d{3})*(?:\.\d+)?\s*(?:\/(?:pc|piece|carton|ctn))?/gi;
+        // Extract prices (e.g., â‚¹1.50, 2000/carton, 1.45/pc)
+        const pricePattern = /(?:â‚¹|rs\.?|inr)?\s*\d+(?:,\d{3})*(?:\.\d+)?\s*(?:\/(?:pc|piece|carton|ctn))?/gi;
         const priceMatches = content.match(pricePattern);
         if (priceMatches) {
             priceMatches.forEach(p => prices.add(p.trim()));
@@ -350,7 +350,7 @@ async function pruneOldMessages(tenantId, phoneNumber) {
         const whatsappPhone = toWhatsAppFormat(phoneNumber);
         
         // Get conversation ID
-        const { data: conversation } = await supabase
+        const { data: conversation } = await dbClient
             .from('conversations')
             .select('id')
             .eq('tenant_id', tenantId)
@@ -360,7 +360,7 @@ async function pruneOldMessages(tenantId, phoneNumber) {
         if (!conversation) return 0;
         
         // Get IDs of messages to keep
-        const { data: keepMessages } = await supabase
+        const { data: keepMessages } = await dbClient
             .from('conversation_messages')
             .select('id')
             .eq('conversation_id', conversation.id)
@@ -372,7 +372,7 @@ async function pruneOldMessages(tenantId, phoneNumber) {
         const keepIds = keepMessages.map(m => m.id);
         
         // Delete old messages
-        const { data: deleted } = await supabase
+        const { data: deleted } = await dbClient
             .from('conversation_messages')
             .delete()
             .eq('conversation_id', conversation.id)
@@ -398,3 +398,4 @@ module.exports = {
     getConversationSummary,
     pruneOldMessages
 };
+

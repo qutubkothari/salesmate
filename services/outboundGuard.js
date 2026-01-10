@@ -4,6 +4,15 @@
 let may = null;
 try { may = require('./maytapiService'); } catch { /* not fatal */ }
 
+let isUnsubscribed = null;
+let isBypassNumber = null;
+try {
+  ({ isUnsubscribed } = require('./unsubscribeService'));
+} catch { /* not fatal */ }
+try {
+  ({ isBypassNumber } = require('./outboundPolicy'));
+} catch { /* not fatal */ }
+
 // normalize to digits (MSISDN)
 const msisdn = x => String(x || '').replace(/\D/g, '');
 
@@ -24,11 +33,25 @@ async function sendViaMaytapi(to, payloadOrText) {
   const text = unwrapText(payloadOrText);
   if (!toNum || !text) {
     console.warn('[OUTBOUND] skipped: invalid to/text', { to, textLength: text.length });
-    return { ok:false, skipped:true };
+    // Throw so wrappers can fall back to original sender.
+    throw new Error('invalid to/text');
+  }
+
+  // Enforce opt-out list (best-effort; do not throw)
+  try {
+    const bypass = isBypassNumber ? await isBypassNumber(toNum) : false;
+    if (!bypass && isUnsubscribed && (await isUnsubscribed(toNum))) {
+      console.warn('[OUTBOUND] skipped: unsubscribed', { to: toNum });
+      return { ok:false, skipped:true, reason: 'unsubscribed' };
+    }
+  } catch (e) {
+    // Fail-open so we don't break critical admin sends
+    console.warn('[OUTBOUND] opt-out check failed; proceeding', e?.message || e);
   }
   if (!may || typeof may.sendMessage !== 'function') {
     console.warn('[OUTBOUND] maytapiService missing; cannot send');
-    return { ok:false, skipped:true };
+    // Throw so wrappers can fall back to original sender.
+    throw new Error('maytapiService missing');
   }
   try {
     const res = await may.sendMessage(toNum, text);

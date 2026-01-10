@@ -1,8 +1,8 @@
-/**
+﻿/**
  * @title AI Sales Insight Service
  * @description Manages the logic for generating AI-powered sales insights and reports for tenants.
  */
-const { supabase, openai } = require('./config');
+const { dbClient, openai } = require('./config');
 
 /**
  * Generates an AI-powered sales insight report for a tenant based on the last 30 days of activity.
@@ -19,7 +19,7 @@ const generateSalesInsights = async (tenantId) => {
             { data: orders, error: ordersError },
             { data: messages, error: messagesError }
         ] = await Promise.all([
-            supabase.from('orders')
+            dbClient.from('orders')
                 .select(`
                     total_amount,
                     order_items (
@@ -29,7 +29,7 @@ const generateSalesInsights = async (tenantId) => {
                 `)
                 .eq('tenant_id', tenantId)
                 .gt('created_at', thirtyDaysAgo),
-            supabase.from('messages')
+            dbClient.from('messages')
                 .select('message_body')
                 .eq('sender', 'user') // Only analyze customer messages
                 .gt('created_at', thirtyDaysAgo)
@@ -85,7 +85,7 @@ const generateSalesInsights = async (tenantId) => {
 
         const insights = response.choices[0].message.content;
 
-        let finalReport = `📈 *Your AI-Powered Sales Insights (Last 30 Days)*\n\n`;
+        let finalReport = `ðŸ“ˆ *Your AI-Powered Sales Insights (Last 30 Days)*\n\n`;
         finalReport += insights;
 
         return finalReport;
@@ -99,4 +99,5 @@ const generateSalesInsights = async (tenantId) => {
 module.exports = {
     generateSalesInsights,
 };
+
 

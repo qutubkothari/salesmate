@@ -1,7 +1,7 @@
-// routes/api/admin.js
+﻿// routes/api/admin.js
 const express = require('express');
 const router = express.Router();
-const { supabase } = require('../../services/config');
+const { dbClient } = require('../../services/config');
 const isAdminGuard = require('../../middleware/isAdminGuard'); // adjust path if different
 const logger = console;
 
@@ -57,17 +57,17 @@ for (const p of handlerModuleCandidates) {
 
 // Helper: mark message processed/failure
 async function markMessageProcessed(messageId, result) {
-  await supabase.from('messages').update({
+  await dbClient.from('messages').update({
     processed: true,
     processed_at: new Date().toISOString(),
-    processing_attempts: supabase.raw('processing_attempts + 1'),
+    processing_attempts: dbClient.raw('processing_attempts + 1'),
     processing_result: result || { ok: true }
   }).eq('id', messageId);
 }
 
 async function markMessageFailure(message, err) {
   try {
-    await supabase.from('message_processing_failures').insert([{
+    await dbClient.from('message_processing_failures').insert([{
       message_id: message.id,
       attempt: (message.processing_attempts || 0) + 1,
       error_text: String(err && (err.message || err)),
@@ -77,7 +77,7 @@ async function markMessageFailure(message, err) {
   } catch (e) {
     logger.error('[admin] failed to write failure audit', e);
   }
-  await supabase.from('messages').update({
+  await dbClient.from('messages').update({
     processing_attempts: (message.processing_attempts || 0) + 1,
     processing_result: { error: String(err && (err.message || err)) }
   }).eq('id', message.id);
@@ -92,7 +92,7 @@ router.post('/reprocess-message/:messageId', isAdminGuard, async (req, res) => {
   if (!messageId) return res.status(400).json({ success: false, error: 'messageId required' });
 
   try {
-    const { data: message, error: msgErr } = await supabase
+    const { data: message, error: msgErr } = await dbClient
       .from('messages')
       .select('*')
       .eq('id', messageId)
@@ -109,7 +109,7 @@ router.post('/reprocess-message/:messageId', isAdminGuard, async (req, res) => {
     }
 
     if (!resolvedProcessFn || typeof resolvedProcessFn.fn !== 'function') {
-      // No processing fn found — give operator actionable info
+      // No processing fn found â€” give operator actionable info
       logger.warn('[admin.reprocess] no processing function found. Searched candidates.');
       return res.status(500).json({
         success: false,
@@ -137,7 +137,7 @@ router.post('/reprocess-message/:messageId', isAdminGuard, async (req, res) => {
       }
 
       // mark processed (store result)
-      await supabase.from('messages').update({
+      await dbClient.from('messages').update({
         processed: true,
         processed_at: new Date().toISOString(),
         processed_result: result || { ok: true }
@@ -160,21 +160,21 @@ router.post('/reprocess-message/:messageId', isAdminGuard, async (req, res) => {
 router.get('/zoho/sync-stats', async (req, res) => {
   try {
     const tenantId = req.query.tenant_id || process.env.TENANT_ID;
-    const { supabase } = require('../../services/config');
+    const { dbClient } = require('../../services/config');
         
-    const { count: pendingOrders } = await supabase
+    const { count: pendingOrders } = await dbClient
       .from('orders')
       .select('id', { count: 'exact', head: true })
       .eq('tenant_id', tenantId)
       .eq('zoho_sync_status', 'pending');
             
-    const { count: syncedOrders } = await supabase
+    const { count: syncedOrders } = await dbClient
       .from('orders')
       .select('id', { count: 'exact', head: true })
       .eq('tenant_id', tenantId)
       .eq('zoho_sync_status', 'synced');
             
-    const { count: failedOrders } = await supabase
+    const { count: failedOrders } = await dbClient
       .from('orders')
       .select('id', { count: 'exact', head: true })
       .eq('tenant_id', tenantId)
@@ -198,10 +198,10 @@ router.get('/zoho/sync-stats', async (req, res) => {
 router.post('/zoho/retry-failed-syncs', async (req, res) => {
   try {
     const tenantId = req.body.tenant_id || process.env.TENANT_ID;
-    const { supabase } = require('../../services/config');
+    const { dbClient } = require('../../services/config');
     const { processOrderToZoho } = require('../../services/zohoSalesOrderService');
         
-    const { data: failedOrders } = await supabase
+    const { data: failedOrders } = await dbClient
       .from('orders')
       .select('id')
       .eq('tenant_id', tenantId)
@@ -231,3 +231,4 @@ router.post('/zoho/retry-failed-syncs', async (req, res) => {
 });
 
 module.exports = router;
+

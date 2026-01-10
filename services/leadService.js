@@ -1,8 +1,8 @@
-/**
+﻿/**
  * @title Lead Retrieval Service
  * @description Handles fetching lead data and exporting it in various formats.
  */
-const { supabase, bucket } = require('./config');
+const { dbClient, bucket } = require('./config');
 const xlsx = require('xlsx');
 
 /**
@@ -12,7 +12,7 @@ const xlsx = require('xlsx');
  */
 const getLeadSummary = async (tenantId) => {
     try {
-        const { data, error } = await supabase
+        const { data, error } = await dbClient
             .from('conversations')
             .select('end_user_category, lead_score')
             .eq('tenant_id', tenantId);
@@ -36,7 +36,7 @@ const getLeadSummary = async (tenantId) => {
         // Define the desired order for scores
         const scoreOrder = ['Hot', 'Warm', 'Cold', 'Not Scored'];
 
-        let summaryMessage = '🔥 *Lead Temperature Summary*\n\n';
+        let summaryMessage = 'ðŸ”¥ *Lead Temperature Summary*\n\n';
         for (const score of scoreOrder) {
             if (summary[score]) {
                 summaryMessage += `- ${score}: ${summary[score]}\n`;
@@ -61,7 +61,7 @@ const getLeadSummary = async (tenantId) => {
 const exportLeadsToExcel = async (tenantId) => {
     try {
         // 1. Fetch lead data from the database, now including lead_score
-        const { data: leads, error } = await supabase
+        const { data: leads, error } = await dbClient
             .from('conversations')
             .select('end_user_phone, end_user_category, lead_score, updated_at')
             .eq('tenant_id', tenantId)
@@ -116,4 +116,5 @@ module.exports = {
     getLeadSummary,
     exportLeadsToExcel,
 };
+
 

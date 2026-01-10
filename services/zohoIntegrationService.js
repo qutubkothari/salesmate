@@ -1,4 +1,4 @@
-// services/zohoIntegrationService.js - Updated for Tenant-Based Authentication
+﻿// services/zohoIntegrationService.js - Updated for Tenant-Based Authentication
 const fetch = require('node-fetch');
 const zohoTenantAuth = require('./zohoTenantAuthService');
 
@@ -510,11 +510,11 @@ class ZohoIntegrationService {
             let syncedCount = 0;
             let errors = [];
             
-            const { supabase } = require('./config');
+            const { dbClient } = require('./config');
             
             for (const zohoItem of zohoItems) {
                 try {
-                    const { data: localProducts, error } = await supabase
+                    const { data: localProducts, error } = await dbClient
                         .from('products')
                         .select('id, name, price, sku')
                         .eq('tenant_id', tenantId)
@@ -530,7 +530,7 @@ class ZohoIntegrationService {
                         const localProduct = localProducts[0];
                         
                         if (localProduct.price != zohoItem.rate) {
-                            const { error: updateError } = await supabase
+                            const { error: updateError } = await dbClient
                                 .from('products')
                                 .update({ 
                                     price: zohoItem.rate,
@@ -542,7 +542,7 @@ class ZohoIntegrationService {
                             if (updateError) {
                                 errors.push(`Update error for ${zohoItem.name}: ${updateError.message}`);
                             } else {
-                                console.log(`[ZOHO_PRICE_SYNC] Updated ${localProduct.name}: ₹${localProduct.price} → ₹${zohoItem.rate}`);
+                                console.log(`[ZOHO_PRICE_SYNC] Updated ${localProduct.name}: â‚¹${localProduct.price} â†’ â‚¹${zohoItem.rate}`);
                                 syncedCount++;
                             }
                         }

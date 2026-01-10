@@ -1,10 +1,11 @@
-// services/customerOnboardingService.js
-const { supabase } = require('./config');
+﻿// services/customerOnboardingService.js
+const { dbClient } = require('./config');
 const { sendMessage } = require('./whatsappService');
 const OpenAI = require('openai');
 
 const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY
+    apiKey: process.env.OPENAI_API_KEY,
+    ...(process.env.OPENAI_BASE_URL || process.env.AI_BASE_URL ? { baseURL: process.env.OPENAI_BASE_URL || process.env.AI_BASE_URL } : {})
 });
 
 /**
@@ -21,24 +22,24 @@ async function extractCustomerInfoAI(message, context = 'name') {
             ? `You are a customer information extractor. Extract the customer's name and optionally company name from their message.
             
 Examples:
-- "I am Rajesh from ABC Foods" → {name: "Rajesh", company: "ABC Foods"}
-- "Rajesh kumar" → {name: "Rajesh Kumar", company: null}
-- "ABC Trading Company" → {name: null, company: "ABC Trading Company"}
-- "My name is Suresh and I work at XYZ Distributors" → {name: "Suresh", company: "XYZ Distributors"}
+- "I am Rajesh from ABC Foods" â†’ {name: "Rajesh", company: "ABC Foods"}
+- "Rajesh kumar" â†’ {name: "Rajesh Kumar", company: null}
+- "ABC Trading Company" â†’ {name: null, company: "ABC Trading Company"}
+- "My name is Suresh and I work at XYZ Distributors" â†’ {name: "Suresh", company: "XYZ Distributors"}
 
 Return ONLY valid JSON with 'name' and 'company' fields (null if not found).
 If the message doesn't contain name/company info, return {name: null, company: null}.`
             : `You are a GST and business information extractor. Extract GST number, company name, and address from the message.
 
 Examples:
-- "29ABCDE1234F1Z5" → {gst: "29ABCDE1234F1Z5", company: null, address: null}
-- "Our GST is 27AABCU9603R1ZM and company is Tech Solutions Pvt Ltd" → {gst: "27AABCU9603R1ZM", company: "Tech Solutions Pvt Ltd", address: null}
-- "GST: 29ABCDE1234F1Z5, Address: 123 MG Road, Bangalore" → {gst: "29ABCDE1234F1Z5", company: null, address: "123 MG Road, Bangalore"}
+- "29ABCDE1234F1Z5" â†’ {gst: "29ABCDE1234F1Z5", company: null, address: null}
+- "Our GST is 27AABCU9603R1ZM and company is Tech Solutions Pvt Ltd" â†’ {gst: "27AABCU9603R1ZM", company: "Tech Solutions Pvt Ltd", address: null}
+- "GST: 29ABCDE1234F1Z5, Address: 123 MG Road, Bangalore" â†’ {gst: "29ABCDE1234F1Z5", company: null, address: "123 MG Road, Bangalore"}
 
 Return ONLY valid JSON with 'gst', 'company', and 'address' fields (null if not found).`;
 
         const response = await openai.chat.completions.create({
-            model: 'gpt-4o-mini',
+            model: process.env.AI_MODEL_FAST || 'grok-code-fast-1',
             messages: [
                 { role: 'system', content: systemPrompt },
                 { role: 'user', content: message }
@@ -69,7 +70,7 @@ Return ONLY valid JSON with 'gst', 'company', and 'address' fields (null if not 
 async function checkOnboardingStatus(tenantId, phone) {
     try {
         // Check if customer profile exists with basic info
-        const { data: profile } = await supabase
+        const { data: profile } = await dbClient
             .from('customer_profiles')
             .select('id, first_name, company, gst_number, phone, onboarding_completed, onboarding_stage')
             .eq('tenant_id', tenantId)
@@ -132,7 +133,7 @@ async function startOnboarding(tenantId, phone) {
         // Create or get customer profile
         const normalizedPhone = phone.replace(/@.*$/, '');
         
-        const { data: existingProfile } = await supabase
+        const { data: existingProfile } = await dbClient
             .from('customer_profiles')
             .select('id')
             .eq('tenant_id', tenantId)
@@ -141,7 +142,7 @@ async function startOnboarding(tenantId, phone) {
 
         if (!existingProfile) {
             // Create new profile
-            const { data: newProfile, error: createError } = await supabase
+            const { data: newProfile, error: createError } = await dbClient
                 .from('customer_profiles')
                 .insert({
                     tenant_id: tenantId,
@@ -160,7 +161,7 @@ async function startOnboarding(tenantId, phone) {
             }
         } else {
             // Update existing profile to start onboarding
-            await supabase
+            await dbClient
                 .from('customer_profiles')
                 .update({
                     onboarding_stage: 'name',
@@ -170,7 +171,7 @@ async function startOnboarding(tenantId, phone) {
         }
 
         // Update conversation state
-        await supabase
+        await dbClient
             .from('conversations')
             .update({
                 state: 'onboarding_name',
@@ -179,7 +180,7 @@ async function startOnboarding(tenantId, phone) {
             .eq('tenant_id', tenantId)
             .eq('end_user_phone', phone);
 
-        return `👋 Welcome to SAK Foods!\n\nI'm your AI assistant here to help you with product inquiries and orders.\n\nTo serve you better, may I know your name?`;
+        return `ðŸ‘‹ Welcome to SAK Foods!\n\nI'm your AI assistant here to help you with product inquiries and orders.\n\nTo serve you better, may I know your name?`;
     } catch (error) {
         console.error('[ONBOARDING] Error starting:', error.message);
         return 'Welcome! How can I help you today?';
@@ -222,14 +223,14 @@ async function processNameResponse(tenantId, phone, message) {
         }
 
         // Update customer profile
-        await supabase
+        await dbClient
             .from('customer_profiles')
             .update(updateData)
             .eq('tenant_id', tenantId)
             .eq('phone', normalizedPhone);
 
         // Update conversation
-        await supabase
+        await dbClient
             .from('conversations')
             .update({
                 customer_name: extracted.name || extracted.company,
@@ -249,7 +250,7 @@ async function processNameResponse(tenantId, phone, message) {
 
         return {
             success: true,
-            message: `${greeting}${companyAck}\n\n📋 To help with GST invoicing and faster service, could you share:\n\n• Your GST Number (if registered)\n• Company name and address\n\nYou can also send a photo of your business card! 📸\n\n_Or type "skip" if you'd like to do this later._`
+            message: `${greeting}${companyAck}\n\nðŸ“‹ To help with GST invoicing and faster service, could you share:\n\nâ€¢ Your GST Number (if registered)\nâ€¢ Company name and address\n\nYou can also send a photo of your business card! ðŸ“¸\n\n_Or type "skip" if you'd like to do this later._`
         };
     } catch (error) {
         console.error('[ONBOARDING] Error processing name:', error.message);
@@ -283,7 +284,7 @@ async function processBusinessInfoResponse(tenantId, phone, message) {
             console.log('[ONBOARDING] No business info found');
             return {
                 success: false,
-                message: 'I couldn\'t find business details in your message.\n\nPlease share:\n• GST Number (15 digits)\n• Company name\n• Address\n\nOr type "skip" to continue without this information.'
+                message: 'I couldn\'t find business details in your message.\n\nPlease share:\nâ€¢ GST Number (15 digits)\nâ€¢ Company name\nâ€¢ Address\n\nOr type "skip" to continue without this information.'
             };
         }
 
@@ -303,7 +304,7 @@ async function processBusinessInfoResponse(tenantId, phone, message) {
         }
 
         // Update customer profile
-        await supabase
+        await dbClient
             .from('customer_profiles')
             .update(updateData)
             .eq('tenant_id', tenantId)
@@ -332,7 +333,7 @@ async function completeOnboarding(tenantId, phone, skipped = false) {
         const normalizedPhone = phone.replace(/@.*$/, '');
 
         // Mark onboarding as complete
-        await supabase
+        await dbClient
             .from('customer_profiles')
             .update({
                 onboarding_completed: true,
@@ -343,7 +344,7 @@ async function completeOnboarding(tenantId, phone, skipped = false) {
             .eq('phone', normalizedPhone);
 
         // Reset conversation state
-        await supabase
+        await dbClient
             .from('conversations')
             .update({
                 state: 'active',
@@ -354,12 +355,12 @@ async function completeOnboarding(tenantId, phone, skipped = false) {
 
         const skipMessage = skipped 
             ? '\n\n_You can update your business details anytime by typing "update profile"._' 
-            : '\n\n✅ Your profile is all set!';
+            : '\n\nâœ… Your profile is all set!';
 
         return {
             success: true,
             completed: true,
-            message: `🎉 Thank you!${skipMessage}\n\n*How can I help you today?*\n\n💡 You can:\n• Ask for product prices (e.g., "8x80 price?")\n• Place orders (e.g., "10x120 - 50 cartons")\n• Check order status\n• Get product catalogs`
+            message: `ðŸŽ‰ Thank you!${skipMessage}\n\n*How can I help you today?*\n\nðŸ’¡ You can:\nâ€¢ Ask for product prices (e.g., "8x80 price?")\nâ€¢ Place orders (e.g., "10x120 - 50 cartons")\nâ€¢ Check order status\nâ€¢ Get product catalogs`
         };
     } catch (error) {
         console.error('[ONBOARDING] Error completing:', error.message);
@@ -410,3 +411,4 @@ module.exports = {
     processBusinessInfoResponse,
     completeOnboarding
 };
+

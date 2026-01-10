@@ -148,3 +148,9 @@ desktop-agent/.wwebjs_auth/
 
 # Local SQLite database (development only)
 local-database.db
+
+# DB backups should never be committed
+backups/
+
+# Temporary packaging outputs
+__tmp_salesmate_ai_pack/

@@ -1,5 +1,6 @@
-// Enhanced follow-up scheduling and debugging utilities
-const { supabase } = require('./config');
+﻿// Enhanced follow-up scheduling and debugging utilities
+const { dbClient } = require('./config');
+const { isUnsubscribed } = require('./unsubscribeService');
 
 /**
  * Debug follow-up creation with detailed logging
@@ -16,7 +17,7 @@ const debugFollowUpCreation = async (tenantId, endUserPhone, minutes) => {
             currentTime: new Date().toISOString()
         });
 
-        const { data: followUp, error } = await supabase
+        const { data: followUp, error } = await dbClient
             .from('follow_ups')
             .insert({
                 tenant_id: tenantId,
@@ -55,7 +56,7 @@ const debugFollowUpProcessing = async () => {
         console.log('[FOLLOWUP_DEBUG] Current time:', now.toISOString());
 
         // Check all follow-ups for debugging
-        const { data: allFollowUps } = await supabase
+        const { data: allFollowUps } = await dbClient
             .from('follow_ups')
             .select('*')
             .order('scheduled_time', { ascending: false })
@@ -71,7 +72,7 @@ const debugFollowUpProcessing = async () => {
         })) || []);
 
         // Check pending follow-ups specifically
-        const { data: pending } = await supabase
+        const { data: pending } = await dbClient
             .from('follow_ups')
             .select('*')
             .eq('status', 'pending')
@@ -91,7 +92,7 @@ const debugFollowUpProcessing = async () => {
         }
 
         // Check upcoming follow-ups
-        const { data: upcoming } = await supabase
+        const { data: upcoming } = await dbClient
             .from('follow_ups')
             .select('*')
             .eq('status', 'pending')
@@ -128,7 +129,7 @@ const enhancedFollowUpScheduler = async () => {
         const now = new Date();
         console.log('[FOLLOWUP_CRON] Current time:', now.toISOString());
         
-        const { data: followUps, error } = await supabase
+        const { data: followUps, error } = await dbClient
             .from('follow_ups')
             .select('*')
             .eq('status', 'pending')
@@ -159,13 +160,28 @@ const enhancedFollowUpScheduler = async () => {
 
                 // Import WhatsApp service
                 const { sendMessage } = require('./whatsappService');
+
+                // Enforce opt-out list
+                if (await isUnsubscribed(followUp.end_user_phone)) {
+                    await dbClient
+                        .from('follow_ups')
+                        .update({
+                            status: 'skipped',
+                            error_message: 'User unsubscribed',
+                            failed_at: now.toISOString()
+                        })
+                        .eq('id', followUp.id);
+
+                    console.log('[FOLLOWUP_CRON] Skipped follow-up (unsubscribed):', followUp.id);
+                    continue;
+                }
                 
                 // Send WhatsApp message
                 const sendResult = await sendMessage(followUp.end_user_phone, followUp.message);
                 console.log('[FOLLOWUP_CRON] WhatsApp send result:', sendResult);
 
                 // Mark as sent
-                const { error: updateError } = await supabase
+                const { error: updateError } = await dbClient
                     .from('follow_ups')
                     .update({ 
                         status: 'sent', 
@@ -187,7 +203,7 @@ const enhancedFollowUpScheduler = async () => {
 
                 // Mark as failed
                 try {
-                    await supabase
+                    await dbClient
                         .from('follow_ups')
                         .update({ 
                             status: 'failed', 
@@ -258,3 +274,4 @@ module.exports = {
     enhancedFollowUpScheduler,
     testFollowUpSystem
 };
+

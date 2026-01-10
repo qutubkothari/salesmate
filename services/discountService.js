@@ -1,8 +1,8 @@
-/**
+﻿/**
  * @title Discount Management Service
  * @description Handles discount codes, automatic discounts, and promotional offers
  */
-const { supabase } = require('./config');
+const { dbClient } = require('./config');
 const { getConversationId } = require('./historyService');
 
 /**
@@ -35,7 +35,7 @@ const createDiscount = async (tenantId, discountData) => {
         }
 
         // Check if code already exists
-        const { data: existingCode } = await supabase
+        const { data: existingCode } = await dbClient
             .from('discount_codes')
             .select('id')
             .eq('tenant_id', tenantId)
@@ -46,7 +46,7 @@ const createDiscount = async (tenantId, discountData) => {
             return `Discount code "${code}" already exists.`;
         }
 
-        const { error } = await supabase
+        const { error } = await dbClient
             .from('discount_codes')
             .insert({
                 tenant_id: tenantId,
@@ -69,11 +69,11 @@ const createDiscount = async (tenantId, discountData) => {
 
         if (error) throw error;
 
-        return `✅ Discount code "${code}" created successfully!\n` +
+        return `âœ… Discount code "${code}" created successfully!\n` +
                `Type: ${type}\n` +
-               `Value: ${type === 'percentage' ? value + '%' : '₹' + value}\n` +
-               `Min Order: ₹${minOrderValue}` +
-               `${isAutomatic ? '\n🤖 Auto-applies when conditions are met' : ''}`;
+               `Value: ${type === 'percentage' ? value + '%' : 'â‚¹' + value}\n` +
+               `Min Order: â‚¹${minOrderValue}` +
+               `${isAutomatic ? '\nðŸ¤– Auto-applies when conditions are met' : ''}`;
 
     } catch (error) {
         console.error('Error creating discount:', error.message);
@@ -96,7 +96,7 @@ const applyDiscount = async (tenantId, endUserPhone, discountCode) => {
         }
 
         // Get cart and items with carton pricing support
-        const { data: cart } = await supabase
+        const { data: cart } = await dbClient
             .from('carts')
             .select(`
                 id,
@@ -115,7 +115,7 @@ const applyDiscount = async (tenantId, endUserPhone, discountCode) => {
         }
 
         // Get discount code
-        const { data: discount } = await supabase
+        const { data: discount } = await dbClient
             .from('discount_codes')
             .select('*')
             .eq('tenant_id', tenantId)
@@ -137,7 +137,7 @@ const applyDiscount = async (tenantId, endUserPhone, discountCode) => {
         const calculation = calculateDiscountWithCartons(discount, cart.cart_items);
         
         // Apply discount to cart
-        await supabase
+        await dbClient
             .from('carts')
             .update({
                 applied_discount_id: discount.id,
@@ -147,17 +147,17 @@ const applyDiscount = async (tenantId, endUserPhone, discountCode) => {
             .eq('id', cart.id);
 
         // Update usage count
-        await supabase
+        await dbClient
             .from('discount_codes')
             .update({ usage_count: discount.usage_count + 1 })
             .eq('id', discount.id);
 
         return {
             success: true,
-            message: `🎉 Discount "${discountCode}" applied!\n` +
-                    `Subtotal: ₹${calculation.subtotal.toFixed(2)}\n` +
-                    `Discount: -₹${calculation.discountAmount.toFixed(2)}\n` +
-                    `**Total: ₹${calculation.finalTotal.toFixed(2)}**`,
+            message: `ðŸŽ‰ Discount "${discountCode}" applied!\n` +
+                    `Subtotal: â‚¹${calculation.subtotal.toFixed(2)}\n` +
+                    `Discount: -â‚¹${calculation.discountAmount.toFixed(2)}\n` +
+                    `**Total: â‚¹${calculation.finalTotal.toFixed(2)}**`,
             discountAmount: calculation.discountAmount,
             finalTotal: calculation.finalTotal
         };
@@ -181,7 +181,7 @@ const removeDiscount = async (tenantId, endUserPhone) => {
             return { success: false, message: "Could not identify your conversation." };
         }
 
-        const { data: cart } = await supabase
+        const { data: cart } = await dbClient
             .from('carts')
             .select('id, applied_discount_id')
             .eq('conversation_id', conversationId)
@@ -191,7 +191,7 @@ const removeDiscount = async (tenantId, endUserPhone) => {
             return { success: false, message: "No discount applied to your cart." };
         }
 
-        await supabase
+        await dbClient
             .from('carts')
             .update({
                 applied_discount_id: null,
@@ -202,7 +202,7 @@ const removeDiscount = async (tenantId, endUserPhone) => {
 
         return {
             success: true,
-            message: "✅ Discount removed from your cart."
+            message: "âœ… Discount removed from your cart."
         };
 
     } catch (error) {
@@ -218,7 +218,7 @@ const removeDiscount = async (tenantId, endUserPhone) => {
  */
 const listDiscounts = async (tenantId) => {
     try {
-        const { data: discounts, error } = await supabase
+        const { data: discounts, error } = await dbClient
             .from('discount_codes')
             .select('*')
             .eq('tenant_id', tenantId)
@@ -231,7 +231,7 @@ const listDiscounts = async (tenantId) => {
             return 'No active discount codes found.';
         }
 
-        let message = '🎫 **Active Discount Codes:**\n\n';
+        let message = 'ðŸŽ« **Active Discount Codes:**\n\n';
         
         discounts.forEach(discount => {
             const isExpired = discount.valid_until && new Date(discount.valid_until) < new Date();
@@ -239,9 +239,9 @@ const listDiscounts = async (tenantId) => {
                 ` (Used: ${discount.usage_count}/${discount.usage_limit})` : 
                 ` (Used: ${discount.usage_count} times)`;
 
-            message += `**${discount.code}**${isExpired ? ' ⚠️ EXPIRED' : ''}${discount.is_automatic ? ' 🤖 AUTO' : ''}\n`;
-            message += `- ${discount.type === 'percentage' ? discount.value + '% off' : '₹' + discount.value + ' off'}\n`;
-            message += `- Min order: ₹${discount.min_order_value}${usageInfo}\n`;
+            message += `**${discount.code}**${isExpired ? ' âš ï¸ EXPIRED' : ''}${discount.is_automatic ? ' ðŸ¤– AUTO' : ''}\n`;
+            message += `- ${discount.type === 'percentage' ? discount.value + '% off' : 'â‚¹' + discount.value + ' off'}\n`;
+            message += `- Min order: â‚¹${discount.min_order_value}${usageInfo}\n`;
             if (discount.description) {
                 message += `- ${discount.description}\n`;
             }
@@ -288,7 +288,7 @@ const validateDiscount = async (discount, cart, endUserPhone) => {
     if (cartTotal < discount.min_order_value) {
         return { 
             isValid: false, 
-            reason: `Minimum order value of ₹${discount.min_order_value} required. Current cart: ₹${cartTotal.toFixed(2)}` 
+            reason: `Minimum order value of â‚¹${discount.min_order_value} required. Current cart: â‚¹${cartTotal.toFixed(2)}` 
         };
     }
 
@@ -385,7 +385,7 @@ const calculateDiscount = (discount, cartItems) => {
  */
 const getAutomaticDiscounts = async (tenantId, cart) => {
     try {
-        const { data: autoDiscounts } = await supabase
+        const { data: autoDiscounts } = await dbClient
             .from('discount_codes')
             .select('*')
             .eq('tenant_id', tenantId)
@@ -424,7 +424,7 @@ const getAutomaticDiscounts = async (tenantId, cart) => {
  */
 const getDiscountAnalytics = async (tenantId, discountCode = null) => {
     try {
-        let query = supabase
+        let query = dbClient
             .from('discount_usage_history')
             .select(`
                 *,
@@ -434,7 +434,7 @@ const getDiscountAnalytics = async (tenantId, discountCode = null) => {
             .eq('tenant_id', tenantId);
 
         if (discountCode) {
-            const { data: discount } = await supabase
+            const { data: discount } = await dbClient
                 .from('discount_codes')
                 .select('id')
                 .eq('tenant_id', tenantId)

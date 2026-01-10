@@ -1,4 +1,4 @@
-// Import handlePriceQueriesFixed and handleMultiProductPriceInquiry from smartResponseRouter.js
+﻿// Import handlePriceQueriesFixed and handleMultiProductPriceInquiry from smartResponseRouter.js
 const { handlePriceQueriesFixed, handleMultiProductPriceInquiry } = require('./smartResponseRouter');
 /**
  * Safely parse context_data (handles both string and object)
@@ -81,7 +81,7 @@ const isPriceInquiryOnly = (userQuery) => {
     return false;
 };
 // services/smartOrderExtractionService.js - COMPLETE FIXED VERSION
-const { supabase } = require('./config');
+const { dbClient } = require('./config');
 const { getAIResponse } = require('./aiService');
 
 // ...existing code...
@@ -92,7 +92,7 @@ const { getAIResponse } = require('./aiService');
 const handleGeneralPriceInquiry = async (tenantId, query) => {
     try {
         // Get a few popular products to show pricing
-        const { data: products } = await supabase
+        const { data: products } = await dbClient
             .from('products')
             .select('name, price, units_per_carton')
             .eq('tenant_id', tenantId)
@@ -104,12 +104,12 @@ const handleGeneralPriceInquiry = async (tenantId, query) => {
             return "Please contact us for current pricing information.";
         }
         
-        let response = "📋 **Current Pricing:**\n\n";
+        let response = "ðŸ“‹ **Current Pricing:**\n\n";
         products.forEach(product => {
-            response += `**${product.name}**: ₹${product.price}/carton`;
+            response += `**${product.name}**: â‚¹${product.price}/carton`;
             if (product.units_per_carton) {
                 const perPiece = (product.price / product.units_per_carton).toFixed(2);
-                response += ` (₹${perPiece}/piece)\n`;
+                response += ` (â‚¹${perPiece}/piece)\n`;
             } else {
                 response += '\n';
             }
@@ -131,7 +131,7 @@ const formatProductPrice = async (tenantId, endUserPhone, product) => {
     // Check for approved discount in conversation context
     let approvedDiscount = null;
     try {
-        const { data: conversation } = await supabase
+        const { data: conversation } = await dbClient
             .from('conversations')
             .select('context_data')
             .eq('tenant_id', tenantId)
@@ -149,17 +149,17 @@ const formatProductPrice = async (tenantId, endUserPhone, product) => {
     let discountLine = '';
     if (approvedDiscount) {
         const discounted = (product.price * (1 - approvedDiscount / 100)).toFixed(2);
-        discountLine = `Discounted Price: ₹${discounted}/carton (\u2193${approvedDiscount}% OFF)\n`;
+        discountLine = `Discounted Price: â‚¹${discounted}/carton (\u2193${approvedDiscount}% OFF)\n`;
         priceToShow = discounted;
     }
 
-    let response = `💰 **${product.name} Pricing**\n\n`;
-    response += `Price: ₹${product.price}/carton\n`;
+    let response = `ðŸ’° **${product.name} Pricing**\n\n`;
+    response += `Price: â‚¹${product.price}/carton\n`;
     if (discountLine) response += discountLine;
     if (product.units_per_carton && product.units_per_carton > 1) {
         const perPiece = (priceToShow / product.units_per_carton).toFixed(2);
         response += `Carton contains: ${product.units_per_carton} pieces\n`;
-        response += `Per piece: ₹${perPiece}\n`;
+        response += `Per piece: â‚¹${perPiece}\n`;
     }
     response += `\nReady to place an order? Just let me know the quantity!`;
     return response;
@@ -179,7 +179,7 @@ const findProductByCodeStrict = async (tenantId, productCode) => {
         const cleanIdentifier = String(productCode).trim().toLowerCase();
         
         // Get all active products with non-zero prices
-        const { data: products, error } = await supabase
+        const { data: products, error } = await dbClient
             .from('products')
             .select('*')
             .eq('tenant_id', tenantId)
@@ -292,8 +292,8 @@ const extractOrderDetailsFallback = (userQuery) => {
     if (userQuery.includes('**Current Pricing:**') || 
         userQuery.includes('**Requested Product Prices:**') ||
         userQuery.includes('For specific products, ask:') ||
-        userQuery.includes('🛒') || 
-        userQuery.includes('₹') ||
+        userQuery.includes('ðŸ›’') || 
+        userQuery.includes('â‚¹') ||
         userQuery.includes('**Pricing:**') ||
         userQuery.includes('Ready to place an order?')) {
         console.log('[FALLBACK_EXTRACT] Bot response detected, skipping extraction');
@@ -464,7 +464,7 @@ const extractOrderDetailsFallback = (userQuery) => {
             }
         },
         {
-            regex: /(?:i\s+want|add|need)\s+([a-zA-Z0-9x*]+)\s*[-–—]\s*(\d+)\s*(pcs?|pieces?|ctns?|cartons?)/i,
+            regex: /(?:i\s+want|add|need)\s+([a-zA-Z0-9x*]+)\s*[-â€“â€”]\s*(\d+)\s*(pcs?|pieces?|ctns?|cartons?)/i,
             extract: (match) => ({
                 isMultipleProducts: false,
                 productCode: match[1].trim(),
@@ -475,7 +475,7 @@ const extractOrderDetailsFallback = (userQuery) => {
             })
         },
         {
-            regex: /(\d+[x*]\d+)\s*[-–—]\s*(\d+)\s*(?:ctns?|cartons?|pieces?|pcs?)/i,
+            regex: /(\d+[x*]\d+)\s*[-â€“â€”]\s*(\d+)\s*(?:ctns?|cartons?|pieces?|pcs?)/i,
             extract: (match) => {
                 const unit = determineUnitFixed(match[0]);
                 return {
@@ -503,7 +503,7 @@ const extractOrderDetailsFallback = (userQuery) => {
         
         // "dd/add PRODUCT - NUMBER pcs" (PIECES with dash)
         {
-            regex: /(?:dd|add|need)\s+([a-zA-Z0-9x*\s]+?)\s*[-–—]\s*(\d+)\s*(?:pcs?|pieces?)/i,
+            regex: /(?:dd|add|need)\s+([a-zA-Z0-9x*\s]+?)\s*[-â€“â€”]\s*(\d+)\s*(?:pcs?|pieces?)/i,
             extract: (match) => ({
                 isMultipleProducts: false,
                 productCode: match[1].trim(),
@@ -516,7 +516,7 @@ const extractOrderDetailsFallback = (userQuery) => {
         
         // "dd/add PRODUCT - NUMBER ctns" (CARTONS with dash)
         {
-            regex: /(?:dd|add|need)\s+([a-zA-Z0-9x*\s]+?)\s*[-–—]\s*(\d+)\s*(?:ctns?|cartons?)/i,
+            regex: /(?:dd|add|need)\s+([a-zA-Z0-9x*\s]+?)\s*[-â€“â€”]\s*(\d+)\s*(?:ctns?|cartons?)/i,
             extract: (match) => ({
                 isMultipleProducts: false,
                 productCode: match[1].trim(),
@@ -529,7 +529,7 @@ const extractOrderDetailsFallback = (userQuery) => {
         
         // Generic dash pattern with FIXED unit detection
         {
-            regex: /([a-zA-Z0-9x*\s]+?)\s*[-–—]\s*(\d+)\s*(?:ctns?|cartons?|pieces?|pcs?|units?)/i,
+            regex: /([a-zA-Z0-9x*\s]+?)\s*[-â€“â€”]\s*(\d+)\s*(?:ctns?|cartons?|pieces?|pcs?|units?)/i,
             extract: (match) => {
                 const unit = determineUnitFixed(match[0]);
                 return {
@@ -603,7 +603,7 @@ const extractOrderDetailsAI = async (userQuery, tenantId) => {
         }
         
         // Get available products for this tenant
-        const { data: products } = await supabase
+        const { data: products } = await dbClient
             .from('products')
             .select('name, id, description, price, units_per_carton')
             .eq('tenant_id', tenantId)
@@ -617,7 +617,7 @@ const extractOrderDetailsAI = async (userQuery, tenantId) => {
         }
         
         // Create dynamic product context
-        const productList = products.map(p => `"${p.name}" (₹${p.price})`).join(', ');
+        const productList = products.map(p => `"${p.name}" (â‚¹${p.price})`).join(', ');
         
         // Enhanced AI prompt with explicit unit handling
         const extractionPrompt = `
@@ -639,10 +639,10 @@ CRITICAL RULES:
 8. IMPORTANT: Extract product codes EXACTLY as written - do not change "8x100" to "10x100"
 
 EXAMPLES:
-- "8x80, 8x100, 8x120 5ctns each" → multiple products, 5 cartons each
-- "8x80\n8x100\n10 carton" → 8x80 (10 cartons), 8x100 (10 cartons)
-- "add another 8x100 10000pcs" → single product 8x100, 10000 pieces
-- "prices chahiye" → {"hasOrder": false}
+- "8x80, 8x100, 8x120 5ctns each" â†’ multiple products, 5 cartons each
+- "8x80\n8x100\n10 carton" â†’ 8x80 (10 cartons), 8x100 (10 cartons)
+- "add another 8x100 10000pcs" â†’ single product 8x100, 10000 pieces
+- "prices chahiye" â†’ {"hasOrder": false}
 
 MULTI-LINE HANDLING:
 When products are on separate lines followed by quantity, apply the quantity to ALL products:
@@ -819,7 +819,7 @@ const extractOrderDetails = async (userQuery, tenantId) => {
                 console.log('[ORDER_EXTRACT] Extracted product codes:', productCodes, 'quantity:', quantity);
 
                 // Get products from database
-                const { data: products } = await supabase
+                const { data: products } = await dbClient
                     .from('products')
                     .select('id, name, price, units_per_carton')
                     .eq('tenant_id', tenantId)
@@ -995,14 +995,14 @@ const extractOrderDetails = async (userQuery, tenantId) => {
             const queryLower = userQuery.toLowerCase();
             if ((queryLower.includes('pcs') || queryLower.includes('piece')) && 
                 regexResult.unit !== 'pieces') {
-                console.log('[ORDER_EXTRACT] ⚠️  UNIT MISMATCH DETECTED - FORCING TO PIECES');
+                console.log('[ORDER_EXTRACT] âš ï¸  UNIT MISMATCH DETECTED - FORCING TO PIECES');
                 regexResult.unit = 'pieces';
                 regexResult.isPieces = true;
             }
             
             if ((queryLower.includes('ctn') || queryLower.includes('carton')) && 
                 regexResult.unit !== 'cartons') {
-                console.log('[ORDER_EXTRACT] ⚠️  UNIT MISMATCH DETECTED - FORCING TO CARTONS');
+                console.log('[ORDER_EXTRACT] âš ï¸  UNIT MISMATCH DETECTED - FORCING TO CARTONS');
                 regexResult.unit = 'cartons';
                 regexResult.isPieces = false;
             }
@@ -1013,14 +1013,14 @@ const extractOrderDetails = async (userQuery, tenantId) => {
                 regexResult.orders.forEach((order, idx) => {
                     if ((queryLower.includes('pcs') || queryLower.includes('piece')) && 
                         order.unit !== 'pieces') {
-                        console.log(`[ORDER_EXTRACT] ⚠️  Order ${idx + 1} UNIT MISMATCH - FORCING TO PIECES`);
+                        console.log(`[ORDER_EXTRACT] âš ï¸  Order ${idx + 1} UNIT MISMATCH - FORCING TO PIECES`);
                         order.unit = 'pieces';
                         order.isPieces = true;
                     }
                     
                     if ((queryLower.includes('ctn') || queryLower.includes('carton')) && 
                         order.unit !== 'cartons') {
-                        console.log(`[ORDER_EXTRACT] ⚠️  Order ${idx + 1} UNIT MISMATCH - FORCING TO CARTONS`);
+                        console.log(`[ORDER_EXTRACT] âš ï¸  Order ${idx + 1} UNIT MISMATCH - FORCING TO CARTONS`);
                         order.unit = 'cartons';
                         order.isPieces = false;
                     }

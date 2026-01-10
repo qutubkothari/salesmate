@@ -1,4 +1,4 @@
-const { supabase } = require('../config');
+﻿const { dbClient } = require('../config');
 const { analyzeProductAffinity } = require('../analytics/productAffinity');
 
 /**
@@ -33,7 +33,7 @@ async function detectOrderAnomalies(customerProfileId, orderDetails, tenantId, u
       // Multi-product order
       for (const order of orderDetails.orders) {
         const productCode = order.productCode || order.productName;
-        const { data: product } = await supabase
+        const { data: product } = await dbClient
           .from('products')
           .select('id')
           .eq('tenant_id', tenantId)
@@ -46,7 +46,7 @@ async function detectOrderAnomalies(customerProfileId, orderDetails, tenantId, u
     } else {
       // Single product order
       const productCode = orderDetails.productCode || orderDetails.productName;
-      const { data: product } = await supabase
+      const { data: product } = await dbClient
         .from('products')
         .select('id')
         .eq('tenant_id', tenantId)
@@ -68,7 +68,7 @@ async function detectOrderAnomalies(customerProfileId, orderDetails, tenantId, u
     }
     
     // Get product details
-    const { data: missingProducts } = await supabase
+    const { data: missingProducts } = await dbClient
       .from('products')
       .select('id, name, price')
       .in('id', missingRegularProductIds)
@@ -118,7 +118,7 @@ async function detectOrderAnomalies(customerProfileId, orderDetails, tenantId, u
  */
 async function detectQuantityAnomaly(customerProfileId, productId, requestedQuantity) {
   try {
-    const { data: pastOrders } = await supabase
+    const { data: pastOrders } = await dbClient
       .from('order_items')
       .select('quantity, orders(customer_profile_id)')
       .eq('orders.customer_profile_id', customerProfileId)

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * ErrorRecoveryService - Human-like Error Handling with Context
  * 
  * This service provides intelligent error recovery that:
@@ -10,7 +10,7 @@
  * @module services/core/ErrorRecoveryService
  */
 
-const { supabase } = require('../config');
+const { dbClient } = require('../config');
 const ConversationMemory = require('./ConversationMemory');
 
 class ErrorRecoveryService {
@@ -90,12 +90,12 @@ class ErrorRecoveryService {
         
         if (retryCount === 0) {
             // First attempt - be helpful and specific
-            message = `❌ GST Verification Failed\n\n` +
+            message = `âŒ GST Verification Failed\n\n` +
                      `The GST number "${errorDetails?.gstNumber || userInput}" could not be verified in government records.\n\n` +
                      `This could mean:\n` +
-                     `• The number has a typo\n` +
-                     `• GST registration is inactive\n` +
-                     `• Government portal is temporarily down\n\n`;
+                     `â€¢ The number has a typo\n` +
+                     `â€¢ GST registration is inactive\n` +
+                     `â€¢ Government portal is temporarily down\n\n`;
             
             suggestedActions = [
                 { action: 'retry_gst', label: 'Re-enter GST number (15 characters)' },
@@ -114,9 +114,9 @@ class ErrorRecoveryService {
         } else if (retryCount === 1) {
             // Second attempt - offer alternative
             message = `I see you've tried that GST number twice. Let me help differently:\n\n` +
-                     `📎 Upload your GST Certificate PDF for instant verification\n` +
+                     `ðŸ“Ž Upload your GST Certificate PDF for instant verification\n` +
                      `OR\n` +
-                     `💬 Reply "No GST" to proceed without GST billing\n\n` +
+                     `ðŸ’¬ Reply "No GST" to proceed without GST billing\n\n` +
                      `(You can always add GST details later from your profile)`;
             
             suggestedActions = [
@@ -128,8 +128,8 @@ class ErrorRecoveryService {
             // Third+ attempt - suggest moving forward
             message = `I understand GST verification is challenging right now.\n\n` +
                      `Let's move forward - you can:\n` +
-                     `• Continue your order without GST (add it later)\n` +
-                     `• Contact our support team for manual verification\n\n` +
+                     `â€¢ Continue your order without GST (add it later)\n` +
+                     `â€¢ Contact our support team for manual verification\n\n` +
                      `Reply "Continue" to proceed with your order.`;
             
             suggestedActions = [
@@ -157,13 +157,13 @@ class ErrorRecoveryService {
         let suggestedActions = [];
         
         if (retryCount === 0) {
-            message = `🔍 I couldn't find "${userInput}" in our catalog.\n\n`;
+            message = `ðŸ” I couldn't find "${userInput}" in our catalog.\n\n`;
             
             // Check if we have similar products
             if (errorDetails?.similarProducts && errorDetails.similarProducts.length > 0) {
                 message += `Did you mean one of these?\n`;
                 errorDetails.similarProducts.slice(0, 3).forEach((p, i) => {
-                    message += `${i + 1}. ${p.name} - ₹${p.price}\n`;
+                    message += `${i + 1}. ${p.name} - â‚¹${p.price}\n`;
                 });
                 message += `\nReply with the number or product name.`;
                 suggestedActions = errorDetails.similarProducts.map(p => ({
@@ -173,9 +173,9 @@ class ErrorRecoveryService {
                 }));
             } else {
                 message += `Try:\n` +
-                          `• Checking the spelling\n` +
-                          `• Using a shorter name (e.g., "Paper Cup" instead of "Disposable Paper Cup 200ml")\n` +
-                          `• Browsing our catalog by replying "show products"`;
+                          `â€¢ Checking the spelling\n` +
+                          `â€¢ Using a shorter name (e.g., "Paper Cup" instead of "Disposable Paper Cup 200ml")\n` +
+                          `â€¢ Browsing our catalog by replying "show products"`;
                 suggestedActions = [
                     { action: 'show_catalog', label: 'Browse all products' },
                     { action: 'search_by_category', label: 'Search by category' }
@@ -184,9 +184,9 @@ class ErrorRecoveryService {
         } else {
             message = `I'm still having trouble finding that product.\n\n` +
                      `Let me help you browse:\n` +
-                     `• Reply "catalog" to see all products\n` +
-                     `• Reply "categories" to browse by category\n` +
-                     `• Or tell me what you're looking for and I'll search differently`;
+                     `â€¢ Reply "catalog" to see all products\n` +
+                     `â€¢ Reply "categories" to browse by category\n` +
+                     `â€¢ Or tell me what you're looking for and I'll search differently`;
             
             suggestedActions = [
                 { action: 'show_catalog', label: 'Show catalog' },
@@ -209,14 +209,14 @@ class ErrorRecoveryService {
     async recoverFromCheckoutError(context, retryCount, recentContext) {
         const { errorDetails } = context;
         
-        let message = `❌ Checkout Issue\n\n`;
+        let message = `âŒ Checkout Issue\n\n`;
         
         if (errorDetails?.missingInfo) {
             message += `I need a few more details to complete your order:\n`;
             const missing = errorDetails.missingInfo;
-            if (missing.includes('gst')) message += `• GST details (or reply "No GST")\n`;
-            if (missing.includes('address')) message += `• Delivery address\n`;
-            if (missing.includes('contact')) message += `• Contact information\n`;
+            if (missing.includes('gst')) message += `â€¢ GST details (or reply "No GST")\n`;
+            if (missing.includes('address')) message += `â€¢ Delivery address\n`;
+            if (missing.includes('contact')) message += `â€¢ Contact information\n`;
             message += `\nLet's complete these one by one. `;
             
             if (missing.includes('gst')) {
@@ -265,9 +265,9 @@ class ErrorRecoveryService {
                       `Would you like to add ${errorDetails.availableStock} instead?`;
         } else {
             message += `Let me try to help:\n` +
-                      `• Reply "cart" to see what's in your cart\n` +
-                      `• Tell me what you'd like to add or change\n` +
-                      `• Or say "clear cart" to start fresh`;
+                      `â€¢ Reply "cart" to see what's in your cart\n` +
+                      `â€¢ Tell me what you'd like to add or change\n` +
+                      `â€¢ Or say "clear cart" to start fresh`;
         }
         
         return {
@@ -291,7 +291,7 @@ class ErrorRecoveryService {
         let message;
         
         if (retryCount === 0) {
-            message = `⏳ One moment please...\n\n` +
+            message = `â³ One moment please...\n\n` +
                      `I'm experiencing a brief technical delay. ` +
                      `Let me try that again for you.`;
         } else if (retryCount === 1) {
@@ -302,13 +302,13 @@ class ErrorRecoveryService {
                      `2. Continue with something else\n` +
                      `3. Save your progress and return later`;
         } else {
-            message = `🔧 System Issue\n\n` +
+            message = `ðŸ”§ System Issue\n\n` +
                      `Our system is experiencing issues right now. ` +
                      `Your cart and data are saved.\n\n` +
                      `You can:\n` +
-                     `• Try again in 5-10 minutes\n` +
-                     `• Contact our support team directly\n` +
-                     `• I'll notify you when systems are back\n\n` +
+                     `â€¢ Try again in 5-10 minutes\n` +
+                     `â€¢ Contact our support team directly\n` +
+                     `â€¢ I'll notify you when systems are back\n\n` +
                      `We apologize for the inconvenience!`;
         }
         
@@ -357,7 +357,7 @@ class ErrorRecoveryService {
      */
     async getRetryCount(conversationId, errorType) {
         try {
-            const { data, error } = await supabase
+            const { data, error } = await dbClient
                 .from('error_recovery_log')
                 .select('retry_count')
                 .eq('conversation_id', conversationId)
@@ -379,7 +379,7 @@ class ErrorRecoveryService {
      */
     async saveRecoveryAttempt(conversationId, errorType, recovery) {
         try {
-            await supabase
+            await dbClient
                 .from('error_recovery_log')
                 .insert({
                     conversation_id: conversationId,
@@ -397,3 +397,4 @@ class ErrorRecoveryService {
 }
 
 module.exports = new ErrorRecoveryService();
+

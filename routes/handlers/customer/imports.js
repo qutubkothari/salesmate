@@ -1,4 +1,4 @@
-// All imports from customerHandler.js centralized here for modularization
+﻿// All imports from customerHandler.js centralized here for modularization
 const { viewCartWithDiscounts, checkoutWithDiscounts } = require('../../services/cartService');
 const { processOrderRequestEnhanced, processMultipleOrderRequest } = require('../../services/orderProcessingService');
 const { extractOrderDetails } = require('../../services/smartOrderExtractionService');
@@ -12,7 +12,7 @@ const { logMessage, getConversationHistory, getConversationId } = require('../..
 const { getAIResponse, getAIResponseV2 } = require('../../services/aiService');
 const { categorizeResponse, updateConversationCategory } = require('../../services/followUpService');
 const { isWithinOfficeHours } = require('../../services/officeHoursService');
-const { supabase } = require('../../services/config');
+const { dbClient } = require('../../services/config');
 const { getCustomerProfile } = require('../../services/customerProfileService');
 const debug = require('../../services/debug');
 const { processFollowUpResponse } = require('../../services/enhancedFollowUpService');
@@ -52,3 +52,4 @@ const {
 const { convertSalesOrderToInvoice, generateInvoicePDF } = require('../../services/zohoInvoiceService');
 // Centralized imports for customer handler modules
 // Add all require statements here as you modularize
+

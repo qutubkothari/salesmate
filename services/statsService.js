@@ -1,8 +1,8 @@
-/**
+﻿/**
  * @title Tenant Usage Statistics Service
  * @description Handles the logic for calculating and presenting bot usage statistics to tenants.
  */
-const { supabase } = require('./config');
+const { dbClient } = require('./config');
 
 /**
  * Fetches and aggregates usage statistics for a tenant.
@@ -12,7 +12,7 @@ const { supabase } = require('./config');
 const getUsageStats = async (tenantId) => {
     try {
         // 1. Fetch all messages for the tenant, selecting only the message_type.
-        const { data, error } = await supabase
+        const { data, error } = await dbClient
             .from('messages')
             .select('message_type')
             .not('message_type', 'is', null); // Exclude any messages that might not have a type
@@ -31,7 +31,7 @@ const getUsageStats = async (tenantId) => {
         }, {});
 
         // 3. Format the stats into a user-friendly message.
-        let statsMessage = '📈 *Your Bot Usage Statistics*\n\n';
+        let statsMessage = 'ðŸ“ˆ *Your Bot Usage Statistics*\n\n';
         statsMessage += `*Customer Messages Received:* ${stats['user_input'] || 0}\n`;
         statsMessage += `*AI Responses Sent:* ${stats['ai_response'] || 0}\n`;
         statsMessage += `*Keyword Replies:* ${stats['keyword_response'] || 0}\n`;
@@ -49,3 +49,4 @@ const getUsageStats = async (tenantId) => {
 module.exports = {
     getUsageStats,
 };
+

@@ -1,8 +1,8 @@
-/**
+﻿/**
  * @title AI Customer Segmentation Service
  * @description Manages the logic for creating custom segments and automatically assigning them to customers.
  */
-const { supabase, openai } = require('./config');
+const { dbClient, openai } = require('./config');
 const { getConversationId } = require('./historyService');
 const { normalizeConversationHistory, conversationHistoryToText, getConversationTextForAnalysis } = require('./followUpService');
 
@@ -14,7 +14,7 @@ const { normalizeConversationHistory, conversationHistoryToText, getConversation
  */
 const createSegment = async (tenantId, segmentName) => {
     try {
-        await supabase.from('customer_segments').insert({ tenant_id: tenantId, segment_name: segmentName });
+        await dbClient.from('customer_segments').insert({ tenant_id: tenantId, segment_name: segmentName });
         return `Segment "${segmentName}" created successfully.`;
     } catch (error) {
         if (error.code === '23505') return `A segment named "${segmentName}" already exists.`;
@@ -32,7 +32,7 @@ const createSegment = async (tenantId, segmentName) => {
 const deleteSegment = async (tenantId, segmentName) => {
     try {
         // Must delete by ID, so fetch it first. Cascade delete will handle conversation_segments.
-        const { data: segment, error: findError } = await supabase
+        const { data: segment, error: findError } = await dbClient
             .from('customer_segments')
             .select('id')
             .eq('tenant_id', tenantId)
@@ -41,7 +41,7 @@ const deleteSegment = async (tenantId, segmentName) => {
 
         if (findError || !segment) return `Segment "${segmentName}" not found.`;
 
-        await supabase.from('customer_segments').delete().eq('id', segment.id);
+        await dbClient.from('customer_segments').delete().eq('id', segment.id);
         return `Segment "${segmentName}" has been deleted.`;
     } catch (error) {
         console.error('Error deleting segment:', error.message);
@@ -56,7 +56,7 @@ const deleteSegment = async (tenantId, segmentName) => {
  */
 const listSegments = async (tenantId) => {
     try {
-        const { data, error } = await supabase
+        const { data, error } = await dbClient
             .from('customer_segments')
             .select('segment_name')
             .eq('tenant_id', tenantId);
@@ -79,7 +79,7 @@ const segmentConversation = async (tenantId, endUserPhone) => {
         const conversationId = await getConversationId(tenantId, endUserPhone);
         if (!conversationId) return;
 
-        const { data: segments, error: segError } = await supabase
+        const { data: segments, error: segError } = await dbClient
             .from('customer_segments')
             .select('id, segment_name')
             .eq('tenant_id', tenantId);
@@ -89,7 +89,7 @@ const segmentConversation = async (tenantId, endUserPhone) => {
             return;
         }
 
-        const { data: messages, error: msgError } = await supabase
+        const { data: messages, error: msgError } = await dbClient
             .from('messages')
             .select('sender, message_body')
             .eq('conversation_id', conversationId)
@@ -146,7 +146,7 @@ const segmentConversation = async (tenantId, endUserPhone) => {
         const matchedSegment = segments.find(s => s.segment_name.toLowerCase() === bestFitSegmentName.toLowerCase());
 
         if (matchedSegment) {
-            await supabase.from('conversation_segments').upsert({
+            await dbClient.from('conversation_segments').upsert({
                 conversation_id: conversationId,
                 segment_id: matchedSegment.id
             }, { onConflict: 'conversation_id, segment_id' });
@@ -169,7 +169,7 @@ const listConversationSegments = async (tenantId, endUserPhone) => {
         const conversationId = await getConversationId(tenantId, endUserPhone);
         if (!conversationId) return `No conversation found for ${endUserPhone}.`;
 
-        const { data, error } = await supabase
+        const { data, error } = await dbClient
             .from('conversation_segments')
             .select('segment:customer_segments (segment_name)')
             .eq('conversation_id', conversationId);
@@ -193,3 +193,4 @@ module.exports = {
     segmentConversation,
     listConversationSegments,
 };
+

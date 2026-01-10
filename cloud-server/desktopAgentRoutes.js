@@ -1,11 +1,11 @@
-/**
+﻿/**
  * Desktop Agent API Routes
  * Handles communication between PC desktop agents and cloud server
  */
 
 const express = require('express');
 const router = express.Router();
-const { supabase } = require('../../services/config');
+const { dbClient } = require('../../services/config');
 const openaiService = require('../../services/openaiService');
 const productService = require('../../services/productService');
 const orderService = require('../../services/orderService');
@@ -35,10 +35,10 @@ router.post('/register', async (req, res) => {
     try {
         const { tenantId, phoneNumber, deviceName, status } = req.body;
         
-        console.log(`📱 Desktop Agent registered: ${tenantId} - ${phoneNumber}`);
+        console.log(`ðŸ“± Desktop Agent registered: ${tenantId} - ${phoneNumber}`);
         
         // Update tenant's desktop agent status
-        const { error } = await supabase
+        const { error } = await dbClient
             .from('tenants')
             .update({
                 desktop_agent_status: status,
@@ -70,10 +70,10 @@ router.post('/process-message', async (req, res) => {
     try {
         const { tenantId, from, message, timestamp, messageId } = req.body;
         
-        console.log(`💬 Processing message for ${tenantId} from ${from}`);
+        console.log(`ðŸ’¬ Processing message for ${tenantId} from ${from}`);
         
         // Get tenant configuration
-        const { data: tenant, error: tenantError } = await supabase
+        const { data: tenant, error: tenantError } = await dbClient
             .from('tenants')
             .select('*')
             .eq('id', tenantId)
@@ -87,7 +87,7 @@ router.post('/process-message', async (req, res) => {
         const customerPhone = from.replace('@c.us', '');
         
         // Get or create customer profile
-        let { data: customer } = await supabase
+        let { data: customer } = await dbClient
             .from('customer_profiles')
             .select('*')
             .eq('tenant_id', tenantId)
@@ -96,7 +96,7 @@ router.post('/process-message', async (req, res) => {
         
         if (!customer) {
             // Create new customer
-            const { data: newCustomer, error: createError } = await supabase
+            const { data: newCustomer, error: createError } = await dbClient
                 .from('customer_profiles')
                 .insert({
                     tenant_id: tenantId,
@@ -112,7 +112,7 @@ router.post('/process-message', async (req, res) => {
         }
         
         // Store incoming message
-        await supabase
+        await dbClient
             .from('messages')
             .insert({
                 tenant_id: tenantId,
@@ -135,7 +135,7 @@ router.post('/process-message', async (req, res) => {
         });
         
         // Store outgoing message
-        await supabase
+        await dbClient
             .from('messages')
             .insert({
                 tenant_id: tenantId,
@@ -146,7 +146,7 @@ router.post('/process-message', async (req, res) => {
             });
         
         // Update customer last interaction
-        await supabase
+        await dbClient
             .from('customer_profiles')
             .update({
                 last_interaction: new Date().toISOString()
@@ -177,7 +177,7 @@ router.post('/message-sent', async (req, res) => {
         const { tenantId, messageId, sentAt } = req.body;
         
         // Update message status
-        await supabase
+        await dbClient
             .from('messages')
             .update({
                 status: 'sent',
@@ -201,9 +201,9 @@ router.post('/disconnect', async (req, res) => {
     try {
         const { tenantId } = req.body;
         
-        console.log(`📴 Desktop Agent disconnected: ${tenantId}`);
+        console.log(`ðŸ“´ Desktop Agent disconnected: ${tenantId}`);
         
-        await supabase
+        await dbClient
             .from('tenants')
             .update({
                 desktop_agent_status: 'offline',
@@ -227,7 +227,7 @@ router.get('/status/:tenantId', async (req, res) => {
     try {
         const { tenantId } = req.params;
         
-        const { data: tenant, error } = await supabase
+        const { data: tenant, error } = await dbClient
             .from('tenants')
             .select('desktop_agent_status, desktop_agent_phone, desktop_agent_device, desktop_agent_last_seen')
             .eq('id', tenantId)
@@ -250,7 +250,7 @@ router.get('/status/:tenantId', async (req, res) => {
 
 // Helper: Get conversation history
 async function getConversationHistory(tenantId, customerPhone, limit = 10) {
-    const { data: messages } = await supabase
+    const { data: messages } = await dbClient
         .from('messages')
         .select('message_text, direction, timestamp')
         .eq('tenant_id', tenantId)
@@ -267,3 +267,4 @@ async function getConversationHistory(tenantId, customerPhone, limit = 10) {
 }
 
 module.exports = router;
+

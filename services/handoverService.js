@@ -1,9 +1,11 @@
-/**
+﻿/**
  * @title Human Handover Service
  * @description Handles detecting user requests for human assistance and notifying tenants.
  */
-const { openai, supabase } = require('./config');
+const { openai, dbClient } = require('./config');
 const { sendMessage } = require('./whatsappService');
+const { getConversationId } = require('./historyService');
+const { upsertTriageForConversation } = require('./triageService');
 
 /**
  * Uses the OpenAI API to determine if a user's message is a request for human intervention.
@@ -47,7 +49,7 @@ const isHandoverRequest = async (userMessage) => {
 const flagAndNotifyForHandover = async (tenant, endUserPhone) => {
     try {
         // 1. Update the conversation in the database
-        const { error } = await supabase
+        const { error } = await dbClient
             .from('conversations')
             .update({ requires_human_attention: true })
             .eq('tenant_id', tenant.id)
@@ -56,8 +58,25 @@ const flagAndNotifyForHandover = async (tenant, endUserPhone) => {
         if (error) throw error;
 
         // 2. Send a notification to the tenant
-        const notificationMessage = `🔔 *Attention Required!* 🔔\n\nThe customer at ${endUserPhone} has requested to speak with a human. Please review the conversation and respond to them directly.`;
+        const notificationMessage = `ðŸ”” *Attention Required!* ðŸ””\n\nThe customer at ${endUserPhone} has requested to speak with a human. Please review the conversation and respond to them directly.`;
         await sendMessage(tenant.phone_number, notificationMessage);
+
+        // 3. Auto-create triage item
+        try {
+            const conversationId = await getConversationId(tenant.id, endUserPhone);
+            if (conversationId) {
+                await upsertTriageForConversation(dbClient, {
+                    tenantId: tenant.id,
+                    conversationId,
+                    endUserPhone,
+                    type: 'HUMAN_ATTENTION',
+                    messagePreview: 'Auto-triage: customer requested human',
+                    metadata: { source: 'handoverService' }
+                });
+            }
+        } catch (_) {
+            // Best-effort only
+        }
 
         console.log(`Notified tenant ${tenant.phone_number} about handover request from ${endUserPhone}.`);
 
@@ -70,3 +89,4 @@ module.exports = {
     isHandoverRequest,
     flagAndNotifyForHandover,
 };
+

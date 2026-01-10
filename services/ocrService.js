@@ -1,7 +1,7 @@
-// Create: services/ocrService.js
+﻿// Create: services/ocrService.js
 
 const { openai } = require('./config');
-const { supabase } = require('./config');
+const { dbClient } = require('./config');
 
 /**
  * Extract text from image using OpenAI Vision API
@@ -87,7 +87,7 @@ const searchProductsByText = async (tenantId, extractedText) => {
             `name.ilike.%${term}%,description.ilike.%${term}%,sku.ilike.%${term}%`
         ).join(',');
 
-        const { data: products, error } = await supabase
+        const { data: products, error } = await dbClient
             .from('products')
             .select('*')
             .eq('tenant_id', tenantId)
@@ -155,7 +155,7 @@ const identifyProductFromImage = async (imageUrl, tenantId) => {
             };
         }
 
-        // ⭐ CHECK FOR SHIPPING/LR NUMBERS FIRST (before product search)
+        // â­ CHECK FOR SHIPPING/LR NUMBERS FIRST (before product search)
         const textLower = extractedText.toLowerCase();
         const shippingIndicators = ['vrl', 'logistics', 'consignment', 'docket', 'lr no', 'awb', 'waybill'];
         const hasShippingIndicator = shippingIndicators.some(indicator => textLower.includes(indicator));

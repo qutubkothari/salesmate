@@ -1,7 +1,7 @@
-// scripts/syncZohoProducts.js
+﻿// scripts/syncZohoProducts.js
 require('dotenv').config();
 const zoho = require('../services/zohoIntegrationService');
-const { supabase } = require('../services/config');
+const { dbClient } = require('../services/config');
 
 const TENANT_ID = process.env.TENANT_ID || 'a10aa26a-b5f9-4afe-87cc-70bfb4d1f6e6';
 
@@ -10,7 +10,7 @@ async function syncProductsFromZoho() {
     try {
         console.log('[Product Sync] Fetching items from Zoho Books...');
         
-        // ✅ FIXED: Pass tenant ID to getItems
+        // âœ… FIXED: Pass tenant ID to getItems
         const result = await zoho.getItems(TENANT_ID);
         
         if (!result.success) {
@@ -44,7 +44,7 @@ async function syncProductsFromZoho() {
                     updated_at: new Date().toISOString()
                 };
                 
-                const { error } = await supabase
+                const { error } = await dbClient
                     .from('products')
                     .upsert(productData, { 
                         onConflict: 'zoho_item_id',
@@ -52,14 +52,14 @@ async function syncProductsFromZoho() {
                     });
                 
                 if (error) {
-                    console.error(`  ❌ Error: ${error.message}`);
+                    console.error(`  âŒ Error: ${error.message}`);
                     errorCount++;
                 } else {
-                    console.log(`  ✅ Synced: ${item.name} | Stock: ${item.stock_on_hand} | Price: ₹${item.rate}`);
+                    console.log(`  âœ… Synced: ${item.name} | Stock: ${item.stock_on_hand} | Price: â‚¹${item.rate}`);
                     syncedCount++;
                 }
             } catch (itemError) {
-                console.error(`  ❌ Failed to sync ${item.name}:`, itemError.message);
+                console.error(`  âŒ Failed to sync ${item.name}:`, itemError.message);
                 errorCount++;
             }
         }
@@ -75,14 +75,14 @@ async function syncProductsFromZoho() {
         const zohoItemIds = items.map(item => item.item_id);
         let productsToDelete = [];
         
-        const { data: existingProducts, error: fetchError } = await supabase
+        const { data: existingProducts, error: fetchError } = await dbClient
             .from('products')
             .select('zoho_item_id, name')
             .eq('tenant_id', TENANT_ID)
             .not('zoho_item_id', 'is', null);
         
         if (fetchError) {
-            console.error(`  ❌ Error fetching existing products: ${fetchError.message}`);
+            console.error(`  âŒ Error fetching existing products: ${fetchError.message}`);
         } else {
             productsToDelete = existingProducts.filter(p => !zohoItemIds.includes(p.zoho_item_id));
             
@@ -90,22 +90,22 @@ async function syncProductsFromZoho() {
                 console.log(`[Product Sync] Found ${productsToDelete.length} products to delete:`);
                 
                 for (const product of productsToDelete) {
-                    console.log(`  🗑️  Deleting: ${product.name} (${product.zoho_item_id})`);
+                    console.log(`  ðŸ—‘ï¸  Deleting: ${product.name} (${product.zoho_item_id})`);
                 }
                 
-                const { error: deleteError } = await supabase
+                const { error: deleteError } = await dbClient
                     .from('products')
                     .delete()
                     .eq('tenant_id', TENANT_ID)
                     .in('zoho_item_id', productsToDelete.map(p => p.zoho_item_id));
                 
                 if (deleteError) {
-                    console.error(`  ❌ Error deleting products: ${deleteError.message}`);
+                    console.error(`  âŒ Error deleting products: ${deleteError.message}`);
                 } else {
-                    console.log(`  ✅ Deleted ${productsToDelete.length} products from database`);
+                    console.log(`  âœ… Deleted ${productsToDelete.length} products from database`);
                 }
             } else {
-                console.log('  ✅ No products to delete');
+                console.log('  âœ… No products to delete');
             }
         }
         

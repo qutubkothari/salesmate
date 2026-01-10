@@ -1,13 +1,13 @@
-const { checkShipmentsForUpdates } = require('../services/vrlTrackingService');
+﻿const { checkShipmentsForUpdates } = require('../services/vrlTrackingService');
 const whatsappService = require('../services/whatsappService');
-const { supabase } = require('../services/config');
+const { dbClient } = require('../services/config');
 
 /**
  * Handle /shipments command - list active shipments
  */
 async function handleShipmentsCommand(phone, tenantId) {
   try {
-    const { data: shipments, error } = await supabase
+    const { data: shipments, error } = await dbClient
       .from('shipment_tracking')
       .select('*')
       .eq('is_active', true)
@@ -17,11 +17,11 @@ async function handleShipmentsCommand(phone, tenantId) {
     if (error) throw error;
     
     if (!shipments || shipments.length === 0) {
-      await whatsappService.sendMessage(phone, '📦 *Active Shipments*\n\nNo active shipments found.');
+      await whatsappService.sendMessage(phone, 'ðŸ“¦ *Active Shipments*\n\nNo active shipments found.');
       return;
     }
     
-    let message = `📦 *Active Shipments* (${shipments.length})\n\n`;
+    let message = `ðŸ“¦ *Active Shipments* (${shipments.length})\n\n`;
     
     shipments.forEach((shipment, index) => {
       message += `${index + 1}. *LR: ${shipment.tracking_number}*\n`;
@@ -37,7 +37,7 @@ async function handleShipmentsCommand(phone, tenantId) {
     
   } catch (error) {
     console.error('[SHIPMENTS_CMD] Error:', error);
-    await whatsappService.sendMessage(phone, '❌ Error fetching shipments: ' + error.message);
+    await whatsappService.sendMessage(phone, 'âŒ Error fetching shipments: ' + error.message);
   }
 }
 
@@ -46,24 +46,24 @@ async function handleShipmentsCommand(phone, tenantId) {
  */
 async function handleCheckShipmentsCommand(phone, tenantId) {
   try {
-    await whatsappService.sendMessage(phone, '⏳ Checking all active shipments...\nThis may take a few minutes.');
+    await whatsappService.sendMessage(phone, 'â³ Checking all active shipments...\nThis may take a few minutes.');
     
     const summary = await checkShipmentsForUpdates(whatsappService.sendMessage);
     
-    let message = `✅ *Shipment Check Complete*\n\n`;
-    message += `📊 Total checked: ${summary.total}\n`;
-    message += `🔄 Updated: ${summary.updated}\n`;
-    message += `📬 Notifications sent: ${summary.notified}\n`;
+    let message = `âœ… *Shipment Check Complete*\n\n`;
+    message += `ðŸ“Š Total checked: ${summary.total}\n`;
+    message += `ðŸ”„ Updated: ${summary.updated}\n`;
+    message += `ðŸ“¬ Notifications sent: ${summary.notified}\n`;
     
     if (summary.errors > 0) {
-      message += `⚠️ Errors: ${summary.errors}\n`;
+      message += `âš ï¸ Errors: ${summary.errors}\n`;
     }
     
     await whatsappService.sendMessage(phone, message);
     
   } catch (error) {
     console.error('[CHECK_SHIPMENTS_CMD] Error:', error);
-    await whatsappService.sendMessage(phone, '❌ Error checking shipments: ' + error.message);
+    await whatsappService.sendMessage(phone, 'âŒ Error checking shipments: ' + error.message);
   }
 }
 
@@ -75,11 +75,11 @@ async function handleTrackShipmentCommand(phone, tenantId, lrNumber) {
   
   try {
     if (!lrNumber || !/^\d{10}$/.test(lrNumber)) {
-      await whatsappService.sendMessage(phone, '❌ Invalid LR number. Please provide a 10-digit LR number.\n\nUsage: /track <LR_NUMBER>');
+      await whatsappService.sendMessage(phone, 'âŒ Invalid LR number. Please provide a 10-digit LR number.\n\nUsage: /track <LR_NUMBER>');
       return;
     }
     
-    await whatsappService.sendMessage(phone, `⏳ Tracking LR: ${lrNumber}...`);
+    await whatsappService.sendMessage(phone, `â³ Tracking LR: ${lrNumber}...`);
     
     const result = await trackVRLShipment(lrNumber);
     
@@ -90,12 +90,12 @@ async function handleTrackShipmentCommand(phone, tenantId, lrNumber) {
       // Save to database
       await saveShipmentTracking(lrNumber, phone, result.tracking, null);
     } else {
-      await whatsappService.sendMessage(phone, `❌ Unable to track LR ${lrNumber}\n\nError: ${result.error}`);
+      await whatsappService.sendMessage(phone, `âŒ Unable to track LR ${lrNumber}\n\nError: ${result.error}`);
     }
     
   } catch (error) {
     console.error('[TRACK_SHIPMENT_CMD] Error:', error);
-    await whatsappService.sendMessage(phone, '❌ Error tracking shipment: ' + error.message);
+    await whatsappService.sendMessage(phone, 'âŒ Error tracking shipment: ' + error.message);
   }
 }
 
@@ -104,3 +104,4 @@ module.exports = {
   handleCheckShipmentsCommand,
   handleTrackShipmentCommand
 };
+

@@ -1,5 +1,5 @@
-require('dotenv').config();
-const { supabase } = require('./config/database');
+﻿require('dotenv').config();
+const { dbClient } = require('./config/database');
 
 (async () => {
   const phone = '96567709452@c.us';
@@ -9,7 +9,7 @@ const { supabase } = require('./config/database');
 
   // Step 1: Re-fetch conversation (line 22-27)
   console.log('[DISCOUNT_HANDLER] Fetching fresh conversation...');
-  const { data: freshConv, error: convError } = await supabase
+  const { data: freshConv, error: convError } = await dbClient
     .from('conversations')
     .select('*')
     .eq('tenant_id', tenantId)
@@ -26,7 +26,7 @@ const { supabase } = require('./config/database');
     return;
   }
 
-  console.log('✅ Conversation found:', freshConv.id);
+  console.log('âœ… Conversation found:', freshConv.id);
   const conversation = freshConv;
 
   // Step 2: Check if returning customer (line 43-67)
@@ -36,7 +36,7 @@ const { supabase } = require('./config/database');
   if (!customerProfileId) {
     console.log('[DISCOUNT_HANDLER] No customer_profile_id, assuming NEW');
   } else {
-    const { count, error: ordersError } = await supabase
+    const { count, error: ordersError } = await dbClient
       .from('orders')
       .select('*', { count: 'exact', head: true })
       .eq('tenant_id', tenantId)
@@ -52,11 +52,11 @@ const { supabase } = require('./config/database');
   }
 
   if (isReturningCustomer) {
-    console.log('\n⚠️ RETURNING customer - would route to human agent');
+    console.log('\nâš ï¸ RETURNING customer - would route to human agent');
     return;
   }
 
-  console.log('\n✅ NEW customer - continuing with discount logic\n');
+  console.log('\nâœ… NEW customer - continuing with discount logic\n');
 
   // Step 3: Build context (line 95-155)
   let totalCartons = 0;
@@ -86,7 +86,7 @@ const { supabase } = require('./config/database');
     console.log('[DISCOUNT_HANDLER] No quoted products, checking cart...');
     console.log('[DISCOUNT_HANDLER] Querying cart for conversation_id:', conversation.id);
 
-    const { data: cart, error: cartError } = await supabase
+    const { data: cart, error: cartError } = await dbClient
       .from('carts')
       .select('id, cart_items(*, products(*))')
       .eq('conversation_id', conversation.id)
@@ -99,7 +99,7 @@ const { supabase } = require('./config/database');
     console.log('   - Cart items:', cart?.cart_items?.length || 0);
 
     if (cart && cart.cart_items && cart.cart_items.length > 0) {
-      console.log('✅ [DISCOUNT_HANDLER] Found', cart.cart_items.length, 'items in cart');
+      console.log('âœ… [DISCOUNT_HANDLER] Found', cart.cart_items.length, 'items in cart');
 
       // Convert cart items to quoted products format
       quotedProducts = cart.cart_items.map(item => ({
@@ -116,19 +116,20 @@ const { supabase } = require('./config/database');
         sum + ((item.products?.price || item.unit_price) * item.quantity), 0
       );
 
-      console.log('✅ [DISCOUNT_HANDLER] Cart-based context:', { totalCartons, cartTotal });
-      console.log('✅ Quoted products:', quotedProducts);
+      console.log('âœ… [DISCOUNT_HANDLER] Cart-based context:', { totalCartons, cartTotal });
+      console.log('âœ… Quoted products:', quotedProducts);
     } else {
-      console.log('❌ [DISCOUNT_HANDLER] No cart items found - customer needs to add products first');
-      console.log('\n❌ WOULD RETURN: "I\'d be happy to discuss discounts! However..."');
+      console.log('âŒ [DISCOUNT_HANDLER] No cart items found - customer needs to add products first');
+      console.log('\nâŒ WOULD RETURN: "I\'d be happy to discuss discounts! However..."');
       return;
     }
   }
 
-  console.log('\n✅✅✅ SUCCESS: Would proceed to call handleDiscountNegotiation with context');
+  console.log('\nâœ…âœ…âœ… SUCCESS: Would proceed to call handleDiscountNegotiation with context');
   console.log('Context:', {
     totalCartons,
     cartTotal,
     quotedProductsCount: quotedProducts.length
   });
 })();
+

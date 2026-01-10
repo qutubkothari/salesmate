@@ -1,5 +1,5 @@
-// services/intelligence/anomalyDetector.js - SMART VERSION
-const { supabase } = require('../config');
+﻿// services/intelligence/anomalyDetector.js - SMART VERSION
+const { dbClient } = require('../config');
 
 class AnomalyDetector {
     
@@ -39,7 +39,7 @@ class AnomalyDetector {
     async detectDecreasingFrequency(customerProfileId) {
         try {
             // Get customer's phone
-            const { data: profile } = await supabase
+            const { data: profile } = await dbClient
                 .from('customer_profiles')
                 .select('phone, tenant_id')
                 .eq('id', customerProfileId)
@@ -48,7 +48,7 @@ class AnomalyDetector {
             if (!profile) return { declining: false };
 
             // Get conversations
-            const { data: conversations } = await supabase
+            const { data: conversations } = await dbClient
                 .from('conversations')
                 .select('id')
                 .eq('tenant_id', profile.tenant_id)
@@ -61,7 +61,7 @@ class AnomalyDetector {
             const conversationIds = conversations.map(c => c.id);
 
             // Get last 6 orders
-            const { data: orders } = await supabase
+            const { data: orders } = await dbClient
                 .from('orders')
                 .select('created_at')
                 .in('conversation_id', conversationIds)
@@ -113,7 +113,7 @@ class AnomalyDetector {
      */
     async calculateCustomerTier(customerProfileId) {
         try {
-            const { data: profile } = await supabase
+            const { data: profile } = await dbClient
                 .from('customer_profiles')
                 .select('phone, tenant_id')
                 .eq('id', customerProfileId)
@@ -121,7 +121,7 @@ class AnomalyDetector {
 
             if (!profile) return { tier: 'new', priority: 3 };
 
-            const { data: conversations } = await supabase
+            const { data: conversations } = await dbClient
                 .from('conversations')
                 .select('id')
                 .eq('tenant_id', profile.tenant_id)
@@ -133,7 +133,7 @@ class AnomalyDetector {
 
             const conversationIds = conversations.map(c => c.id);
 
-            const { data: orders } = await supabase
+            const { data: orders } = await dbClient
                 .from('orders')
                 .select('total_amount')
                 .in('conversation_id', conversationIds)
@@ -183,7 +183,7 @@ class AnomalyDetector {
      */
     async hasRecentInquiry(customerProfileId, hoursSince = 48) {
         try {
-            const { data: profile } = await supabase
+            const { data: profile } = await dbClient
                 .from('customer_profiles')
                 .select('phone, tenant_id')
                 .eq('id', customerProfileId)
@@ -191,7 +191,7 @@ class AnomalyDetector {
 
             if (!profile) return false;
 
-            const { data: conversations } = await supabase
+            const { data: conversations } = await dbClient
                 .from('conversations')
                 .select('id, updated_at')
                 .eq('tenant_id', profile.tenant_id)
@@ -214,7 +214,7 @@ class AnomalyDetector {
         try {
             console.log('[ANOMALY] Running smart overdue detection');
             
-            const { data: patterns, error } = await supabase
+            const { data: patterns, error } = await dbClient
                 .from('customer_purchase_patterns')
                 .select(`
                     *,
@@ -328,7 +328,7 @@ class AnomalyDetector {
      */
     async detectMissingProducts(customerProfileId, currentOrderItems) {
         try {
-            const { data: regularProducts, error } = await supabase
+            const { data: regularProducts, error } = await dbClient
                 .from('customer_product_affinity')
                 .select(`
                     *,
@@ -384,7 +384,7 @@ class AnomalyDetector {
             const anomalies = [];
             
             for (const item of currentOrderItems) {
-                const { data: affinity } = await supabase
+                const { data: affinity } = await dbClient
                     .from('customer_product_affinity')
                     .select('avg_quantity_per_order, purchase_count')
                     .eq('customer_profile_id', customerProfileId)

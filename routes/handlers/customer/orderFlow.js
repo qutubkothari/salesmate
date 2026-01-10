@@ -1,12 +1,12 @@
-// Order processing logic moved from customerHandler.js
+﻿// Order processing logic moved from customerHandler.js
 
-const { supabase, sendMessage, logMessage, findKeywordResponse, segmentationService, followUpSuggestionService } = require('./imports');
+const { dbClient, sendMessage, logMessage, findKeywordResponse, segmentationService, followUpSuggestionService } = require('./imports');
 
 // === ENHANCED MULTI-PRODUCT HANDLER (NEW ADDITION) ===
 /**
  * Enhanced multi-product order detection for combined messages
  * Handles patterns like "8x80 - 36 ctns and 8x100 - 4 ctns"
- * FIXED: Uses supabase import directly instead of relying on enhancedProductService
+ * FIXED: Uses dbClient import directly instead of relying on enhancedProductService
  */
 const extractCombinedOrderDetails = async (userQuery, tenantId) => {
 	// ...existing code from customerHandler.js...
@@ -58,3 +58,4 @@ module.exports = {
 	findKeywordResponseSafe
 };
 // All order processing logic
+

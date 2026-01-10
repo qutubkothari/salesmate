@@ -1,10 +1,10 @@
-const { supabase } = require('../services/config');
+﻿const { dbClient } = require('../services/config');
 
 (async () => {
   const productCodes = ['8x80','8x100','10x100'];
   console.log('productCodes', productCodes);
   try {
-    const { data: productsFromDb, error: prodErr } = await supabase
+    const { data: productsFromDb, error: prodErr } = await dbClient
       .from('products')
       .select('id, name, category, price, units_per_carton')
       .in('product_code', productCodes);
@@ -17,7 +17,7 @@ const { supabase } = require('../services/config');
   try {
     const orExpr = productCodes.map(c => `name.ilike.%${c}%`).join(',');
     console.log('orExpr:', orExpr);
-    const { data: productsByName, error: nameErr } = await supabase
+    const { data: productsByName, error: nameErr } = await dbClient
       .from('products')
       .select('id, name, category, price, units_per_carton')
       .or(orExpr);

@@ -1,6 +1,6 @@
-// services/enhancedProductService.js - ENHANCED SEARCH FIX
+﻿// services/enhancedProductService.js - ENHANCED SEARCH FIX
 
-const { supabase } = require('./config');
+const { dbClient } = require('./config');
 
 /**
  * Enhanced product search with flexible matching
@@ -20,7 +20,7 @@ const findProductByNameOrCode = async (tenantId, searchTerm) => {
 
         // Strategy 1: Exact name match (highest priority)
         console.log('[PRODUCT_SEARCH_ENHANCED] Strategy 1: Exact name match');
-        let { data: exactMatch } = await supabase
+        let { data: exactMatch } = await dbClient
             .from('products')
             .select('*')
             .eq('tenant_id', tenantId)
@@ -37,7 +37,7 @@ const findProductByNameOrCode = async (tenantId, searchTerm) => {
 
         // Strategy 2: Partial name match with flexible patterns
         console.log('[PRODUCT_SEARCH_ENHANCED] Strategy 2: Partial name match');
-        let { data: partialMatches } = await supabase
+        let { data: partialMatches } = await dbClient
             .from('products')
             .select('*')
             .eq('tenant_id', tenantId)
@@ -72,7 +72,7 @@ const findProductByNameOrCode = async (tenantId, searchTerm) => {
         // Strategy 4: Product code/SKU search (if numeric or alphanumeric)
         if (/^[a-zA-Z0-9x\-_]+$/.test(cleanSearchTerm)) {
             console.log('[PRODUCT_SEARCH_ENHANCED] Strategy 4: Product code search');
-            let { data: codeMatches } = await supabase
+            let { data: codeMatches } = await dbClient
                 .from('products')
                 .select('*')
                 .eq('tenant_id', tenantId)
@@ -166,7 +166,7 @@ const fuzzyProductSearch = async (tenantId, searchTerm) => {
         console.log('[FUZZY_SEARCH] Trying variations:', variations);
 
         for (const variation of variations) {
-            const { data: results } = await supabase
+            const { data: results } = await dbClient
                 .from('products')
                 .select('*')
                 .eq('tenant_id', tenantId)
@@ -239,7 +239,7 @@ const searchProductsAndVariants = async (tenantId, searchTerm, limit = 20) => {
         }
 
         // Fallback to basic search if no primary result
-        const { data: fallbackResults, error } = await supabase
+        const { data: fallbackResults, error } = await dbClient
             .from('products')
             .select('*')
             .eq('tenant_id', tenantId)
@@ -292,7 +292,7 @@ const debugProductSearch = async (tenantId, searchTerm) => {
     console.log('[DEBUG_SEARCH] Search Term:', searchTerm);
     
     // Check if products exist at all
-    const { data: allProducts } = await supabase
+    const { data: allProducts } = await dbClient
         .from('products')
         .select('id, name, price, is_active')
         .eq('tenant_id', tenantId)
@@ -302,7 +302,7 @@ const debugProductSearch = async (tenantId, searchTerm) => {
     if (allProducts && allProducts.length > 0) {
         console.log('[DEBUG_SEARCH] Sample products:');
         allProducts.slice(0, 3).forEach(p => {
-            console.log(`  - ${p.name} (Price: ₹${p.price}, Active: ${p.is_active})`);
+            console.log(`  - ${p.name} (Price: â‚¹${p.price}, Active: ${p.is_active})`);
         });
     }
     

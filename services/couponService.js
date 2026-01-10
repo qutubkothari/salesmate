@@ -1,9 +1,9 @@
-/**
+﻿/**
  * Coupon Code Management for Cart
  * Integrates with discount management system
  */
 
-const { supabase } = require('./config');
+const { dbClient } = require('./config');
 const { getConversationId } = require('./historyService');
 
 /**
@@ -15,7 +15,7 @@ async function applyCouponCode(tenantId, endUserPhone, couponCode) {
         if (!conversationId) return "Could not identify your conversation.";
 
         // Get cart with items
-        const { data: cart } = await supabase
+        const { data: cart } = await dbClient
             .from('carts')
             .select(`
                 *,
@@ -52,11 +52,11 @@ async function applyCouponCode(tenantId, endUserPhone, couponCode) {
         );
 
         if (!validation.valid) {
-            return `❌ ${validation.message}`;
+            return `âŒ ${validation.message}`;
         }
 
         // Apply coupon to cart
-        await supabase
+        await dbClient
             .from('carts')
             .update({
                 coupon_code: couponCode.toUpperCase(),
@@ -65,7 +65,7 @@ async function applyCouponCode(tenantId, endUserPhone, couponCode) {
             })
             .eq('id', cart.id);
 
-        return `✅ Coupon "${couponCode.toUpperCase()}" applied successfully!\n\n${validation.message}\n\nType "cart" or "show cart" to see your updated total.`;
+        return `âœ… Coupon "${couponCode.toUpperCase()}" applied successfully!\n\n${validation.message}\n\nType "cart" or "show cart" to see your updated total.`;
     } catch (error) {
         console.error('[APPLY_COUPON] Error:', error.message);
         return 'Error applying coupon code. Please try again.';
@@ -80,7 +80,7 @@ async function removeCouponCode(tenantId, endUserPhone) {
         const conversationId = await getConversationId(tenantId, endUserPhone);
         if (!conversationId) return "Could not identify your conversation.";
 
-        const { data: cart } = await supabase
+        const { data: cart } = await dbClient
             .from('carts')
             .select('id, coupon_code')
             .eq('conversation_id', conversationId)
@@ -92,7 +92,7 @@ async function removeCouponCode(tenantId, endUserPhone) {
 
         const removedCoupon = cart.coupon_code;
 
-        await supabase
+        await dbClient
             .from('carts')
             .update({
                 coupon_code: null,
@@ -101,7 +101,7 @@ async function removeCouponCode(tenantId, endUserPhone) {
             })
             .eq('id', cart.id);
 
-        return `✅ Coupon "${removedCoupon}" removed from your cart.`;
+        return `âœ… Coupon "${removedCoupon}" removed from your cart.`;
     } catch (error) {
         console.error('[REMOVE_COUPON] Error:', error.message);
         return 'Error removing coupon code.';
@@ -112,3 +112,4 @@ module.exports = {
     applyCouponCode,
     removeCouponCode
 };
+

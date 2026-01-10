@@ -1,4 +1,4 @@
-const { supabase } = require('../../../services/config');
+﻿const { dbClient } = require('../../../services/config');
 const { generateResponse } = require('../../../services/ai/responseGenerator');
 const { sendMessage } = require('../../../services/whatsappService');
 
@@ -10,7 +10,7 @@ async function createDynamicAIPrompt(userQuery, userLanguage, tenantId, conversa
 /**
  * Generate intelligent AI response with full customer context
  */
-async function getFallbackAIResponse(tenant, userQuery, userLanguage, conversation, supabase, sendAndLogMessage, res) {
+async function getFallbackAIResponse(tenant, userQuery, userLanguage, conversation, dbClient, sendAndLogMessage, res) {
   try {
     console.log('[AI_FALLBACK] Generating intelligent response for:', userQuery);
     
@@ -22,7 +22,7 @@ async function getFallbackAIResponse(tenant, userQuery, userLanguage, conversati
     }
     
     // Get customer profile
-    const { data: customerProfile } = await supabase
+    const { data: customerProfile } = await dbClient
       .from('customer_profiles')
       .select('id, first_name')
       .eq('phone', phoneNumber)

@@ -1,9 +1,9 @@
-// =============================================
+﻿// =============================================
 // FILE: services/discountNegotiationLogging.js
 // NEW FILE - Logs AI discount negotiations for analytics
 // =============================================
 
-const { supabase } = require('./config');
+const { dbClient } = require('./config');
 
 /**
  * Log a discount negotiation attempt
@@ -32,7 +32,7 @@ async function logDiscountNegotiation(data) {
             escalate: shouldEscalate
         });
         
-        const { data: negotiation, error } = await supabase
+        const { data: negotiation, error } = await dbClient
             .from('discount_negotiations')
             .insert({
                 tenant_id: tenantId,
@@ -75,7 +75,7 @@ async function updateNegotiationOutcome(negotiationId, accepted, finalDiscount =
             finalDiscount: finalDiscount
         });
         
-        const { error } = await supabase
+        const { error } = await dbClient
             .from('discount_negotiations')
             .update({
                 accepted: accepted,
@@ -103,7 +103,7 @@ async function updateNegotiationOutcome(negotiationId, accepted, finalDiscount =
  */
 async function getRecentEscalations(tenantId, limit = 10) {
     try {
-        const { data: escalations, error } = await supabase
+        const { data: escalations, error } = await dbClient
             .from('discount_negotiations')
             .select('*')
             .eq('tenant_id', tenantId)
@@ -127,7 +127,7 @@ async function getRecentEscalations(tenantId, limit = 10) {
  */
 async function getDiscountAnalytics(tenantId, startDate, endDate) {
     try {
-        const { data: analytics, error } = await supabase
+        const { data: analytics, error } = await dbClient
             .from('discount_negotiation_analytics')
             .select('*')
             .eq('tenant_id', tenantId)
@@ -150,7 +150,7 @@ async function getDiscountAnalytics(tenantId, startDate, endDate) {
  */
 async function getCustomerNegotiationHistory(tenantId, customerPhone, limit = 5) {
     try {
-        const { data: history, error } = await supabase
+        const { data: history, error } = await dbClient
             .from('discount_negotiations')
             .select('*')
             .eq('tenant_id', tenantId)
@@ -175,3 +175,4 @@ module.exports = {
     getDiscountAnalytics,
     getCustomerNegotiationHistory
 };
+

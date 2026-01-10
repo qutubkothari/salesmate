@@ -1,4 +1,4 @@
-// Modular customer handler: delegates all logic to mainHandler.js
+﻿// Modular customer handler: delegates all logic to mainHandler.js
 const { handleCustomerMessage } = require('./modules/mainHandler');
 
 // Convenience handler used by existing code paths (e.g. WAHA webhook bridge and /api_new/customer)
@@ -19,8 +19,8 @@ const handleCustomerTextMessage = async (req, res) => {
 
     const from = String(customerPhoneRaw).replace(/@c\.us$/i, '').trim();
 
-    const { supabase } = require('../../services/config');
-    const { data: tenant, error } = await supabase
+    const { dbClient } = require('../../services/config');
+    const { data: tenant, error } = await dbClient
         .from('tenants')
         .select('*')
         .eq('id', tenantId)
@@ -57,11 +57,11 @@ const handleCustomer = async (req, res) => {
         userQuery = '';
     }
     let conversation = null;
-    const { supabase } = require('../../services/config');
+    const { dbClient } = require('../../services/config');
     
     try {
         // Fetch latest conversation context
-        const { data: conversationData, error } = await supabase
+        const { data: conversationData, error } = await dbClient
             .from('conversations')
             .select('*')
             .eq('tenant_id', tenant.id)
@@ -73,7 +73,7 @@ const handleCustomer = async (req, res) => {
         } else if (error && error.code === 'PGRST116') {
             // No conversation found, create a new one
             console.log('[CUSTOMER_HANDLER] No conversation found, creating new one for:', from);
-            const { data: newConv, error: createError } = await supabase
+            const { data: newConv, error: createError } = await dbClient
                 .from('conversations')
                 .insert({
                     tenant_id: tenant.id,
@@ -107,3 +107,4 @@ module.exports = {
     handleCustomer,
     handleCustomerTextMessage
 };
+

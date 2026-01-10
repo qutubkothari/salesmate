@@ -1,8 +1,8 @@
-// services/documentRetrievalService.js
+﻿// services/documentRetrievalService.js
 // Document retrieval from Google Cloud Storage
 
 const { Storage } = require('@google-cloud/storage');
-const { supabase } = require('./config');
+const { dbClient } = require('./config');
 
 // Initialize GCS client
 let storage = null;
@@ -156,7 +156,7 @@ const getSignedDocumentUrl = async (filePath, expiryMinutes = 60) => {
 const getLatestCatalog = async (tenantId) => {
   try {
     // First check if tenant has a specific catalog configured
-    const { data: tenantData } = await supabase
+    const { data: tenantData } = await dbClient
       .from('tenants')
       .select('catalog_file_path')
       .eq('id', tenantId)
@@ -194,7 +194,7 @@ const getLatestCatalog = async (tenantId) => {
 const getLatestPriceList = async (tenantId) => {
   try {
     // Check for tenant-specific price list
-    const { data: tenantData } = await supabase
+    const { data: tenantData } = await dbClient
       .from('tenants')
       .select('price_list_file_path')
       .eq('id', tenantId)
@@ -357,57 +357,57 @@ const handleDocumentRequest = async (requestType, productCode, tenantId) => {
       case 'CATALOG':
         result = await getLatestCatalog(tenantId);
         if (result.success) {
-          responseMessage = `📘 *Product Catalog*\n\nHere's our latest catalog:\n\n${result.url}\n\n_Link expires in ${result.expiresIn} minutes_`;
+          responseMessage = `ðŸ“˜ *Product Catalog*\n\nHere's our latest catalog:\n\n${result.url}\n\n_Link expires in ${result.expiresIn} minutes_`;
         } else {
-          responseMessage = '❌ Sorry, catalog is currently unavailable. Please contact us directly.';
+          responseMessage = 'âŒ Sorry, catalog is currently unavailable. Please contact us directly.';
         }
         break;
 
       case 'PRICE_LIST':
         result = await getLatestPriceList(tenantId);
         if (result.success) {
-          responseMessage = `💰 *Price List*\n\nHere's our latest price list:\n\n${result.url}\n\n_Link expires in ${result.expiresIn} minutes_`;
+          responseMessage = `ðŸ’° *Price List*\n\nHere's our latest price list:\n\n${result.url}\n\n_Link expires in ${result.expiresIn} minutes_`;
         } else {
-          responseMessage = '❌ Sorry, price list is currently unavailable. Please contact us directly.';
+          responseMessage = 'âŒ Sorry, price list is currently unavailable. Please contact us directly.';
         }
         break;
 
       case 'TECHNICAL':
         if (!productCode) {
-          responseMessage = '❌ Please specify the product code. Example: "technical specs for NFF 8x80"';
+          responseMessage = 'âŒ Please specify the product code. Example: "technical specs for NFF 8x80"';
           break;
         }
         result = await getTechnicalDocs(productCode);
         if (result.success && result.documents.length > 0) {
-          responseMessage = `📋 *Technical Documentation for ${productCode}*\n\n`;
+          responseMessage = `ðŸ“‹ *Technical Documentation for ${productCode}*\n\n`;
           result.documents.forEach((doc, index) => {
             responseMessage += `${index + 1}. ${doc.name}\n${doc.signedUrl}\n\n`;
           });
           responseMessage += '_Links expire in 60 minutes_';
         } else {
-          responseMessage = `❌ No technical documentation found for ${productCode}. Please contact us for details.`;
+          responseMessage = `âŒ No technical documentation found for ${productCode}. Please contact us for details.`;
         }
         break;
 
       case 'PRODUCT_IMAGE':
         if (!productCode) {
-          responseMessage = '❌ Please specify the product code. Example: "show images of NFF 8x80"';
+          responseMessage = 'âŒ Please specify the product code. Example: "show images of NFF 8x80"';
           break;
         }
         result = await getProductImages(productCode);
         if (result.success && result.images.length > 0) {
-          responseMessage = `📸 *Product Images for ${productCode}*\n\n`;
+          responseMessage = `ðŸ“¸ *Product Images for ${productCode}*\n\n`;
           result.images.forEach((img, index) => {
             responseMessage += `Image ${index + 1}:\n${img.signedUrl}\n\n`;
           });
           responseMessage += '_Links expire in 60 minutes_';
         } else {
-          responseMessage = `❌ No product images found for ${productCode}. Please contact us for images.`;
+          responseMessage = `âŒ No product images found for ${productCode}. Please contact us for images.`;
         }
         break;
 
       default:
-        responseMessage = '❌ Sorry, I didn\'t understand that request. Try:\n• "send catalog"\n• "price list"\n• "technical specs for [product]"\n• "show images of [product]"';
+        responseMessage = 'âŒ Sorry, I didn\'t understand that request. Try:\nâ€¢ "send catalog"\nâ€¢ "price list"\nâ€¢ "technical specs for [product]"\nâ€¢ "show images of [product]"';
     }
 
     return { success: true, message: responseMessage };
@@ -416,7 +416,7 @@ const handleDocumentRequest = async (requestType, productCode, tenantId) => {
     console.error('[DOC_REQUEST] Error handling request:', error);
     return {
       success: false,
-      message: '❌ Sorry, there was an error processing your request. Please try again later.'
+      message: 'âŒ Sorry, there was an error processing your request. Please try again later.'
     };
   }
 };
@@ -439,3 +439,4 @@ module.exports = {
   // Constants
   DOCUMENT_TYPES
 };
+

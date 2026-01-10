@@ -1,4 +1,4 @@
-const { calculateDiscount } = require('./volumeDiscountService');
+﻿const { calculateDiscount } = require('./volumeDiscountService');
 
 /**
  * Safely parse context_data (handles both string and object)
@@ -32,7 +32,7 @@ const applyApprovedDiscountToCart = async (tenantId, endUserPhone) => {
     if (!conversationId) return;
 
     // Get conversation with quoted products
-    const { data: conversation } = await supabase
+    const { data: conversation } = await dbClient
         .from('conversations')
         .select('id, context_data, last_quoted_products')
         .eq('id', conversationId)
@@ -76,7 +76,7 @@ const applyApprovedDiscountToCart = async (tenantId, endUserPhone) => {
     }
 
     // Get cart
-    const { data: cart } = await supabase
+    const { data: cart } = await dbClient
         .from('carts')
         .select('id')
         .eq('conversation_id', conversationId)
@@ -85,7 +85,7 @@ const applyApprovedDiscountToCart = async (tenantId, endUserPhone) => {
     if (!cart) return;
 
     // Get all cart items INCLUDING any existing carton_price_override (personalized prices)
-    const { data: cartItems } = await supabase
+    const { data: cartItems } = await dbClient
         .from('cart_items')
         .select(`
             id,
@@ -97,7 +97,7 @@ const applyApprovedDiscountToCart = async (tenantId, endUserPhone) => {
 
     if (!cartItems || cartItems.length === 0) return;
 
-    // âœ… Apply discount to EACH item individually
+    // Ã¢Å“â€¦ Apply discount to EACH item individually
     for (const item of cartItems) {
         // Priority for base price:
         // 1. Personalized price from quotedProductsMap (from price quote)
@@ -108,10 +108,10 @@ const applyApprovedDiscountToCart = async (tenantId, endUserPhone) => {
         const discountAmountPerCarton = basePrice - discountedPrice;
 
         const priceSource = quotedProductsMap.has(item.product.id) ? 'quoted products' : 'catalog';
-        console.log(`[DISCOUNT_PER_ITEM] ${item.product.name}: â‚¹${basePrice} â†’ â‚¹${discountedPrice.toFixed(2)} (${approvedDiscount}% off, source: ${priceSource})`);
+        console.log(`[DISCOUNT_PER_ITEM] ${item.product.name}: Ã¢â€šÂ¹${basePrice} Ã¢â€ â€™ Ã¢â€šÂ¹${discountedPrice.toFixed(2)} (${approvedDiscount}% off, source: ${priceSource})`);
 
         // Update cart_item with discounted price
-        await supabase
+        await dbClient
             .from('cart_items')
             .update({
                 carton_price_override: discountedPrice,
@@ -121,7 +121,7 @@ const applyApprovedDiscountToCart = async (tenantId, endUserPhone) => {
     }
 
     // Reset cart-level discount (since we're using per-item discounts now)
-    await supabase
+    await dbClient
         .from('carts')
         .update({
             discount_amount: 0,
@@ -137,37 +137,37 @@ const applyApprovedDiscountToCart = async (tenantId, endUserPhone) => {
 const checkoutWithZohoIntegration = async (tenant, endUserPhone) => {
     try {
         // ... existing checkout code until order creation ...
-        // After successful order creation (after: await supabase.from('order_items').insert(orderItems);)
+        // After successful order creation (after: await dbClient.from('order_items').insert(orderItems);)
         console.log('[CHECKOUT_ZOHO] Order created successfully, processing Zoho integration');
         // Clear cart first (existing code)
-        await supabase.from('cart_items').delete().eq('cart_id', cart.id);
-        await supabase.from('carts').update({ 
+        await dbClient.from('cart_items').delete().eq('cart_id', cart.id);
+        await dbClient.from('carts').update({ 
             applied_discount_id: null, 
             discount_amount: 0,
             updated_at: new Date().toISOString()
         }).eq('id', cart.id);
 
         // Send initial confirmation message
-        let confirmationMessage = `✅ **Order Confirmed!**\n\n`;
+        let confirmationMessage = `âœ… **Order Confirmed!**\n\n`;
         confirmationMessage += `**Products:**\n`;
         pricing.items.forEach(item => {
             const unitPrice = item.carton_price_override || item.unitPrice;
             const actualQuantity = parseInt(item.quantity) || 1; // FIXED: ensure numeric quantity
-            confirmationMessage += `📦 ${item.productName} × ${actualQuantity} cartons\n   ₹${unitPrice}/pc (was ₹${item.unitPrice}/pc)\n   ₹${(unitPrice * item.unitsPerCarton).toFixed(2)}/carton (was ₹${(item.unitPrice * item.unitsPerCarton).toFixed(2)}/carton)\n`;
+            confirmationMessage += `ðŸ“¦ ${item.productName} Ã— ${actualQuantity} cartons\n   â‚¹${unitPrice}/pc (was â‚¹${item.unitPrice}/pc)\n   â‚¹${(unitPrice * item.unitsPerCarton).toFixed(2)}/carton (was â‚¹${(item.unitPrice * item.unitsPerCarton).toFixed(2)}/carton)\n`;
         });
         confirmationMessage += `\n**Pricing Breakdown:**\n`;
-        confirmationMessage += `Subtotal: ₹${pricing.subtotal.toLocaleString()}\n`;
+        confirmationMessage += `Subtotal: â‚¹${pricing.subtotal.toLocaleString()}\n`;
         if (pricing.discountAmount > 0) {
-            confirmationMessage += `Discount: -₹${pricing.discountAmount.toLocaleString()}\n`;
+            confirmationMessage += `Discount: -â‚¹${pricing.discountAmount.toLocaleString()}\n`;
         }
         if (pricing.shipping.freeShippingApplied) {
-            confirmationMessage += `Shipping: FREE ✓\n`;
+            confirmationMessage += `Shipping: FREE âœ“\n`;
         } else if (pricing.shipping.charges > 0) {
-            confirmationMessage += `Shipping: ₹${pricing.shipping.charges.toLocaleString()}\n`;
+            confirmationMessage += `Shipping: â‚¹${pricing.shipping.charges.toLocaleString()}\n`;
         }
-        confirmationMessage += `GST (${pricing.gst.rate}%): ₹${pricing.gst.amount.toLocaleString()}\n`;
-        confirmationMessage += `**Final Total: ₹${pricing.grandTotal.toLocaleString()}**\n\n`;
-        confirmationMessage += `📋 Processing your sales order document...`;
+        confirmationMessage += `GST (${pricing.gst.rate}%): â‚¹${pricing.gst.amount.toLocaleString()}\n`;
+        confirmationMessage += `**Final Total: â‚¹${pricing.grandTotal.toLocaleString()}**\n\n`;
+        confirmationMessage += `ðŸ“‹ Processing your sales order document...`;
         // Send initial confirmation
         await sendMessage(endUserPhone, confirmationMessage);
 
@@ -180,19 +180,19 @@ const checkoutWithZohoIntegration = async (tenant, endUserPhone) => {
             const deliveryResult = await deliverOrderPDF(tenant.id, order.id, endUserPhone);
             if (deliveryResult.success) {
                 // Success message
-                const successMessage = `ðŸŽ‰ **Order Processing Complete!**\n\n` +
-                                     `âœ… Sales order created in Zoho CRM\n` +
-                                     `ðŸ“„ Sales order document sent above\n` +
-                                     `ðŸ†” Reference: ${order.id.substring(0, 8)}\n\n` +
+                const successMessage = `Ã°Å¸Å½â€° **Order Processing Complete!**\n\n` +
+                                     `Ã¢Å“â€¦ Sales order created in Zoho CRM\n` +
+                                     `Ã°Å¸â€œâ€ž Sales order document sent above\n` +
+                                     `Ã°Å¸â€ â€ Reference: ${order.id.substring(0, 8)}\n\n` +
                                      `Your order is now being processed. We'll keep you updated on the status.`;
                 await sendMessage(endUserPhone, successMessage);
                 console.log('[CHECKOUT_ZOHO] Complete process successful');
             } else {
                 // Partial success - order created but PDF failed
-                const partialMessage = `âš ï¸ **Order Confirmed with Minor Issue**\n\n` +
-                                     `âœ… Your order has been created successfully\n` +
-                                     `âŒ Sales document generation is delayed\n` +
-                                     `ðŸ†” Reference: ${order.id.substring(0, 8)}\n\n` +
+                const partialMessage = `Ã¢Å¡ Ã¯Â¸Â **Order Confirmed with Minor Issue**\n\n` +
+                                     `Ã¢Å“â€¦ Your order has been created successfully\n` +
+                                     `Ã¢ÂÅ’ Sales document generation is delayed\n` +
+                                     `Ã°Å¸â€ â€ Reference: ${order.id.substring(0, 8)}\n\n` +
                                      `We'll send your sales document shortly and keep you updated.`;
                 await sendMessage(endUserPhone, partialMessage);
                 console.log('[CHECKOUT_ZOHO] Partial success - order created, PDF failed');
@@ -200,9 +200,9 @@ const checkoutWithZohoIntegration = async (tenant, endUserPhone) => {
         } catch (zohoError) {
             console.error('[CHECKOUT_ZOHO] Error in Zoho integration:', zohoError.message);
             // Fallback message - order is still valid even if Zoho fails
-            const fallbackMessage = `âœ… **Order Confirmed!**\n\n` +
+            const fallbackMessage = `Ã¢Å“â€¦ **Order Confirmed!**\n\n` +
                                   `Your order has been created successfully.\n` +
-                                  `ðŸ†” Reference: ${order.id.substring(0, 8)}\n\n` +
+                                  `Ã°Å¸â€ â€ Reference: ${order.id.substring(0, 8)}\n\n` +
                                   `Our team will process your order and send you the details shortly.`;
             await sendMessage(endUserPhone, fallbackMessage);
         }
@@ -211,7 +211,7 @@ const checkoutWithZohoIntegration = async (tenant, endUserPhone) => {
         try {
             const paymentDetails = await generatePaymentDetails(tenant, pricing.grandTotal, order.id);
             if (paymentDetails) {
-                await sendMessage(endUserPhone, `ðŸ’³ **Payment Information**\n\n${paymentDetails}`);
+                await sendMessage(endUserPhone, `Ã°Å¸â€™Â³ **Payment Information**\n\n${paymentDetails}`);
             }
         } catch (paymentError) {
             console.warn('[CHECKOUT_ZOHO] Payment details generation failed:', paymentError.message);
@@ -232,7 +232,7 @@ const processOrderBackground = async (orderId) => {
     try {
         console.log('[BACKGROUND_ORDER] Processing order:', orderId);
         // Get order details
-        const { data: order } = await supabase
+        const { data: order } = await dbClient
             .from('orders')
             .select(`
                 *,
@@ -259,7 +259,7 @@ const processOrderBackground = async (orderId) => {
             // Send success notification
             await sendMessage(
                 order.conversations.end_user_phone,
-                `ðŸ“‹ **Order Update**\n\nYour sales order document for order ${orderId.substring(0, 8)} has been generated and sent!\n\nâœ… Processing complete`
+                `Ã°Å¸â€œâ€¹ **Order Update**\n\nYour sales order document for order ${orderId.substring(0, 8)} has been generated and sent!\n\nÃ¢Å“â€¦ Processing complete`
             );
         }
         return result;
@@ -269,7 +269,7 @@ const processOrderBackground = async (orderId) => {
     }
 };
 // services/cartService.js - COMPLETE FIXED VERSION with Force Clear on New Orders
-const { supabase } = require('./config');
+const { dbClient } = require('./config');
 const { getConversationId } = require('./historyService');
 const { addPointsForPurchase } = require('./loyaltyService');
 const { sendMessage } = require('./whatsappService');
@@ -295,7 +295,7 @@ const debugCartState = async (tenantId, endUserPhone, context = '') => {
         }
 
         // Check conversation state
-        const { data: conversation } = await supabase
+        const { data: conversation } = await dbClient
             .from('conversations')
             .select('*')
             .eq('id', conversationId)
@@ -309,7 +309,7 @@ const debugCartState = async (tenantId, endUserPhone, context = '') => {
         });
 
         // Check all carts for this conversation
-        const { data: carts } = await supabase
+        const { data: carts } = await dbClient
             .from('carts')
             .select('*')
             .eq('conversation_id', conversationId);
@@ -319,7 +319,7 @@ const debugCartState = async (tenantId, endUserPhone, context = '') => {
         // Check cart items for each cart
         if (carts && carts.length > 0) {
             for (const cart of carts) {
-                const { data: items } = await supabase
+                const { data: items } = await dbClient
                     .from('cart_items')
                     .select(`
                         *,
@@ -358,7 +358,7 @@ const forceResetCartForNewOrder = async (tenantId, endUserPhone) => {
         }
 
         // Get ALL carts for this conversation
-        const { data: allCarts, error: cartsError } = await supabase
+        const { data: allCarts, error: cartsError } = await dbClient
             .from('carts')
             .select('id')
             .eq('conversation_id', conversationId);
@@ -373,7 +373,7 @@ const forceResetCartForNewOrder = async (tenantId, endUserPhone) => {
         // Delete ALL cart items from ALL carts
         if (allCarts && allCarts.length > 0) {
             for (const cart of allCarts) {
-                const { error: deleteError } = await supabase
+                const { error: deleteError } = await dbClient
                     .from('cart_items')
                     .delete()
                     .eq('cart_id', cart.id);
@@ -385,7 +385,7 @@ const forceResetCartForNewOrder = async (tenantId, endUserPhone) => {
                 }
 
                 // Reset cart metadata
-                const { error: resetError } = await supabase
+                const { error: resetError } = await dbClient
                     .from('carts')
                     .update({
                         applied_discount_id: null,
@@ -401,7 +401,7 @@ const forceResetCartForNewOrder = async (tenantId, endUserPhone) => {
         }
 
         // Reset conversation state
-        const { error: convError } = await supabase
+        const { error: convError } = await dbClient
             .from('conversations')
             .update({
                 state: null,
@@ -440,7 +440,7 @@ const forceClearCartCompletely = async (tenantId, endUserPhone) => {
         }
 
         // Step 1: Get ALL carts for this conversation
-        const { data: allCarts } = await supabase
+        const { data: allCarts } = await dbClient
             .from('carts')
             .select('id')
             .eq('conversation_id', conversationId);
@@ -450,7 +450,7 @@ const forceClearCartCompletely = async (tenantId, endUserPhone) => {
         // Step 2: Delete ALL cart items from ALL carts
         if (allCarts && allCarts.length > 0) {
             for (const cart of allCarts) {
-                const { error: deleteError } = await supabase
+                const { error: deleteError } = await dbClient
                     .from('cart_items')
                     .delete()
                     .eq('cart_id', cart.id);
@@ -462,7 +462,7 @@ const forceClearCartCompletely = async (tenantId, endUserPhone) => {
                 }
 
                 // Reset cart metadata
-                await supabase
+                await dbClient
                     .from('carts')
                     .update({
                         applied_discount_id: null,
@@ -474,7 +474,7 @@ const forceClearCartCompletely = async (tenantId, endUserPhone) => {
         }
 
         // Step 3: Reset conversation completely
-        await supabase
+        await dbClient
             .from('conversations')
             .update({
                 state: null,
@@ -486,7 +486,7 @@ const forceClearCartCompletely = async (tenantId, endUserPhone) => {
         await debugCartState(tenantId, endUserPhone, 'AFTER_FORCE_CLEAR');
 
         console.log('[FORCE_CLEAR] Complete reset finished');
-        return "ðŸ”¥ Cart completely reset! All previous items removed.";
+        return "Ã°Å¸â€Â¥ Cart completely reset! All previous items removed.";
 
     } catch (error) {
         console.error('[FORCE_CLEAR] Error:', error.message);
@@ -527,7 +527,7 @@ const addProductToCartEnhanced = async (tenantId, endUserPhone, product, quantit
         const cart = await getOrCreateCart(conversationId);
 
         // Check for existing item
-        const { data: existingItem } = await supabase
+        const { data: existingItem } = await dbClient
             .from('cart_items')
             .select('id, quantity')
             .eq('cart_id', cart.id)
@@ -540,7 +540,7 @@ const addProductToCartEnhanced = async (tenantId, endUserPhone, product, quantit
                 Number(quantity) : 
                 Number(existingItem.quantity) + Number(quantity);
                 
-            const { error: updateError } = await supabase
+            const { error: updateError } = await dbClient
                 .from('cart_items')
                 .update({ quantity: newQuantity })
                 .eq('id', existingItem.id);
@@ -550,7 +550,7 @@ const addProductToCartEnhanced = async (tenantId, endUserPhone, product, quantit
             console.log('[CART_ADD_ENHANCED] Updated existing item, new quantity:', newQuantity);
         } else {
             // Add new item
-            const { error: insertError } = await supabase
+            const { error: insertError } = await dbClient
                 .from('cart_items')
                 .insert({
                     cart_id: cart.id,
@@ -564,7 +564,7 @@ const addProductToCartEnhanced = async (tenantId, endUserPhone, product, quantit
         }
         
         // Update cart timestamp
-        await supabase
+        await dbClient
             .from('carts')
             .update({ updated_at: new Date().toISOString() })
             .eq('id', cart.id);
@@ -584,14 +584,14 @@ const addProductToCartEnhanced = async (tenantId, endUserPhone, product, quantit
  * Finds or creates a shopping cart for a given conversation.
  */
 const getOrCreateCart = async (conversationId) => {
-    let { data: cart } = await supabase
+    let { data: cart } = await dbClient
         .from('carts')
         .select('*')
         .eq('conversation_id', conversationId)
         .single();
 
     if (!cart) {
-        const { data: newCart } = await supabase
+        const { data: newCart } = await dbClient
             .from('carts')
             .insert({ conversation_id: conversationId })
             .select('*')
@@ -614,7 +614,7 @@ const viewCartWithDiscounts = async (tenantId, endUserPhone) => {
         if (!conversationId) return "Could not identify your conversation.";
 
         // Get cart with items - SAME structure as checkout
-        const { data: cart } = await supabase
+        const { data: cart } = await dbClient
             .from('carts')
             .select(`
                 *,
@@ -652,7 +652,7 @@ const viewCartWithDiscounts = async (tenantId, endUserPhone) => {
         // Get customer profile for last purchase pricing
         let customerProfileId = null;
         try {
-            const { data: profile } = await supabase
+            const { data: profile } = await dbClient
                 .from('customer_profiles')
                 .select('id')
                 .eq('tenant_id', tenantId)
@@ -680,7 +680,7 @@ const viewCartWithDiscounts = async (tenantId, endUserPhone) => {
         let negotiatedDiscountPercent = 0;
         let negotiatedDiscountAmount = 0;
         try {
-            const { data: conversation } = await supabase
+            const { data: conversation } = await dbClient
                 .from('conversations')
                 .select('context_data')
                 .eq('id', conversationId)
@@ -694,7 +694,7 @@ const viewCartWithDiscounts = async (tenantId, endUserPhone) => {
                 if (contextData.offeredDiscount || contextData.approvedDiscount) {
                     negotiatedDiscountPercent = contextData.offeredDiscount || contextData.approvedDiscount;
                     negotiatedDiscountAmount = (baseOrderTotal * negotiatedDiscountPercent) / 100;
-                    console.log('[CART_VIEW] Negotiated discount found:', negotiatedDiscountPercent, '% = ₹', negotiatedDiscountAmount);
+                    console.log('[CART_VIEW] Negotiated discount found:', negotiatedDiscountPercent, '% = â‚¹', negotiatedDiscountAmount);
                 }
             }
         } catch (error) {
@@ -727,7 +727,7 @@ const viewCartWithDiscounts = async (tenantId, endUserPhone) => {
                 .map(item => item.product.id);
 
             if (cartItemIds.length > 0) {
-                await supabase
+                await dbClient
                     .from('cart_items')
                     .update({ carton_price_override: null })
                     .eq('cart_id', cart.id)
@@ -738,7 +738,7 @@ const viewCartWithDiscounts = async (tenantId, endUserPhone) => {
                 // Also clear from memory array for current request
                 validItems.forEach(item => {
                     if (item.carton_price_override) {
-                        console.log(`[CART_VIEW] Clearing ${item.product.name}: was ₹${item.carton_price_override}, now catalog ₹${item.product.price}`);
+                        console.log(`[CART_VIEW] Clearing ${item.product.name}: was â‚¹${item.carton_price_override}, now catalog â‚¹${item.product.price}`);
                         item.carton_price_override = null;
                     }
                 });
@@ -749,7 +749,7 @@ const viewCartWithDiscounts = async (tenantId, endUserPhone) => {
         // This affects pricing display and discount handling
         let isReturningCustomer = false;
         try {
-            const { count } = await supabase
+            const { count } = await dbClient
                 .from('orders')
                 .select('*', { count: 'exact', head: true })
                 .eq('tenant_id', tenantId)
@@ -775,7 +775,7 @@ const viewCartWithDiscounts = async (tenantId, endUserPhone) => {
 
             if (itemsWithOverride.length > 0) {
                 // Clear from database for ALL cart items (safest approach)
-                await supabase
+                await dbClient
                     .from('cart_items')
                     .update({ carton_price_override: null })
                     .eq('cart_id', cart.id);
@@ -785,14 +785,14 @@ const viewCartWithDiscounts = async (tenantId, endUserPhone) => {
                 // Clear from memory - CRITICAL: Set to null so pricing service uses catalog prices
                 validItems.forEach(item => {
                     if (item.carton_price_override) {
-                        console.log(`[CART_VIEW] Memory: Clearing ${item.product.name}: was ₹${item.carton_price_override}, now will use catalog ₹${item.product.price}`);
+                        console.log(`[CART_VIEW] Memory: Clearing ${item.product.name}: was â‚¹${item.carton_price_override}, now will use catalog â‚¹${item.product.price}`);
                         item.carton_price_override = null;
                     }
                 });
             }
         }
         
-        console.log('[CART_VIEW] 🔍 DEBUG - Pricing call parameters:');
+        console.log('[CART_VIEW] ðŸ” DEBUG - Pricing call parameters:');
         console.log('[CART_VIEW] - Customer type:', isReturningCustomer ? 'RETURNING' : 'NEW');
         console.log('[CART_VIEW] - negotiatedDiscountPercent:', negotiatedDiscountPercent);
         console.log('[CART_VIEW] - ignorePriceOverride flag:', ignorePriceOverride);
@@ -800,7 +800,7 @@ const viewCartWithDiscounts = async (tenantId, endUserPhone) => {
         console.log('[CART_VIEW] - finalDiscountAmount:', finalDiscountAmount);
         console.log('[CART_VIEW] - Items carton_price_override status AFTER clearing:');
         validItems.forEach(item => {
-            console.log(`[CART_VIEW]   - ${item.product.name}: carton_price_override=${item.carton_price_override || 'null'}, catalog=₹${item.product.price}`);
+            console.log(`[CART_VIEW]   - ${item.product.name}: carton_price_override=${item.carton_price_override || 'null'}, catalog=â‚¹${item.product.price}`);
         });
         
         const pricing = await calculateComprehensivePricing(
@@ -828,21 +828,21 @@ const viewCartWithDiscounts = async (tenantId, endUserPhone) => {
                 var totalPieces = item.quantity * originalItem.product.units_per_carton;
                 var pricePerPiece = (item.unitPrice / originalItem.product.units_per_carton).toFixed(2);
                 cartMessage += `  - ${item.quantity} carton(s) (${totalPieces.toLocaleString()} pieces)\n`;
-                cartMessage += `  - ${item.quantity} cartons @ ₹${item.unitPrice}/carton (₹${pricePerPiece} per piece)\n`;
+                cartMessage += `  - ${item.quantity} cartons @ â‚¹${item.unitPrice}/carton (â‚¹${pricePerPiece} per piece)\n`;
             } else {
                 cartMessage += `  - Qty: ${item.quantity}\n`;
-                cartMessage += `  - ${item.quantity} @ ₹${item.unitPrice} each\n`;
+                cartMessage += `  - ${item.quantity} @ â‚¹${item.unitPrice} each\n`;
             }
             // Show total for each item
-            cartMessage += `  - Total: ₹${item.roundedItemTotal.toLocaleString()}\n\n`;
+            cartMessage += `  - Total: â‚¹${item.roundedItemTotal.toLocaleString()}\n\n`;
         });
 
         // CRITICAL FIX: Show EXACT same pricing breakdown as checkout will show
         cartMessage += "*Pricing Breakdown:*\n";
-        cartMessage += `Subtotal: ₹${pricing.subtotal.toLocaleString()}\n`;
+        cartMessage += `Subtotal: â‚¹${pricing.subtotal.toLocaleString()}\n`;
 
         if (pricing.discountAmount > 0) {
-            cartMessage += `Discount: -₹${pricing.discountAmount.toLocaleString()}`;
+            cartMessage += `Discount: -â‚¹${pricing.discountAmount.toLocaleString()}`;
             if (discountSource !== 'none') {
                 cartMessage += ` (${discountSource})`;
             }
@@ -851,16 +851,16 @@ const viewCartWithDiscounts = async (tenantId, endUserPhone) => {
         
         // CRITICAL: Include shipping charges (was missing before)
         if (pricing.shipping.freeShippingApplied) {
-            cartMessage += `Shipping: FREE ✓\n`;
+            cartMessage += `Shipping: FREE âœ“\n`;
         } else if (pricing.shipping.charges > 0) {
-            cartMessage += `Shipping: ₹${pricing.shipping.charges.toLocaleString()} (${pricing.totalCartons} cartons × ₹${pricing.shipping.ratePerCarton})\n`;
+            cartMessage += `Shipping: â‚¹${pricing.shipping.charges.toLocaleString()} (${pricing.totalCartons} cartons Ã— â‚¹${pricing.shipping.ratePerCarton})\n`;
         }
 
-        cartMessage += `GST (${pricing.gst.rate}%): ₹${pricing.gst.amount.toLocaleString()}\n`;
-        cartMessage += `*Final Total: ₹${pricing.grandTotal.toLocaleString()}*`;
+        cartMessage += `GST (${pricing.gst.rate}%): â‚¹${pricing.gst.amount.toLocaleString()}\n`;
+        cartMessage += `*Final Total: â‚¹${pricing.grandTotal.toLocaleString()}*`;
         
         if (pricing.isRounded && pricing.roundingAdjustment > 0) {
-            cartMessage += ` (rounded from ₹${pricing.grandTotalBeforeRounding.toLocaleString()})`;
+            cartMessage += ` (rounded from â‚¹${pricing.grandTotalBeforeRounding.toLocaleString()})`;
         }
         
         cartMessage += '\n\nTo complete purchase: say "yes go ahead" or type /checkout';
@@ -885,7 +885,7 @@ const checkoutWithDiscounts = async (tenant, endUserPhone) => {
         if (!conversationId) return "Could not identify your conversation.";
 
         // Check for existing order for this conversation in the last 10 minutes (or today)
-        const { data: recentOrders, error: orderCheckError } = await supabase
+        const { data: recentOrders, error: orderCheckError } = await dbClient
             .from('orders')
             .select('id, created_at, order_status')
             .eq('tenant_id', tenant.id)
@@ -928,7 +928,7 @@ const checkoutWithDiscounts = async (tenant, endUserPhone) => {
             // Request GST using the new service (handles state transition automatically)
             const { message } = await GSTService.requestGSTPreference(tenant.id, endUserPhone);
             
-            return `⏸️ ${message}`;
+            return `â¸ï¸ ${message}`;
         }
 
         const { preference, gstNumber } = await GSTService.getGSTPreference(tenant.id, endUserPhone);
@@ -936,7 +936,7 @@ const checkoutWithDiscounts = async (tenant, endUserPhone) => {
         // ===== END GST VALIDATION =====
 
         // Get cart with EXACT same structure as viewCart
-        const { data: cart } = await supabase
+        const { data: cart } = await dbClient
             .from('carts')
             .select(`
                 *,
@@ -996,7 +996,7 @@ const checkoutWithDiscounts = async (tenant, endUserPhone) => {
             shipping_cartons: pricing.totalCartons
         });
 
-        const { data: order, error: orderError} = await supabase
+        const { data: order, error: orderError} = await dbClient
             .from('orders')
             .insert({
                 tenant_id: tenant.id,
@@ -1045,7 +1045,7 @@ const checkoutWithDiscounts = async (tenant, endUserPhone) => {
             const unitPriceBeforeTax = (discountedPriceWithTax / 1.18).toFixed(2);
             const gstAmount = ((discountedPriceWithTax - unitPriceBeforeTax) * item.quantity).toFixed(2);
             
-            console.log(`[ORDER_ITEM] ${item.product.name}: Original â‚¹${originalPriceWithTax} â†’ Discounted â‚¹${discountedPriceWithTax.toFixed(2)}`);
+            console.log(`[ORDER_ITEM] ${item.product.name}: Original Ã¢â€šÂ¹${originalPriceWithTax} Ã¢â€ â€™ Discounted Ã¢â€šÂ¹${discountedPriceWithTax.toFixed(2)}`);
             
             return {
                 order_id: order.id,
@@ -1060,7 +1060,7 @@ const checkoutWithDiscounts = async (tenant, endUserPhone) => {
         });
         
 
-        await supabase.from('order_items').insert(orderItems);
+        await dbClient.from('order_items').insert(orderItems);
 
         // REMOVED: Discount logging code since we're no longer applying automatic discounts at checkout
         // Discounts are now only applied via explicit approval in discount negotiation flow
@@ -1073,7 +1073,7 @@ const checkoutWithDiscounts = async (tenant, endUserPhone) => {
         console.log('[CHECKOUT] Order ID:', order.id);
         try {
             const { requestShippingInfo } = require('./shippingInfoService');
-            const orderSummary = `Order #${order.id.substring(0, 8)} - ₹${pricing.grandTotal.toLocaleString()}`;
+            const orderSummary = `Order #${order.id.substring(0, 8)} - â‚¹${pricing.grandTotal.toLocaleString()}`;
             const shippingResult = await requestShippingInfo(tenant.id, endUserPhone, order.id, orderSummary);
             console.log('[CHECKOUT] Shipping info request sent, result:', shippingResult);
         } catch (shippingError) {
@@ -1082,7 +1082,7 @@ const checkoutWithDiscounts = async (tenant, endUserPhone) => {
             // Send fallback message to customer
             try {
                 const { sendMessage } = require('./whatsappService');
-                await sendMessage(endUserPhone, `✅ Order confirmed! Order ID: ${order.id.substring(0, 8)}\n\n⚠️ Please provide your shipping address and transporter details.`);
+                await sendMessage(endUserPhone, `âœ… Order confirmed! Order ID: ${order.id.substring(0, 8)}\n\nâš ï¸ Please provide your shipping address and transporter details.`);
             } catch (fallbackError) {
                 console.error('[CHECKOUT] Fallback message also failed:', fallbackError);
             }
@@ -1107,7 +1107,7 @@ const checkoutWithDiscounts = async (tenant, endUserPhone) => {
                 console.log('[ZOHO_INTEGRATION] Success:', result.zohoOrderId);
                 // Send success notification
                 await sendMessage(endUserPhone, 
-                    `ðŸ“‹ Sales Order Created!\n\nZoho Order: ${result.zohoOrderId.substring(0, 8)}\nReference: ${order.id.substring(0, 8)}`
+                    `Ã°Å¸â€œâ€¹ Sales Order Created!\n\nZoho Order: ${result.zohoOrderId.substring(0, 8)}\nReference: ${order.id.substring(0, 8)}`
                 );
 
                 // PDF Delivery after Zoho success
@@ -1119,12 +1119,12 @@ const checkoutWithDiscounts = async (tenant, endUserPhone) => {
                             endUserPhone,
                             result.pdfBuffer,
                             result.filename,
-                            `ðŸ“„ Your sales order invoice\nOrder: ${result.zohoOrderId}\nThank you for your business!`
+                            `Ã°Å¸â€œâ€ž Your sales order invoice\nOrder: ${result.zohoOrderId}\nThank you for your business!`
                         );
                         if (pdfDelivery.success) {
                             console.log('[PDF_SEND] PDF delivered successfully');
                             // PATCH: Update order with PDF delivery URL
-                            await supabase
+                            await dbClient
                                 .from('orders')
                                 .update({
                                     pdf_delivery_url: pdfDelivery.fileUrl,
@@ -1151,15 +1151,15 @@ const checkoutWithDiscounts = async (tenant, endUserPhone) => {
         }
 
         // CRITICAL: Clear cart completely after successful order
-        await supabase.from('cart_items').delete().eq('cart_id', cart.id);
-        await supabase.from('carts').update({ 
+        await dbClient.from('cart_items').delete().eq('cart_id', cart.id);
+        await dbClient.from('carts').update({ 
             applied_discount_id: null, 
             discount_amount: 0,
             updated_at: new Date().toISOString()
         }).eq('id', cart.id);
 
         // CRITICAL FIX: Customer confirmation with IDENTICAL pricing breakdown as cart view
-        let confirmationMessage = `✅ *Order Confirmed!*\n\n`;
+        let confirmationMessage = `âœ… *Order Confirmed!*\n\n`;
         
         // Add product details with per-piece pricing and discount breakdown
         if (validItems && validItems.length > 0) {
@@ -1181,28 +1181,28 @@ const checkoutWithDiscounts = async (tenant, endUserPhone) => {
                 }
                 
                 const actualQuantity = parseInt(quantity) || 1; // FIXED: ensure numeric quantity
-                confirmationMessage += `📦 ${productName} × ${actualQuantity} carton${actualQuantity > 1 ? 's' : ''}\n`;
+                confirmationMessage += `ðŸ“¦ ${productName} Ã— ${actualQuantity} carton${actualQuantity > 1 ? 's' : ''}\n`;
                 if (discountedPerPiece && originalPerPiece) {
-                    confirmationMessage += `   ₹${discountedPerPiece}/pc (was ₹${originalPerPiece}/pc)\n`;
-                    confirmationMessage += `   ₹${discountedPrice.toFixed(2)}/carton (was ₹${originalPrice.toFixed(2)}/carton)\n`;
+                    confirmationMessage += `   â‚¹${discountedPerPiece}/pc (was â‚¹${originalPerPiece}/pc)\n`;
+                    confirmationMessage += `   â‚¹${discountedPrice.toFixed(2)}/carton (was â‚¹${originalPrice.toFixed(2)}/carton)\n`;
                 } else {
-                    confirmationMessage += `   ₹${discountedPrice.toFixed(2)}/carton (was ₹${originalPrice.toFixed(2)}/carton)\n`;
+                    confirmationMessage += `   â‚¹${discountedPrice.toFixed(2)}/carton (was â‚¹${originalPrice.toFixed(2)}/carton)\n`;
                 }
             });
             confirmationMessage += `\n`;
         }
 
-        confirmationMessage += `Subtotal: ₹${pricing.subtotal.toLocaleString()}\n`;
+        confirmationMessage += `Subtotal: â‚¹${pricing.subtotal.toLocaleString()}\n`;
         // Removed bulk discount line since discounts are now shown per item above
         if (pricing.shipping.freeShippingApplied) {
-            confirmationMessage += `Shipping: FREE ✓\n`;
+            confirmationMessage += `Shipping: FREE âœ“\n`;
         } else if (pricing.shipping.charges > 0) {
-            confirmationMessage += `Shipping: ₹${pricing.shipping.charges.toLocaleString()} (${pricing.totalCartons} cartons × ₹${pricing.shipping.ratePerCarton})\n`;
+            confirmationMessage += `Shipping: â‚¹${pricing.shipping.charges.toLocaleString()} (${pricing.totalCartons} cartons Ã— â‚¹${pricing.shipping.ratePerCarton})\n`;
         }
-        confirmationMessage += `GST (${pricing.gst.rate}%): ₹${pricing.gst.amount.toLocaleString()}\n`;
-        confirmationMessage += `**Final Total: ₹${pricing.grandTotal.toLocaleString()}**`;
+        confirmationMessage += `GST (${pricing.gst.rate}%): â‚¹${pricing.gst.amount.toLocaleString()}\n`;
+        confirmationMessage += `**Final Total: â‚¹${pricing.grandTotal.toLocaleString()}**`;
         if (pricing.isRounded && pricing.roundingAdjustment > 0) {
-            confirmationMessage += ` (rounded from ₹${pricing.grandTotalBeforeRounding.toLocaleString()})`;
+            confirmationMessage += ` (rounded from â‚¹${pricing.grandTotalBeforeRounding.toLocaleString()})`;
         }
         confirmationMessage += '\n\nThank you for your order!';
 
@@ -1234,7 +1234,7 @@ const addProductToCart = async (tenantId, endUserPhone, productName) => {
         const conversationId = await getConversationId(tenantId, endUserPhone);
         if (!conversationId) return "Could not identify your conversation.";
 
-        const { data: product } = await supabase
+        const { data: product } = await dbClient
             .from('products')
             .select('id, name, price')
             .eq('tenant_id', tenantId)
@@ -1289,7 +1289,7 @@ const getOrderStatus = async (tenantId, endUserPhone) => {
         const conversationId = await getConversationId(tenantId, endUserPhone);
         if (!conversationId) return "Could not identify your conversation.";
 
-        const { data: orders } = await supabase
+        const { data: orders } = await dbClient
             .from('orders')
             .select('id, total_amount, created_at, order_status, shipping_charges, gst_amount')
             .eq('tenant_id', tenantId)
@@ -1301,20 +1301,20 @@ const getOrderStatus = async (tenantId, endUserPhone) => {
             return "You haven't placed any orders yet.";
         }
 
-        let statusMessage = "ðŸ“‹ **Your Recent Orders**\n\n";
+        let statusMessage = "Ã°Å¸â€œâ€¹ **Your Recent Orders**\n\n";
         orders.forEach((order, index) => {
             const orderDate = new Date(order.created_at).toLocaleDateString();
             statusMessage += `${index + 1}. Order #${order.id.substring(0, 8)}\n`;
             statusMessage += `   Date: ${orderDate}\n`;
             
             if (order.shipping_charges > 0) {
-                statusMessage += `   Shipping: â‚¹${order.shipping_charges}\n`;
+                statusMessage += `   Shipping: Ã¢â€šÂ¹${order.shipping_charges}\n`;
             }
             if (order.gst_amount > 0) {
-                statusMessage += `   GST: â‚¹${order.gst_amount}\n`;
+                statusMessage += `   GST: Ã¢â€šÂ¹${order.gst_amount}\n`;
             }
             
-            statusMessage += `   **Total: â‚¹${order.total_amount}**\n`;
+            statusMessage += `   **Total: Ã¢â€šÂ¹${order.total_amount}**\n`;
             statusMessage += `   Status: ${order.order_status || 'Processing'}\n\n`;
         });
 
@@ -1345,7 +1345,7 @@ const removeCartItem = async (tenantId, endUserPhone, productNameOrCode) => {
         if (!conversationId) return { success: false, message: "Could not identify your conversation." };
 
         // Get cart
-        const { data: cart } = await supabase
+        const { data: cart } = await dbClient
             .from('carts')
             .select('id')
             .eq('conversation_id', conversationId)
@@ -1354,7 +1354,7 @@ const removeCartItem = async (tenantId, endUserPhone, productNameOrCode) => {
         if (!cart) return { success: false, message: "Your cart is empty." };
 
         // Get cart items with product details
-        const { data: cartItems } = await supabase
+        const { data: cartItems } = await dbClient
             .from('cart_items')
             .select('id, product_id')
             .eq('cart_id', cart.id);
@@ -1365,7 +1365,7 @@ const removeCartItem = async (tenantId, endUserPhone, productNameOrCode) => {
 
         // Get product details for each item
         for (const item of cartItems) {
-            const { data: product } = await supabase
+            const { data: product } = await dbClient
                 .from('products')
                 .select('id, name, code')
                 .eq('id', item.product_id)
@@ -1399,7 +1399,7 @@ const removeCartItem = async (tenantId, endUserPhone, productNameOrCode) => {
         }
 
         // Delete the cart item
-        const { error: deleteError } = await supabase
+        const { error: deleteError } = await dbClient
             .from('cart_items')
             .delete()
             .eq('id', matchingItem.id);
@@ -1425,7 +1425,7 @@ module.exports = {
     checkoutWithDiscounts,
     getOrderStatus,
     getOrCreateCart,
-    forceResetCartForNewOrder,  // â† Make sure this is exported
+    forceResetCartForNewOrder,  // Ã¢â€ Â Make sure this is exported
     debugCartState,
     forceClearCartCompletely,
     checkoutWithZohoIntegration,

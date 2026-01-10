@@ -1,8 +1,8 @@
-/**
+﻿/**
  * @title AI Product Recommendation Service
  * @description Manages the logic for providing AI-powered product recommendations based on user queries.
  */
-const { supabase } = require('./config');
+const { dbClient } = require('./config');
 const { createEmbedding } = require('./aiService'); // Reuse the embedding function
 const { searchProducts } = require('./productService');
 
@@ -41,3 +41,4 @@ const getProductRecommendations = async (tenantId, userQuery) => {
 module.exports = {
     getProductRecommendations,
 };
+

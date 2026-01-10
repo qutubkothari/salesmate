@@ -1,10 +1,11 @@
-/**
+﻿/**
  * @title AI Service
  * @description This service handles interactions with the AI model (OpenAI/Gemini)
  * and the database to provide intelligent, context-aware responses.
  */
-const { openai, supabase } = require('./config');
+const { openai, dbClient } = require('./config');
 const { searchProducts } = require('./productService');
+const { searchWebsiteForQuery, isProductInfoQuery } = require('./websiteContentIntegration');
 
 /**
  * Creates a vector embedding for a given text using OpenAI's API.
@@ -33,7 +34,7 @@ const createEmbedding = async (text) => {
 const getContextFromDB = async (tenantId, userQuery) => {
     try {
         // Prefer the productService search helper because it already handles
-        // vector search + safe fallbacks (works in both Supabase and local SQLite).
+        // vector search + safe fallbacks (works in both dbClient and local SQLite).
         const products = await searchProducts(tenantId, String(userQuery || ''), 3);
 
         if (!products || products.length === 0) {
@@ -61,7 +62,7 @@ const getContextFromDB = async (tenantId, userQuery) => {
 const getAIResponse = async (tenantId, userQuery) => {
     try {
         // 1. Fetch the tenant's custom settings and business profile
-        const { data: tenant, error: tenantError } = await supabase
+        const { data: tenant, error: tenantError } = await dbClient
             .from('tenants')
             .select('bot_personality, bot_language, business_name, business_address, business_website')
             .eq('id', tenantId)
@@ -87,8 +88,8 @@ const getAIResponse = async (tenantId, userQuery) => {
         const systemPrompt = `${botPersonality}
 You are a helpful sales assistant. Use the context provided below to answer questions about products and services.
 You MUST respond in ${botLanguage}.
-- For Arabic: Use Modern Standard Arabic (العربية) that is widely understood
-- For Urdu: Use professional Urdu (اردو)
+- For Arabic: Use Modern Standard Arabic (Ø§Ù„Ø¹Ø±Ø¨ÙŠØ©) that is widely understood
+- For Urdu: Use professional Urdu (Ø§Ø±Ø¯Ùˆ)
 - For Hinglish: Mix Hindi and English naturally as spoken in India
 - For other languages: Maintain professional yet friendly tone
 When customers ask about products, check if you have similar or related items in your product catalog.
@@ -189,7 +190,7 @@ async function chatComplete({ system, user, mode = 'fast', temperature = 0.2 }) 
 async function getAIResponseV2(tenantId, userQuery, opts = {}) {
   try {
     // (a) Load tenant business/profile fields just like your V1 path
-    const { data: tenant, error: tenantError } = await supabase
+    const { data: tenant, error: tenantError } = await dbClient
       .from('tenants')
       .select('bot_personality, bot_language, business_name, business_address, business_website')
       .eq('id', tenantId)
@@ -197,18 +198,34 @@ async function getAIResponseV2(tenantId, userQuery, opts = {}) {
 
     if (tenantError) throw tenantError;
 
+    const rawQuery = String(opts.originalUserQuery || userQuery || '').trim();
+
     // (b) Embedding with safe fallback
     let queryEmbedding;
     try {
-      queryEmbedding = await createEmbeddingSafe(userQuery);
+      queryEmbedding = await createEmbeddingSafe(rawQuery || userQuery);
     } catch (e) {
       console.error('[AI][V2] embedding failed:', e?.message || e);
       // Fall back to your original createEmbedding so this remains non-breaking
-      queryEmbedding = await createEmbedding(userQuery);
+      queryEmbedding = await createEmbedding(rawQuery || userQuery);
     }
 
     // (c) Product context via your existing function
-    const productContext = await getContextFromDB(tenantId, userQuery);
+    const productContext = await getContextFromDB(tenantId, rawQuery || userQuery);
+
+    // (c2) Website chunks (best-effort)
+    let websiteContext = '';
+    try {
+      if (rawQuery && isProductInfoQuery(rawQuery)) {
+        const website = await searchWebsiteForQuery(rawQuery, tenantId);
+        if (website?.found && website?.context) {
+          websiteContext = `\n--- WEBSITE CHUNKS ---\n${String(website.context).slice(0, 3000)}\n--- END WEBSITE CHUNKS ---\n`;
+        }
+      }
+    } catch (e) {
+      // best-effort
+      _dbgAI('website search failed', e?.message || String(e));
+    }
 
     // (d) Business profile block (re-using your structure)
     let businessProfileContext = "--- BUSINESS PROFILE ---\n";
@@ -217,27 +234,44 @@ async function getAIResponseV2(tenantId, userQuery, opts = {}) {
     if (tenant.business_website) businessProfileContext += `Website: ${tenant.business_website}\n`;
     businessProfileContext += "--- END BUSINESS PROFILE ---";
 
-    // Add conversation context
+    // Add conversation context (prefer conversationId if provided)
     let conversationContext = '';
     try {
-      const { data: recentMessages } = await supabase
-        .from('messages')
-        .select(`
-          sender,
-          message_body,
-          conversation:conversations!inner (
-            tenant_id
-          )
-        `)
-        .eq('conversation.tenant_id', tenantId)
-        .order('created_at', { ascending: false })
-        .limit(10);
+      const conversationId = String(opts.conversationId || '').trim();
 
-      if (recentMessages && recentMessages.length > 0) {
-        conversationContext = '\n--- RECENT CONVERSATION ---\n' + 
-          recentMessages.reverse().map(msg => 
-            `${msg.sender === 'user' ? 'Customer' : 'Assistant'}: ${msg.message_body}`
-          ).join('\n') + '\n--- END CONVERSATION ---\n';
+      let query = dbClient
+        .from('messages')
+        .select('sender, message_body, created_at, conversation_id')
+        .order('created_at', { ascending: false })
+        .limit(12);
+
+      if (conversationId) {
+        query = query.eq('conversation_id', conversationId);
+      } else {
+        // Fallback: tenant-wide (less precise) using join, because messages may not have tenant_id
+        query = dbClient
+          .from('messages')
+          .select(`
+            sender,
+            message_body,
+            created_at,
+            conversation:conversations!inner ( tenant_id )
+          `)
+          .eq('conversation.tenant_id', tenantId)
+          .order('created_at', { ascending: false })
+          .limit(12);
+      }
+
+      const { data: recentMessages, error: msgErr } = await query;
+      if (!msgErr && Array.isArray(recentMessages) && recentMessages.length > 0) {
+        conversationContext =
+          '\n--- CHAT HISTORY ---\n' +
+          recentMessages
+            .slice()
+            .reverse()
+            .map((msg) => `${String(msg.sender || '').toLowerCase() === 'user' ? 'Customer' : 'Assistant'}: ${msg.message_body}`)
+            .join('\n') +
+          '\n--- END CHAT HISTORY ---\n';
       }
     } catch (error) {
       console.warn('[AI] Could not fetch conversation context:', error.message);
@@ -264,8 +298,9 @@ ${businessProfileContext}
 --- PRODUCT INFORMATION ---
 ${productContext}
 --- END PRODUCT INFORMATION ---
+${websiteContext}
 ${conversationContext}
-User's Question: "${userQuery}"
+Customer Message: "${rawQuery || userQuery}"
 
 Your Answer (in ${botLanguage}):
 `,
@@ -503,12 +538,12 @@ if (!global.__AI_SINGLETONS__.getAIResponseV3) {
         console.error('[AI] Empty content from OpenAI (chat)', {
           id: res?.id, usage: res?.usage, choices: res?.choices?.length
         });
-        return 'Sorry — I could not generate a response right now.';
+        return 'Sorry â€” I could not generate a response right now.';
       }
       return text;
     } catch (e) {
       logAIError('chat', e);
-      return 'Sorry — I hit an AI error. Please try again.';
+      return 'Sorry â€” I hit an AI error. Please try again.';
     }
   }; // end getAIResponseV3
 }
@@ -517,4 +552,5 @@ module.exports.getAIResponseDirect = global.__AI_SINGLETONS__.getAIResponseV3;
 // keep the legacy export name if not already set
 module.exports.getAIResponse = module.exports.getAIResponse || global.__AI_SINGLETONS__.getAIResponseV3;
 // --- END: singleton wrapper ---
+
 

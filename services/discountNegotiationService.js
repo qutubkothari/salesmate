@@ -1,9 +1,9 @@
-// =============================================
+﻿// =============================================
 // FILE: services/discountNegotiationService_v2.js
 // UPGRADED VERSION - Uses AI instead of regex
 // =============================================
 
-const { supabase } = require('./config');
+const { dbClient } = require('./config');
 const { 
     detectDiscountIntent, 
     extractDiscountRequestDetails, 
@@ -40,7 +40,7 @@ async function handleDiscountNegotiationV2(tenantId, phoneNumber, message, conve
         let cartError = null;
         
         if (conversationId) {
-            const cartResult = await supabase
+            const cartResult = await dbClient
                 .from('carts')
                 .select(`
                     *,
@@ -115,7 +115,7 @@ async function handleDiscountNegotiationV2(tenantId, phoneNumber, message, conve
                         // Search by name pattern since product_code column doesn't exist
                         try {
                             const orExpr = productCodes.map(c => `name.ilike.%${c}%`).join(',');
-                            const { data: productsByName, error: nameErr } = await supabase
+                            const { data: productsByName, error: nameErr } = await dbClient
                                 .from('products')
                                 .select('id, name, category, price, units_per_carton')
                                 .or(orExpr);
@@ -138,7 +138,7 @@ async function handleDiscountNegotiationV2(tenantId, phoneNumber, message, conve
                     if ((!productMap || Object.keys(productMap).length === 0) && productCodes.length > 0) {
                         for (const code of productCodes) {
                             try {
-                                const { data: rows, error: rErr } = await supabase
+                                const { data: rows, error: rErr } = await dbClient
                                     .from('products')
                                     .select('id, name, category, price, units_per_carton')
                                     .ilike('name', `%${code}%`)
@@ -205,7 +205,7 @@ async function handleDiscountNegotiationV2(tenantId, phoneNumber, message, conve
                         const unitsPerCarton = it.units_per_carton || 1;
                         const perPiecePrice = unitsPerCarton > 1 ? (discountedPrice / unitsPerCarton).toFixed(2) : discountedPrice;
                         const label = it.productName || it.product_code || 'Product';
-                        return `📦 ${label} × ${qty} ${unit}${qty !== 1 ? 's' : ''}\n✨ Your Special Price:\n🔹 ₹${perPiecePrice}/pc per piece\n📦 ₹${discountedPrice}.00/${unit}\n   (${unitsPerCarton} pcs/${unit})`;
+                        return `ðŸ“¦ ${label} Ã— ${qty} ${unit}${qty !== 1 ? 's' : ''}\nâœ¨ Your Special Price:\nðŸ”¹ â‚¹${perPiecePrice}/pc per piece\nðŸ“¦ â‚¹${discountedPrice}.00/${unit}\n   (${unitsPerCarton} pcs/${unit})`;
                     })
                     .join('\n\n');
                 // WhatsApp preview for discount offer
@@ -224,7 +224,7 @@ async function handleDiscountNegotiationV2(tenantId, phoneNumber, message, conve
                 // ...existing code...
             }
             return {
-                response: "I'd love to help with a discount! Could you tell me which products and how many cartons you're looking to order? 😊",
+                response: "I'd love to help with a discount! Could you tell me which products and how many cartons you're looking to order? ðŸ˜Š",
                 nextAction: 'await_product_details'
             };
         }
@@ -259,7 +259,7 @@ async function handleDiscountNegotiationV2(tenantId, phoneNumber, message, conve
         // cart summary computed
 
         // Step 5: Check if customer is returning customer (has previous orders)
-        const { data: previousOrders } = await supabase
+        const { data: previousOrders } = await dbClient
             .from('orders')
             .select('id, created_at, discount_amount')
             .eq('tenant_id', tenantId)
@@ -288,7 +288,7 @@ async function handleDiscountNegotiationV2(tenantId, phoneNumber, message, conve
             const unit = item.product?.unit || 'carton';
             const price = item.unit_price || 0;
             const discountedPrice = Math.round(price * (1 - offeredDiscount / 100));
-            return `${item.product?.name} (${qty} ${unit}${qty !== 1 ? 's' : ''}) - ₹${discountedPrice} per ${unit}`;
+            return `${item.product?.name} (${qty} ${unit}${qty !== 1 ? 's' : ''}) - â‚¹${discountedPrice} per ${unit}`;
         }).join(', ');
 
         // Step 8: Use AI to generate natural response
@@ -328,7 +328,7 @@ async function handleDiscountNegotiationV2(tenantId, phoneNumber, message, conve
         // The discount will be applied automatically when cart is viewed/checked out
 
         // Step 10: Save discount negotiation state
-        await supabase
+        await dbClient
             .from('discount_negotiations')
             .insert({
                 tenant_id: tenantId,
@@ -346,7 +346,7 @@ async function handleDiscountNegotiationV2(tenantId, phoneNumber, message, conve
             });
 
         return {
-            response: aiResponse.message || aiResponse || `Great! I can offer you ${offeredDiscount}% discount on ${cartProductsStr}! This has been applied to your cart. 😊`,
+            response: aiResponse.message || aiResponse || `Great! I can offer you ${offeredDiscount}% discount on ${cartProductsStr}! This has been applied to your cart. ðŸ˜Š`,
             discountOffered: offeredDiscount,
             offeredDiscount,
             discountPercent: offeredDiscount,
@@ -360,7 +360,7 @@ async function handleDiscountNegotiationV2(tenantId, phoneNumber, message, conve
     } catch (error) {
         console.error('[DISCOUNT_V2] Error:', error);
         return {
-            response: "I'd love to help with a discount! Let me check what I can offer for your order. 😊",
+            response: "I'd love to help with a discount! Let me check what I can offer for your order. ðŸ˜Š",
             error: error.message,
             nextAction: 'retry'
         };
@@ -418,3 +418,4 @@ module.exports = {
     isDiscountNegotiation: isDiscountNegotiationLegacy,
     extractQuantityFromMessage: extractQuantityFromMessageLegacy
 };
+

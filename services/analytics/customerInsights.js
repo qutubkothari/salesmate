@@ -1,5 +1,5 @@
-// services/analytics/customerInsights.js
-const { supabase } = require('../config');
+﻿// services/analytics/customerInsights.js
+const { dbClient } = require('../config');
 const { analyzePurchaseFrequency } = require('./purchaseFrequency');
 const { analyzeProductAffinity } = require('./productAffinity');
 
@@ -40,7 +40,7 @@ async function analyzeOrderAndSuggest(customerProfileId, currentOrderItems, tena
     }
     
     // Get product details
-    const { data: products } = await supabase
+    const { data: products } = await dbClient
       .from('products')
       .select('id, name, price')
       .in('id', missingProductIds)

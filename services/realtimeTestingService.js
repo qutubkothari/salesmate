@@ -1,5 +1,5 @@
-// services/realtimeTestingService.js
-const { supabase } = require('./config');
+﻿// services/realtimeTestingService.js
+const { dbClient } = require('./config');
 const { scoreLead } = require('./leadScoringService');
 const { analyzeConversationContext } = require('./enhancedFollowUpService');
 
@@ -99,7 +99,7 @@ class ConversationTracker {
       await scoreLead(tenantId, endUserPhone);
 
       // Get updated lead score from database
-      const { data: convData } = await supabase
+      const { data: convData } = await dbClient
         .from('conversations')
         .select('lead_score, id')
         .eq('tenant_id', tenantId)
@@ -118,7 +118,7 @@ class ConversationTracker {
       const context = await analyzeConversationContext(tenantId, endUserPhone, conversationText);
       
       if (context) {
-        await supabase
+        await dbClient
           .from('conversations')
           .update({ context_analysis: JSON.stringify(context) })
           .eq('id', convData.id);
@@ -136,7 +136,7 @@ class ConversationTracker {
       followUpTime.setHours(followUpTime.getHours() + hoursToAdd);
 
       // Update conversation with follow-up schedule
-      await supabase
+      await dbClient
         .from('conversations')
         .update({
           follow_up_at: followUpTime.toISOString(),
@@ -148,14 +148,14 @@ class ConversationTracker {
       console.log(`[FOLLOWUP_SCHEDULED] ${leadScore} lead ${endUserPhone} will be followed up in ${hoursToAdd} hours`);
 
       // Notify admin about the lead analysis
-      const { data: tenant } = await supabase
+      const { data: tenant } = await dbClient
         .from('tenants')
         .select('owner_whatsapp_number')
         .eq('id', tenantId)
         .single();
 
       if (tenant?.owner_whatsapp_number) {
-        const adminNotification = `🤖 Lead Analysis Complete
+        const adminNotification = `ðŸ¤– Lead Analysis Complete
         
 Customer: ${endUserPhone}
 Lead Score: ${leadScore}

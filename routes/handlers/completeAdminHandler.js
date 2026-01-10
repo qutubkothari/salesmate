@@ -1,8 +1,8 @@
-// routes/handlers/completeAdminHandler.js
+﻿// routes/handlers/completeAdminHandler.js
 // This contains ALL the missing admin commands from your original webhook
 
 const { sendMessage } = require('../../services/whatsappService');
-const { supabase } = require('../../services/config');
+const { dbClient } = require('../../services/config');
 const menuService = require('../../services/menuService');
 
 // Import all the services that were missing
@@ -121,42 +121,42 @@ const handleCompleteAdminCommands = async (tenant, from, txt, raw) => {
   if (txt.startsWith('/sync-invoice ') || txt.startsWith('/sync_invoice ')) {
     const invoiceId = txt.split(' ')[1];
     if (!invoiceId) {
-      await sendMessage(from, '❌ Usage: /sync-invoice <invoice_id>\n\nExample: /sync-invoice 1234567890');
+      await sendMessage(from, 'âŒ Usage: /sync-invoice <invoice_id>\n\nExample: /sync-invoice 1234567890');
       return true;
     }
     
-    await sendMessage(from, `🔄 Syncing invoice ${invoiceId} from Zoho...`);
+    await sendMessage(from, `ðŸ”„ Syncing invoice ${invoiceId} from Zoho...`);
     const result = await syncInvoiceFromZoho(tenant.id, invoiceId);
     
     if (result.success) {
       const inv = result.invoice;
-      const message = `✅ *Invoice Synced Successfully*\n\n` +
-        `📄 Invoice: ${inv.invoiceNumber}\n` +
-        `💰 Total: ₹${inv.total}\n` +
-        `📊 Status: ${inv.status}\n` +
-        `🔢 Items Updated: ${inv.updatedItems}\n\n` +
+      const message = `âœ… *Invoice Synced Successfully*\n\n` +
+        `ðŸ“„ Invoice: ${inv.invoiceNumber}\n` +
+        `ðŸ’° Total: â‚¹${inv.total}\n` +
+        `ðŸ“Š Status: ${inv.status}\n` +
+        `ðŸ”¢ Items Updated: ${inv.updatedItems}\n\n` +
         `All changes from Zoho have been saved to your database.`;
       await sendMessage(from, message);
     } else {
-      await sendMessage(from, `❌ Sync failed: ${result.error}`);
+      await sendMessage(from, `âŒ Sync failed: ${result.error}`);
     }
     return true;
   }
 
   if (txt === '/sync-all-invoices' || txt === '/sync_all_invoices' || txt === '/sync-invoices') {
-    await sendMessage(from, '🔄 Syncing all invoices from Zoho... This may take a moment.');
+    await sendMessage(from, 'ðŸ”„ Syncing all invoices from Zoho... This may take a moment.');
     
     const result = await syncAllInvoicesFromZoho(tenant.id, 30);
     
     if (result.success) {
-      const message = `✅ *Invoice Sync Complete*\n\n` +
-        `📊 Total Invoices: ${result.totalInvoices}\n` +
-        `✅ Successfully Synced: ${result.synced}\n` +
-        `❌ Errors: ${result.errors}\n\n` +
+      const message = `âœ… *Invoice Sync Complete*\n\n` +
+        `ðŸ“Š Total Invoices: ${result.totalInvoices}\n` +
+        `âœ… Successfully Synced: ${result.synced}\n` +
+        `âŒ Errors: ${result.errors}\n\n` +
         `All invoice data has been updated in your database.`;
       await sendMessage(from, message);
     } else {
-      await sendMessage(from, `❌ Sync failed: ${result.error}`);
+      await sendMessage(from, `âŒ Sync failed: ${result.error}`);
     }
     return true;
   }
@@ -267,7 +267,7 @@ const handleCompleteAdminCommands = async (tenant, from, txt, raw) => {
     }
 
     const context = { type: 'awaiting_drip_subscribers', campaignName };
-    await supabase.from('tenants').update({ last_command_context: JSON.stringify(context) }).eq('id', tenant.id);
+    await dbClient.from('tenants').update({ last_command_context: JSON.stringify(context) }).eq('id', tenant.id);
     await sendMessage(from, `Ready to subscribe users to "${campaignName}". Please upload the Excel file with contact numbers now.`);
     return true;
   }
@@ -363,7 +363,7 @@ const handleCompleteAdminCommands = async (tenant, from, txt, raw) => {
     const name = txt.substring('/set_business_name '.length).trim();
     if (!name) await sendMessage(from, 'Usage: /set_business_name <Your Business Name>');
     return true;
-    await supabase.from('tenants').update({ business_name: name }).eq('id', tenant.id);
+    await dbClient.from('tenants').update({ business_name: name }).eq('id', tenant.id);
     await sendMessage(from, 'Business name updated successfully.');
     return true;
   }
@@ -372,7 +372,7 @@ const handleCompleteAdminCommands = async (tenant, from, txt, raw) => {
     const address = txt.substring('/set_business_address '.length).trim();
     if (!address) await sendMessage(from, 'Usage: /set_business_address <Your Full Address>');
     return true;
-    await supabase.from('tenants').update({ business_address: address }).eq('id', tenant.id);
+    await dbClient.from('tenants').update({ business_address: address }).eq('id', tenant.id);
     await sendMessage(from, 'Business address updated successfully.');
     return true;
   }
@@ -381,7 +381,7 @@ const handleCompleteAdminCommands = async (tenant, from, txt, raw) => {
     const website = txt.substring('/set_business_website '.length).trim();
     if (!website) await sendMessage(from, 'Usage: /set_business_website <https://yourwebsite.com>');
     return true;
-    await supabase.from('tenants').update({ business_website: website }).eq('id', tenant.id);
+    await dbClient.from('tenants').update({ business_website: website }).eq('id', tenant.id);
     await sendMessage(from, 'Business website updated successfully.');
     return true;
   }
@@ -395,7 +395,7 @@ const handleCompleteAdminCommands = async (tenant, from, txt, raw) => {
       await sendMessage(from, 'Invalid format. Usage: /set_office_hours HH:MM HH:MM (e.g., /set_office_hours 09:00 17:00)');
       return true;
     }
-    await supabase.from('tenants').update({ office_hours_start: startTime, office_hours_end: endTime }).eq('id', tenant.id);
+    await dbClient.from('tenants').update({ office_hours_start: startTime, office_hours_end: endTime }).eq('id', tenant.id);
     await sendMessage(from, `Office hours have been set from ${startTime} to ${endTime}.`);
     return true;
   }
@@ -406,7 +406,7 @@ const handleCompleteAdminCommands = async (tenant, from, txt, raw) => {
       await sendMessage(from, 'Please provide a timezone. Usage: /set_timezone America/New_York');
     return true;
     }
-    await supabase.from('tenants').update({ office_hours_timezone: timezone }).eq('id', tenant.id);
+    await dbClient.from('tenants').update({ office_hours_timezone: timezone }).eq('id', tenant.id);
     await sendMessage(from, `Your timezone has been set to ${timezone}.`);
     return true;
   }
@@ -417,7 +417,7 @@ const handleCompleteAdminCommands = async (tenant, from, txt, raw) => {
       await sendMessage(from, 'Please provide a message. Usage: /set_auto_reply We are currently closed...');
     return true;
     }
-    await supabase.from('tenants').update({ auto_reply_message: replyMsg }).eq('id', tenant.id);
+    await dbClient.from('tenants').update({ auto_reply_message: replyMsg }).eq('id', tenant.id);
     await sendMessage(from, 'Your auto-reply message for closed hours has been saved.');
     return true;
   }
@@ -429,7 +429,7 @@ const handleCompleteAdminCommands = async (tenant, from, txt, raw) => {
       await sendMessage(from, 'Please provide a language. Usage: /set_language Spanish');
     return true;
     }
-    await supabase.from('tenants').update({ bot_language: language }).eq('id', tenant.id);
+    await dbClient.from('tenants').update({ bot_language: language }).eq('id', tenant.id);
     await sendMessage(from, `Your bot's language has been set to ${language}.`);
     return true;
   }
@@ -440,7 +440,7 @@ const handleCompleteAdminCommands = async (tenant, from, txt, raw) => {
       await sendMessage(from, 'Please provide a personality description. Usage: /personality You are a helpful bot.');
     return true;
     }
-    await supabase.from('tenants').update({ bot_personality: personality }).eq('id', tenant.id);
+    await dbClient.from('tenants').update({ bot_personality: personality }).eq('id', tenant.id);
     await sendMessage(from, 'Your bot personality has been updated successfully!');
     return true;
   }
@@ -451,7 +451,7 @@ const handleCompleteAdminCommands = async (tenant, from, txt, raw) => {
       await sendMessage(from, 'Please provide a welcome message. Usage: /welcome Hello! How can I help you?');
     return true;
     }
-    await supabase.from('tenants').update({ welcome_message: welcomeMessage }).eq('id', tenant.id);
+    await dbClient.from('tenants').update({ welcome_message: welcomeMessage }).eq('id', tenant.id);
     await sendMessage(from, 'Your custom welcome message has been saved successfully!');
     return true;
   }
@@ -581,7 +581,7 @@ const handleCompleteAdminCommands = async (tenant, from, txt, raw) => {
       await sendMessage(from, 'Usage: /set_abandoned_cart_delay <hours> (must be at least 1).');
       return true;
     }
-    await supabase.from('tenants').update({ abandoned_cart_delay_hours: hours }).eq('id', tenant.id);
+    await dbClient.from('tenants').update({ abandoned_cart_delay_hours: hours }).eq('id', tenant.id);
     await sendMessage(from, `Abandoned cart reminder delay set to ${hours} hour(s).`);
     return true;
   }
@@ -590,7 +590,7 @@ const handleCompleteAdminCommands = async (tenant, from, txt, raw) => {
     const cartMessage = txt.substring('/set_abandoned_cart_message '.length).trim();
     if (!cartMessage) await sendMessage(from, 'Usage: /set_abandoned_cart_message <Your reminder message>');
     return true;
-    await supabase.from('tenants').update({ abandoned_cart_message: cartMessage }).eq('id', tenant.id);
+    await dbClient.from('tenants').update({ abandoned_cart_message: cartMessage }).eq('id', tenant.id);
     await sendMessage(from, 'Abandoned cart reminder message has been updated.');
     return true;
   }
@@ -603,7 +603,7 @@ const handleCompleteAdminCommands = async (tenant, from, txt, raw) => {
     return true;
     }
     const isEnabled = option === 'on';
-    await supabase.from('tenants').update({ daily_summary_enabled: isEnabled }).eq('id', tenant.id);
+    await dbClient.from('tenants').update({ daily_summary_enabled: isEnabled }).eq('id', tenant.id);
     await sendMessage(from, `Daily summary notifications have been turned ${option}.`);
     return true;
   }
@@ -623,7 +623,7 @@ const handleCompleteAdminCommands = async (tenant, from, txt, raw) => {
 
   // === Products Command ===
   if (txt.startsWith('/products')) {
-    await supabase.from('tenants').update({ last_command_context: 'upload_products' }).eq('id', tenant.id);
+    await dbClient.from('tenants').update({ last_command_context: 'upload_products' }).eq('id', tenant.id);
     await sendMessage(from, 'You have selected to upload products. Please upload your Excel file now.');
     return true;
   }
@@ -649,8 +649,8 @@ const handleCompleteAdminCommands = async (tenant, from, txt, raw) => {
         'Usage: /create_discount "CODE" "type" "value" ["min_order"] ["max_discount"] ["description"]\n\n' +
         'Types: percentage, fixed, buy_x_get_y\n' +
         'Examples:\n' +
-        '• /create_discount "SAVE10" "percentage" "10" "500" "200" "10% off orders above ₹500"\n' +
-        '• /create_discount "FLAT500" "fixed" "500" "2000" "" "₹500 off on orders above ₹2000"'
+        'â€¢ /create_discount "SAVE10" "percentage" "10" "500" "200" "10% off orders above â‚¹500"\n' +
+        'â€¢ /create_discount "FLAT500" "fixed" "500" "2000" "" "â‚¹500 off on orders above â‚¹2000"'
       );
       return true;
     }
@@ -740,9 +740,9 @@ const handleCompleteAdminCommands = async (tenant, from, txt, raw) => {
 
     const result = await applyDiscountToCart(tenant.id, customerPhone, discountCode);
     if (result.success) {
-      await sendMessage(from, `✅ Applied discount "${discountCode}" to ${customerPhone}'s cart`);
+      await sendMessage(from, `âœ… Applied discount "${discountCode}" to ${customerPhone}'s cart`);
     } else {
-      await sendMessage(from, `❌ Failed: ${result.message}`);
+      await sendMessage(from, `âŒ Failed: ${result.message}`);
     }
     return true;
   }
@@ -755,7 +755,7 @@ const handleCompleteAdminCommands = async (tenant, from, txt, raw) => {
     }
 
     try {
-      const { error } = await supabase
+      const { error } = await dbClient
         .from('discount_codes')
         .update({ is_active: false })
         .eq('tenant_id', tenant.id)
@@ -763,7 +763,7 @@ const handleCompleteAdminCommands = async (tenant, from, txt, raw) => {
 
       if (error) throw error;
 
-      await sendMessage(from, `✅ Discount code "${discountCode}" has been deactivated.`);
+      await sendMessage(from, `âœ… Discount code "${discountCode}" has been deactivated.`);
     } catch (error) {
       console.error('Error deactivating discount:', error.message);
       await sendMessage(from, 'Failed to deactivate discount code.');
@@ -779,7 +779,7 @@ const handleCompleteAdminCommands = async (tenant, from, txt, raw) => {
     }
 
     try {
-      const { data: discount } = await supabase
+      const { data: discount } = await dbClient
         .from('discount_codes')
         .select(`
           *,
@@ -801,11 +801,11 @@ const handleCompleteAdminCommands = async (tenant, from, txt, raw) => {
       const usageCount = discount.usage_count || 0;
       const usageLimit = discount.usage_limit || 'Unlimited';
 
-      const statsMessage = `📊 **Discount Stats: ${discountCode}**\n\n` +
-                          `💰 Total Savings Given: ₹${totalSavings.toFixed(2)}\n` +
-                          `📈 Times Used: ${usageCount}/${usageLimit}\n` +
-                          `📅 Created: ${new Date(discount.created_at).toLocaleDateString()}\n` +
-                          `⚡ Status: ${discount.is_active ? 'Active' : 'Inactive'}`;
+      const statsMessage = `ðŸ“Š **Discount Stats: ${discountCode}**\n\n` +
+                          `ðŸ’° Total Savings Given: â‚¹${totalSavings.toFixed(2)}\n` +
+                          `ðŸ“ˆ Times Used: ${usageCount}/${usageLimit}\n` +
+                          `ðŸ“… Created: ${new Date(discount.created_at).toLocaleDateString()}\n` +
+                          `âš¡ Status: ${discount.is_active ? 'Active' : 'Inactive'}`;
 
       await sendMessage(from, statsMessage);
     } catch (error) {
@@ -873,7 +873,7 @@ const handleCompleteAdminCommands = async (tenant, from, txt, raw) => {
       });
 
       // Find product
-      const { data: product } = await supabase
+      const { data: product } = await dbClient
         .from('products')
         .select('id, name, price')
         .eq('tenant_id', tenant.id)
@@ -886,7 +886,7 @@ const handleCompleteAdminCommands = async (tenant, from, txt, raw) => {
       }
 
       // Delete existing breaks
-      await supabase
+      await dbClient
         .from('product_quantity_breaks')
         .delete()
         .eq('product_id', product.id);
@@ -899,7 +899,7 @@ const handleCompleteAdminCommands = async (tenant, from, txt, raw) => {
         break_type: 'carton'
       }));
 
-      await supabase
+      await dbClient
         .from('product_quantity_breaks')
         .insert(breaksToInsert);
 
@@ -907,7 +907,7 @@ const handleCompleteAdminCommands = async (tenant, from, txt, raw) => {
       quantityBreaks.forEach(qb => {
         const savings = product.price - qb.unitPrice;
         const savingsPercent = ((savings / product.price) * 100).toFixed(1);
-        message += `${qb.minQuantity}+ cartons: ₹${qb.unitPrice}/carton (Save ₹${savings.toFixed(2)} or ${savingsPercent}%)\n`;
+        message += `${qb.minQuantity}+ cartons: â‚¹${qb.unitPrice}/carton (Save â‚¹${savings.toFixed(2)} or ${savingsPercent}%)\n`;
       });
 
       await sendMessage(from, message);
@@ -930,7 +930,7 @@ const handleCompleteAdminCommands = async (tenant, from, txt, raw) => {
 
     try {
       // Get all NFF products
-      const { data: nffProducts } = await supabase
+      const { data: nffProducts } = await dbClient
         .from('products')
         .select('*')
         .eq('tenant_id', tenant.id)
@@ -949,7 +949,7 @@ const handleCompleteAdminCommands = async (tenant, from, txt, raw) => {
           const unitsPerCarton = parseInt(unitsMatch[1]);
           
           // Update product
-          await supabase
+          await dbClient
             .from('products')
             .update({
               packaging_unit: 'carton',
@@ -970,7 +970,7 @@ const handleCompleteAdminCommands = async (tenant, from, txt, raw) => {
             };
           });
 
-          await supabase
+          await dbClient
             .from('product_quantity_breaks')
             .insert(breaksToInsert);
 
@@ -1003,7 +1003,7 @@ const handleCompleteAdminCommands = async (tenant, from, txt, raw) => {
 
     try {
       // Find product with quantity breaks
-      const { data: product } = await supabase
+      const { data: product } = await dbClient
         .from('products')
         .select(`
           *,
@@ -1019,7 +1019,7 @@ const handleCompleteAdminCommands = async (tenant, from, txt, raw) => {
       }
 
       let message = `Carton Pricing Info: ${product.name}\n\n`;
-      message += `Base price: ₹${product.price}/carton\n`;
+      message += `Base price: â‚¹${product.price}/carton\n`;
       message += `Units per carton: ${product.units_per_carton || 'Not set'}\n`;
       message += `Packaging: ${product.packaging_unit || 'piece'}\n\n`;
 
@@ -1030,7 +1030,7 @@ const handleCompleteAdminCommands = async (tenant, from, txt, raw) => {
           .forEach(qb => {
             const savings = product.price - qb.unit_price;
             const savingsPercent = ((savings / product.price) * 100).toFixed(1);
-            message += `${qb.min_quantity}+ cartons: ₹${qb.unit_price}/carton (${savingsPercent}% off)\n`;
+            message += `${qb.min_quantity}+ cartons: â‚¹${qb.unit_price}/carton (${savingsPercent}% off)\n`;
           });
       } else {
         message += `No quantity breaks configured.`;
@@ -1059,16 +1059,16 @@ const handleCompleteAdminCommands = async (tenant, from, txt, raw) => {
     try {
       const pricing = await testCartonPricing(tenant.id, productName, quantity);
       
-      let message = `🧪 **Carton Pricing Test**\n\n`;
+      let message = `ðŸ§ª **Carton Pricing Test**\n\n`;
       message += `Product: ${pricing.product.name}\n`;
       message += `Requested: ${quantity} cartons\n`;
       message += `Total pieces: ${pricing.pieceQuantity}\n`;
-      message += `Base price: ₹${pricing.baseUnitPrice}/carton\n`;
-      message += `Final price: ₹${pricing.finalUnitPrice}/carton\n`;
-      message += `Total: ₹${pricing.totalPrice.toFixed(2)}\n`;
+      message += `Base price: â‚¹${pricing.baseUnitPrice}/carton\n`;
+      message += `Final price: â‚¹${pricing.finalUnitPrice}/carton\n`;
+      message += `Total: â‚¹${pricing.totalPrice.toFixed(2)}\n`;
       
       if (pricing.discountAmount > 0) {
-        message += `Savings: ₹${pricing.discountAmount.toFixed(2)} (${pricing.discountPercentage.toFixed(1)}%)\n`;
+        message += `Savings: â‚¹${pricing.discountAmount.toFixed(2)} (${pricing.discountPercentage.toFixed(1)}%)\n`;
       }
       
       await sendMessage(from, message);
@@ -1105,9 +1105,9 @@ const handleCompleteAdminCommands = async (tenant, from, txt, raw) => {
     
     if (result.success) {
         await sendMessage(from, 
-            `✅ Product "${name}" created successfully!\n\n` +
+            `âœ… Product "${name}" created successfully!\n\n` +
             `Category: ${category}\n` +
-            `Base Price: ₹${basePrice}/carton\n` +
+            `Base Price: â‚¹${basePrice}/carton\n` +
             `Packaging: ${unitsPerPacket} pcs/packet, ${packetsPerCarton} packet(s)/carton\n` +
             `Total: ${unitsPerPacket * parseInt(packetsPerCarton)} pieces per carton`
         );
@@ -1132,7 +1132,7 @@ const handleCompleteAdminCommands = async (tenant, from, txt, raw) => {
     
     try {
         // Find product
-        const { data: product } = await supabase
+        const { data: product } = await dbClient
             .from('products')
             .select('id, name')
             .eq('tenant_id', tenant.id)
@@ -1154,7 +1154,7 @@ const handleCompleteAdminCommands = async (tenant, from, txt, raw) => {
         }
 
         // Create variant
-        const { data: variant, error } = await supabase
+        const { data: variant, error } = await dbClient
             .from('product_variants')
             .insert({
                 product_id: product.id,
@@ -1168,8 +1168,8 @@ const handleCompleteAdminCommands = async (tenant, from, txt, raw) => {
 
         if (error) throw error;
 
-        let message = `✅ Variant "${variantName}" added to "${product.name}"!\n\n`;
-        message += `Price: ₹${price}/carton\n`;
+        let message = `âœ… Variant "${variantName}" added to "${product.name}"!\n\n`;
+        message += `Price: â‚¹${price}/carton\n`;
         message += `Attributes:\n`;
         Object.entries(attributes).forEach(([key, value]) => {
             message += `- ${key}: ${value}\n`;
@@ -1201,7 +1201,7 @@ const handleCompleteAdminCommands = async (tenant, from, txt, raw) => {
         const success = await addVariantAttributes(tenant.id, category, attributes);
         
         if (success) {
-            let message = `✅ Variant attributes setup for "${category}" category:\n\n`;
+            let message = `âœ… Variant attributes setup for "${category}" category:\n\n`;
             attributes.forEach(attr => {
                 message += `**${attr.name}** (${attr.type})\n`;
                 if (attr.values && attr.values.length > 0) {
@@ -1235,7 +1235,7 @@ const handleCompleteAdminCommands = async (tenant, from, txt, raw) => {
             return true;
         }
 
-        let message = `📋 **Variant Attributes for "${category}":**\n\n`;
+        let message = `ðŸ“‹ **Variant Attributes for "${category}":**\n\n`;
         attributes.forEach(attr => {
             message += `**${attr.attribute_name}** (${attr.attribute_type})\n`;
             if (attr.possible_values && attr.possible_values.length > 0) {
@@ -1267,7 +1267,7 @@ const handleCompleteAdminCommands = async (tenant, from, txt, raw) => {
     
     try {
         // Find product
-        const { data: product } = await supabase
+        const { data: product } = await dbClient
             .from('products')
             .select('id, name')
             .eq('tenant_id', tenant.id)
@@ -1285,7 +1285,7 @@ const handleCompleteAdminCommands = async (tenant, from, txt, raw) => {
 
         for (const variant of variants) {
             try {
-                const { error } = await supabase
+                const { error } = await dbClient
                     .from('product_variants')
                     .insert({
                         product_id: product.id,
@@ -1303,11 +1303,11 @@ const handleCompleteAdminCommands = async (tenant, from, txt, raw) => {
             }
         }
 
-        let message = `📦 **Bulk Variant Creation Complete:**\n\n`;
+        let message = `ðŸ“¦ **Bulk Variant Creation Complete:**\n\n`;
         message += `Product: ${product.name}\n`;
-        message += `✅ Successfully created: ${successCount} variants\n`;
+        message += `âœ… Successfully created: ${successCount} variants\n`;
         if (errorCount > 0) {
-            message += `❌ Errors: ${errorCount} variants\n`;
+            message += `âŒ Errors: ${errorCount} variants\n`;
         }
 
         await sendMessage(from, message);
@@ -1326,7 +1326,7 @@ const handleCompleteAdminCommands = async (tenant, from, txt, raw) => {
     }
 
     try {
-        const { data: product } = await supabase
+        const { data: product } = await dbClient
             .from('products')
             .select(`
                 *,
@@ -1341,10 +1341,10 @@ const handleCompleteAdminCommands = async (tenant, from, txt, raw) => {
             return true;
         }
 
-        let message = `📦 **Product Information**\n\n`;
+        let message = `ðŸ“¦ **Product Information**\n\n`;
         message += `**Name:** ${product.name}\n`;
         message += `**Category:** ${product.category || 'Not set'}\n`;
-        message += `**Base Price:** ₹${product.price}/carton\n\n`;
+        message += `**Base Price:** â‚¹${product.price}/carton\n\n`;
 
         message += `**Packaging:**\n`;
         message += `- Units per packet: ${product.units_per_packet || 1}\n`;
@@ -1353,17 +1353,17 @@ const handleCompleteAdminCommands = async (tenant, from, txt, raw) => {
 
         if (product.unit_price) {
             message += `**Pricing Breakdown:**\n`;
-            message += `- Per unit: ₹${product.unit_price}\n`;
+            message += `- Per unit: â‚¹${product.unit_price}\n`;
             if (product.packet_price) {
-                message += `- Per packet: ₹${product.packet_price}\n`;
+                message += `- Per packet: â‚¹${product.packet_price}\n`;
             }
-            message += `- Per carton: ₹${product.carton_price || product.price}\n\n`;
+            message += `- Per carton: â‚¹${product.carton_price || product.price}\n\n`;
         }
 
         if (product.product_variants && product.product_variants.length > 0) {
             message += `**Variants (${product.product_variants.length}):**\n`;
             product.product_variants.forEach(variant => {
-                message += `- ${variant.variant_name}: ₹${variant.carton_price || product.price}\n`;
+                message += `- ${variant.variant_name}: â‚¹${variant.carton_price || product.price}\n`;
                 if (variant.variant_attributes && Object.keys(variant.variant_attributes).length > 0) {
                     Object.entries(variant.variant_attributes).forEach(([key, value]) => {
                         message += `  ${key}: ${value}\n`;
@@ -1389,3 +1389,4 @@ module.exports = {
   handleCompleteAdminCommands,
   parseQuotedArgs
 };
+

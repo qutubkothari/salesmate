@@ -1,4 +1,4 @@
-// routes/handlers/modules/addProductHandler.js
+﻿// routes/handlers/modules/addProductHandler.js
 // Handles ADD_PRODUCT intent - adds products directly to cart
 // Extracted from customerHandler.BACKUP to restore broken functionality
 
@@ -6,7 +6,7 @@ const { extractOrderDetails } = require('../../../services/smartOrderExtractionS
 const { processOrderRequestEnhanced } = require('../../../services/orderProcessingService');
 const { viewCartWithDiscounts } = require('../../../services/cartService');
 const { sendMessage } = require('../../../services/whatsappService');
-const { supabase } = require('../../../services/config');
+const { dbClient } = require('../../../services/config');
 
 async function handleAddProduct(req, res, tenant, from, userQuery, intentResult, conversation) {
     console.log('[ADD_PRODUCT_HANDLER] Checking for ADD_PRODUCT or PRICE_INQUIRY intent');
@@ -56,7 +56,7 @@ async function handleAddProduct(req, res, tenant, from, userQuery, intentResult,
             
             if (quoteResult && quoteResult.response) {
                 // Store quoted products in conversation for later confirmation
-                await supabase
+                await dbClient
                     .from('conversations')
                     .update({
                         state: 'awaiting_order_confirmation',
@@ -120,7 +120,7 @@ async function handleAddProduct(req, res, tenant, from, userQuery, intentResult,
             }
 
             // Clear quoted products after adding to cart
-            await supabase
+            await dbClient
                 .from('conversations')
                 .update({ last_quoted_products: null })
                 .eq('id', conversation.id);
@@ -146,7 +146,7 @@ async function handleAddProduct(req, res, tenant, from, userQuery, intentResult,
             // Update conversation to track multiple products if applicable
             if (conversation) {
                 const allProducts = [conversation.last_product_discussed, productCode].filter(Boolean).join(', ');
-                await supabase
+                await dbClient
                     .from('conversations')
                     .update({
                         state: 'multi_product_order_discussion',
@@ -185,3 +185,4 @@ async function handleAddProduct(req, res, tenant, from, userQuery, intentResult,
 module.exports = {
     handleAddProduct
 };
+

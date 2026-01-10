@@ -1,6 +1,6 @@
-const express = require('express');
+﻿const express = require('express');
 const router = express.Router();
-const { supabase } = require('../../services/config');
+const { dbClient } = require('../../services/config');
 
 /**
  * GET /api/discounts/:tenantId
@@ -11,7 +11,7 @@ router.get('/:tenantId', async (req, res) => {
         const { tenantId } = req.params;
         const { active, type } = req.query;
 
-        let query = supabase
+        let query = dbClient
             .from('discount_rules')
             .select('*')
             .eq('tenant_id', tenantId)
@@ -54,7 +54,7 @@ router.get('/:tenantId/:discountId', async (req, res) => {
     try {
         const { tenantId, discountId } = req.params;
 
-        const { data, error } = await supabase
+        const { data, error } = await dbClient
             .from('discount_rules')
             .select('*')
             .eq('id', discountId)
@@ -126,7 +126,7 @@ router.post('/:tenantId', async (req, res) => {
 
         // Check for duplicate coupon code
         if (discountData.coupon_code) {
-            const { data: existing } = await supabase
+            const { data: existing } = await dbClient
                 .from('discount_rules')
                 .select('id')
                 .eq('tenant_id', tenantId)
@@ -141,7 +141,7 @@ router.post('/:tenantId', async (req, res) => {
             }
         }
 
-        const { data, error } = await supabase
+        const { data, error } = await dbClient
             .from('discount_rules')
             .insert({
                 tenant_id: tenantId,
@@ -187,7 +187,7 @@ router.put('/:tenantId/:discountId', async (req, res) => {
 
         // Check for duplicate coupon code if updating
         if (updates.coupon_code) {
-            const { data: existing } = await supabase
+            const { data: existing } = await dbClient
                 .from('discount_rules')
                 .select('id')
                 .eq('tenant_id', tenantId)
@@ -203,7 +203,7 @@ router.put('/:tenantId/:discountId', async (req, res) => {
             }
         }
 
-        const { data, error } = await supabase
+        const { data, error } = await dbClient
             .from('discount_rules')
             .update(updates)
             .eq('id', discountId)
@@ -244,7 +244,7 @@ router.delete('/:tenantId/:discountId', async (req, res) => {
     try {
         const { tenantId, discountId } = req.params;
 
-        const { data, error } = await supabase
+        const { data, error } = await dbClient
             .from('discount_rules')
             .delete()
             .eq('id', discountId)
@@ -285,7 +285,7 @@ router.post('/:tenantId/:discountId/toggle', async (req, res) => {
         const { tenantId, discountId } = req.params;
 
         // Get current status
-        const { data: current } = await supabase
+        const { data: current } = await dbClient
             .from('discount_rules')
             .select('is_active')
             .eq('id', discountId)
@@ -300,7 +300,7 @@ router.post('/:tenantId/:discountId/toggle', async (req, res) => {
         }
 
         // Toggle status
-        const { data, error } = await supabase
+        const { data, error } = await dbClient
             .from('discount_rules')
             .update({ is_active: !current.is_active })
             .eq('id', discountId)
@@ -335,7 +335,7 @@ router.get('/:tenantId/applications/history', async (req, res) => {
         const { tenantId } = req.params;
         const { limit = 50, offset = 0 } = req.query;
 
-        const { data, error, count } = await supabase
+        const { data, error, count } = await dbClient
             .from('discount_applications')
             .select('*', { count: 'exact' })
             .eq('tenant_id', tenantId)
@@ -369,26 +369,26 @@ router.get('/:tenantId/stats/summary', async (req, res) => {
         const { tenantId } = req.params;
 
         // Get total discount rules
-        const { count: totalRules } = await supabase
+        const { count: totalRules } = await dbClient
             .from('discount_rules')
             .select('*', { count: 'exact', head: true })
             .eq('tenant_id', tenantId);
 
         // Get active discount rules
-        const { count: activeRules } = await supabase
+        const { count: activeRules } = await dbClient
             .from('discount_rules')
             .select('*', { count: 'exact', head: true })
             .eq('tenant_id', tenantId)
             .eq('is_active', true);
 
         // Get total discount applications
-        const { count: totalApplications } = await supabase
+        const { count: totalApplications } = await dbClient
             .from('discount_applications')
             .select('*', { count: 'exact', head: true })
             .eq('tenant_id', tenantId);
 
         // Get total discount amount given
-        const { data: discountSum } = await supabase
+        const { data: discountSum } = await dbClient
             .from('discount_applications')
             .select('discount_amount')
             .eq('tenant_id', tenantId);
@@ -396,7 +396,7 @@ router.get('/:tenantId/stats/summary', async (req, res) => {
         const totalDiscountGiven = discountSum?.reduce((sum, app) => sum + parseFloat(app.discount_amount || 0), 0) || 0;
 
         // Get top 5 most used discounts
-        const { data: topDiscounts } = await supabase
+        const { data: topDiscounts } = await dbClient
             .from('discount_rules')
             .select('id, name, times_applied, total_discount_given')
             .eq('tenant_id', tenantId)
@@ -439,7 +439,7 @@ router.post('/:tenantId/validate-coupon', async (req, res) => {
             });
         }
 
-        const { data, error } = await supabase
+        const { data, error } = await dbClient
             .from('discount_rules')
             .select('*')
             .eq('tenant_id', tenantId)
@@ -486,7 +486,7 @@ router.post('/:tenantId/validate-coupon', async (req, res) => {
             return res.json({
                 success: false,
                 valid: false,
-                message: `Minimum order value of ₹${data.min_order_value} required`
+                message: `Minimum order value of â‚¹${data.min_order_value} required`
             });
         }
 
@@ -506,3 +506,4 @@ router.post('/:tenantId/validate-coupon', async (req, res) => {
 });
 
 module.exports = router;
+

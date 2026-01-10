@@ -1,9 +1,9 @@
-/**
+﻿/**
  * Website Content Search Service
  * Performs semantic search over website embeddings
  */
 
-const { supabase } = require('./config');
+const { dbClient } = require('./config');
 const { generateEmbedding } = require('./websiteEmbeddingService');
 
 /**
@@ -48,7 +48,7 @@ async function searchWebsiteContent(query, tenantId, options = {}) {
     console.log(`[WebsiteSearch] Searching for: "${query}" (tenant: ${tenantId})`);
 
     const fetchCandidates = async (candidateLimit) => {
-        let qb = supabase
+        let qb = dbClient
             .from('website_embeddings')
             .select('id, url, page_title, chunk_text, content, content_type, embedding')
             .eq('tenant_id', tenantId)
@@ -232,7 +232,7 @@ function expandQuery(query) {
  */
 async function getCrawledUrls(tenantId) {
     try {
-        const { data, error } = await supabase
+        const { data, error } = await dbClient
             .from('website_embeddings')
             .select('url, page_title, content_type, crawl_date, status')
             .eq('tenant_id', tenantId)
@@ -273,7 +273,7 @@ async function getCrawledUrls(tenantId) {
  */
 async function getEmbeddingStats(tenantId) {
     try {
-        const { data, error } = await supabase
+        const { data, error } = await dbClient
             .from('website_embeddings')
             .select('url, content_type, status')
             .eq('tenant_id', tenantId);
@@ -310,7 +310,7 @@ async function getEmbeddingStats(tenantId) {
 async function findProductInfo(productCode, tenantId) {
     try {
         // Search by product code in the array
-        const { data, error } = await supabase
+        const { data, error } = await dbClient
             .from('website_embeddings')
             .select('*')
             .eq('tenant_id', tenantId)
@@ -375,3 +375,4 @@ module.exports = {
     findProductInfo,
     generateAnswerFromResults
 };
+

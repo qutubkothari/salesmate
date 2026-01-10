@@ -1,4 +1,4 @@
-// Helper function for pricing breakdown (add at top)
+﻿// Helper function for pricing breakdown (add at top)
 function calculatePricingBreakdown(priceBeforeTax, quantity) {
     const unitPriceBeforeTax = parseFloat(priceBeforeTax);
     const priceWithTax = unitPriceBeforeTax * 1.18;
@@ -13,7 +13,7 @@ function calculatePricingBreakdown(priceBeforeTax, quantity) {
     };
 }
 // services/enhancedOrderProcessingWithZoho.js - FIXED VERSION
-const { supabase } = require('./config');
+const { dbClient } = require('./config');
 const { processOrderToZoho } = require('./zohoSalesOrderService');
 const zohoMatching = require('./zohoCustomerMatchingService');
 const { sendMessage } = require('./whatsappService');
@@ -93,7 +93,7 @@ class EnhancedOrderProcessingWithZoho {
                 }
 
                 // Get product details
-                const { data: product, error: productError } = await supabase
+                const { data: product, error: productError } = await dbClient
                     .from('products')
                     .select('*')
                     .eq('id', productId)
@@ -173,7 +173,7 @@ class EnhancedOrderProcessingWithZoho {
             console.log('[LOCAL_ORDER] Creating order with details:', JSON.stringify(orderDetails, null, 2));
 
             // Get conversation
-            const { data: conversation } = await supabase
+            const { data: conversation } = await dbClient
                 .from('conversations')
                 .select('id')
                 .eq('tenant_id', tenantId)
@@ -185,7 +185,7 @@ class EnhancedOrderProcessingWithZoho {
             }
 
             // Create order
-            const { data: order, error: orderError } = await supabase
+            const { data: order, error: orderError } = await dbClient
                 .from('orders')
                 .insert({
                     tenant_id: tenantId,
@@ -227,7 +227,7 @@ class EnhancedOrderProcessingWithZoho {
 
                 console.log('[LOCAL_ORDER] Inserting order items:', JSON.stringify(orderItems, null, 2));
 
-                const { error: itemsError } = await supabase
+                const { error: itemsError } = await dbClient
                     .from('order_items')
                     .insert(orderItems);
 
@@ -267,7 +267,7 @@ class EnhancedOrderProcessingWithZoho {
             await new Promise(resolve => setTimeout(resolve, 1000));
 
             // Verify order items exist before syncing
-            const { data: orderItems } = await supabase
+            const { data: orderItems } = await dbClient
                 .from('order_items')
                 .select('*')
                 .eq('order_id', orderId);
@@ -277,7 +277,7 @@ class EnhancedOrderProcessingWithZoho {
             if (!orderItems || orderItems.length === 0) {
                 console.error('[ZOHO_ASYNC] No order items found - cannot sync to Zoho');
                 
-                await supabase
+                await dbClient
                     .from('orders')
                     .update({
                         zoho_sync_status: 'failed',
@@ -318,14 +318,14 @@ class EnhancedOrderProcessingWithZoho {
                 }
 
                 // Send confirmation message
-                const confirmMsg = `✅ *Order Synced to Zoho CRM*\n\nZoho Sales Order ID: ${zohoResult.zohoOrderId}\nPDF has been generated for your records.`;
+                const confirmMsg = `âœ… *Order Synced to Zoho CRM*\n\nZoho Sales Order ID: ${zohoResult.zohoOrderId}\nPDF has been generated for your records.`;
                 await sendMessage(phoneNumber, confirmMsg);
 
             } else {
                 console.error('[ZOHO_ASYNC] Zoho sync failed:', zohoResult.error);
                 
                 // Mark order as sync failed but don't notify customer (order still valid)
-                await supabase
+                await dbClient
                     .from('orders')
                     .update({
                         zoho_sync_status: 'failed',
@@ -340,7 +340,7 @@ class EnhancedOrderProcessingWithZoho {
         } catch (error) {
             console.error('[ZOHO_ASYNC] Unexpected error during sync:', error);
             
-            await supabase
+            await dbClient
                 .from('orders')
                 .update({
                     zoho_sync_status: 'failed',
@@ -380,14 +380,14 @@ class EnhancedOrderProcessingWithZoho {
             console.log('[PDF_SEND] PDF uploaded to GCS:', publicUrl);
 
             // Send WhatsApp message with download link
-            const pdfMessage = `📄 *Your Invoice is Ready!*\n\n✅ Sales Order PDF generated successfully\n📋 File: ${filename}\n� Size: ${Math.round(pdfBuffer.length / 1024)}KB\n\n📎 **Download Link:**\n${publicUrl}\n\n💼 Please save this invoice for your records.\n🙏 Thank you for your business!`;
+            const pdfMessage = `ðŸ“„ *Your Invoice is Ready!*\n\nâœ… Sales Order PDF generated successfully\nðŸ“‹ File: ${filename}\nï¿½ Size: ${Math.round(pdfBuffer.length / 1024)}KB\n\nðŸ“Ž **Download Link:**\n${publicUrl}\n\nðŸ’¼ Please save this invoice for your records.\nðŸ™ Thank you for your business!`;
             await sendMessage(phoneNumber, pdfMessage);
             console.log('[PDF_SEND] PDF delivery message sent successfully');
             return { success: true, url: publicUrl };
         } catch (error) {
             console.error('[PDF_SEND] GCS upload error:', error.message);
             // Fallback message
-            const fallbackMsg = `📄 *Invoice Generated!*\n\nYour sales order PDF has been created successfully.\nPlease contact us to receive your invoice.\n\nReference: ${filename}`;
+            const fallbackMsg = `ðŸ“„ *Invoice Generated!*\n\nYour sales order PDF has been created successfully.\nPlease contact us to receive your invoice.\n\nReference: ${filename}`;
             await sendMessage(phoneNumber, fallbackMsg);
             return { success: false, error: error.message };
         }
@@ -400,7 +400,7 @@ class EnhancedOrderProcessingWithZoho {
         try {
             console.log('[ZOHO_BACKGROUND] Syncing existing order:', orderId);
             // Update order status
-            await supabase
+            await dbClient
                 .from('orders')
                 .update({ zoho_sync_status: 'syncing' })
                 .eq('id', orderId);
@@ -411,7 +411,7 @@ class EnhancedOrderProcessingWithZoho {
         } catch (error) {
             console.error('[ZOHO_BACKGROUND] Background sync error:', error);
 
-            await supabase
+            await dbClient
                 .from('orders')
                 .update({ 
                     zoho_sync_status: 'failed',
@@ -427,14 +427,14 @@ class EnhancedOrderProcessingWithZoho {
     async notifyAdminOfSyncFailure(tenantId, orderId, error) {
         try {
             // Get admin phone or email from tenant settings
-            const { data: tenant } = await supabase
+            const { data: tenant } = await dbClient
                 .from('tenants')
                 .select('admin_phone, admin_email')
                 .eq('id', tenantId)
                 .single();
 
             if (tenant?.admin_phone) {
-                const adminMsg = `⚠️ *Zoho Sync Failed*\n\nOrder ID: ${orderId}\nError: ${error}\n\nPlease check admin dashboard.`;
+                const adminMsg = `âš ï¸ *Zoho Sync Failed*\n\nOrder ID: ${orderId}\nError: ${error}\n\nPlease check admin dashboard.`;
                 await sendMessage(tenant.admin_phone, adminMsg);
             }
         } catch (notifyError) {
@@ -446,17 +446,17 @@ class EnhancedOrderProcessingWithZoho {
      * Generate order confirmation message
      */
     generateOrderConfirmationMessage(orderResult, customerMatch) {
-        let message = `✅ *Order Confirmed!*\n\nOrder ID: ${orderResult.orderId.substring(0, 8)}\n`;
+        let message = `âœ… *Order Confirmed!*\n\nOrder ID: ${orderResult.orderId.substring(0, 8)}\n`;
         
         if (orderResult.orderDetails) {
-            message += `Total: ₹${orderResult.orderDetails.total}\n`;
+            message += `Total: â‚¹${orderResult.orderDetails.total}\n`;
             message += `Items: ${orderResult.orderDetails.items?.length || 0}\n`;
         }
 
-        message += `\n📄 *Processing Status:*\n`;
-        message += `• Order created locally ✅\n`;
-        message += `• Customer ${customerMatch.action === 'already_linked' ? 'already linked' : 'matched'} to Zoho ✅\n`;
-        message += `• Syncing to Zoho CRM... ⏳\n\n`;
+        message += `\nðŸ“„ *Processing Status:*\n`;
+        message += `â€¢ Order created locally âœ…\n`;
+        message += `â€¢ Customer ${customerMatch.action === 'already_linked' ? 'already linked' : 'matched'} to Zoho âœ…\n`;
+        message += `â€¢ Syncing to Zoho CRM... â³\n\n`;
         message += `You'll receive a confirmation once your order is fully processed in our CRM system.`;
 
         return message;
@@ -467,7 +467,7 @@ class EnhancedOrderProcessingWithZoho {
      */
     async checkOrderSyncStatus(tenantId, orderId) {
         try {
-            const { data: order } = await supabase
+            const { data: order } = await dbClient
                 .from('orders')
                 .select('zoho_sync_status, zoho_sales_order_id, zoho_sync_error')
                 .eq('id', orderId)

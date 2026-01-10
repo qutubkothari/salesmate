@@ -1,8 +1,8 @@
-/**
+﻿/**
  * @title Subscription Management Service
  * @description Handles tenant subscription status checks and activation key logic.
  */
-const { supabase } = require('./config');
+const { dbClient } = require('./config');
 
 /**
  * Checks the current subscription status of a tenant.
@@ -10,7 +10,7 @@ const { supabase } = require('./config');
  * @returns {object} An object containing the status ('trial', 'active', 'expired') and a user-friendly message.
  */
 const checkSubscriptionStatus = async (tenantId) => {
-    const { data: tenant, error } = await supabase
+    const { data: tenant, error } = await dbClient
         .from('tenants')
         .select('subscription_status, trial_ends_at, subscription_end_date')
         .eq('id', tenantId)
@@ -30,7 +30,7 @@ const checkSubscriptionStatus = async (tenantId) => {
     // Check paid subscription first
     if (tenant.subscription_status === 'active' && new Date(tenant.subscription_end_date) < now) {
         // Subscription has expired, update the status
-        await supabase.from('tenants').update({ subscription_status: 'expired' }).eq('id', tenantId);
+        await dbClient.from('tenants').update({ subscription_status: 'expired' }).eq('id', tenantId);
         return { status: 'expired', message: 'Your subscription has expired. Please use a new activation key.' };
     }
     if (tenant.subscription_status === 'active') {
@@ -41,7 +41,7 @@ const checkSubscriptionStatus = async (tenantId) => {
     // Check trial status
     if (tenant.subscription_status === 'trial' && new Date(tenant.trial_ends_at) < now) {
         // Trial has expired, update the status
-        await supabase.from('tenants').update({ subscription_status: 'expired' }).eq('id', tenantId);
+        await dbClient.from('tenants').update({ subscription_status: 'expired' }).eq('id', tenantId);
         return { status: 'expired', message: 'Your free trial has ended. Please use an activation key to continue.' };
     }
     if (tenant.subscription_status === 'trial') {
@@ -60,7 +60,7 @@ const checkSubscriptionStatus = async (tenantId) => {
  */
 const activateSubscription = async (tenantId, key) => {
     // 1. Find the activation key
-    const { data: activationKey, error: keyError } = await supabase
+    const { data: activationKey, error: keyError } = await dbClient
         .from('activation_keys')
         .select('*')
         .eq('key', key)
@@ -79,7 +79,7 @@ const activateSubscription = async (tenantId, key) => {
     const now = new Date();
     const endDate = new Date(now.setDate(now.getDate() + activationKey.duration_days));
 
-    const { error: updateTenantError } = await supabase
+    const { error: updateTenantError } = await dbClient
         .from('tenants')
         .update({
             subscription_status: 'active',
@@ -95,7 +95,7 @@ const activateSubscription = async (tenantId, key) => {
     }
 
     // 4. Mark the key as used
-    await supabase
+    await dbClient
         .from('activation_keys')
         .update({
             is_used: true,
@@ -111,3 +111,4 @@ module.exports = {
     checkSubscriptionStatus,
     activateSubscription,
 };
+

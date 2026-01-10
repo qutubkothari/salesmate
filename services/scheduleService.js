@@ -1,8 +1,8 @@
-/**
+﻿/**
  * @title Bulk Message Scheduling Service
  * @description Handles the logic for processing contact lists, scheduling bulk messages, and sending them.
  */
-const { supabase } = require('./config');
+const { dbClient } = require('./config');
 const xlsx = require('xlsx');
 const fetch = require('node-fetch');
 const { sendMessage, sendMessageWithImage } = require('./whatsappService');
@@ -68,7 +68,7 @@ const processContactSheet = async (tenantId, mediaUrl, message, tenantPhone, cam
             retry_count: 0,
         }));
 
-        const { error } = await supabase.from('bulk_schedules').insert(schedules);
+        const { error } = await dbClient.from('bulk_schedules').insert(schedules);
 
         if (error) {
             throw error;
@@ -90,7 +90,7 @@ const processContactSheet = async (tenantId, mediaUrl, message, tenantPhone, cam
 const findAndSendScheduledMessages = async () => {
     try {
         const now = new Date().toISOString();
-        const { data: dueMessages, error } = await supabase
+        const { data: dueMessages, error } = await dbClient
             .from('bulk_schedules')
             .select('*')
             .eq('is_sent', false)
@@ -110,7 +110,7 @@ const findAndSendScheduledMessages = async () => {
                 }
 
                 if (messageId) {
-                    await supabase
+                    await dbClient
                         .from('bulk_schedules')
                         .update({
                             is_sent: true,
@@ -120,7 +120,7 @@ const findAndSendScheduledMessages = async () => {
                         })
                         .eq('id', msg.id);
                 } else {
-                    await supabase
+                    await dbClient
                         .from('bulk_schedules')
                         .update({
                             is_sent: true,
@@ -140,4 +140,5 @@ module.exports = {
     processContactSheet,
     findAndSendScheduledMessages,
 };
+
 

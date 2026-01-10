@@ -1,5 +1,5 @@
-// services/pdfDeliveryService.js - WhatsApp PDF Document Delivery
-const { supabase } = require('./config');
+﻿// services/pdfDeliveryService.js - WhatsApp PDF Document Delivery
+const { dbClient } = require('./config');
 const { sendMessage } = require('./whatsappService');
 const FormData = require('form-data');
 const fetch = require('node-fetch');
@@ -108,9 +108,9 @@ const sendPDFViaWhatsApp = async (phoneNumber, pdfBuffer, filename, caption = ''
             // Use correct title for invoice vs sales order
             let message;
             if (/^invoice/i.test(filename)) {
-                message = `📄 **Your Invoice is Ready!**\n\n✅ Invoice PDF generated\n📋 File: ${filename}\n📁 Size: ${Math.round(pdfBuffer.length / 1024)}KB\n\n📎 **Download Link:**\n${uploadResult.url}\n\n💼 Click the link to download your invoice.\n🙏 Thank you for your business!`;
+                message = `ðŸ“„ **Your Invoice is Ready!**\n\nâœ… Invoice PDF generated\nðŸ“‹ File: ${filename}\nðŸ“ Size: ${Math.round(pdfBuffer.length / 1024)}KB\n\nðŸ“Ž **Download Link:**\n${uploadResult.url}\n\nðŸ’¼ Click the link to download your invoice.\nðŸ™ Thank you for your business!`;
             } else {
-                message = `📄 **Your Sales Order is created!**\n\n✅ Sales Order PDF generated\n📋 File: ${filename}\n📁 Size: ${Math.round(pdfBuffer.length / 1024)}KB\n\n📎 **Download Link:**\n${uploadResult.url}\n\n💼 Click the link to download your sales order.\n🙏 Thank you for your business!`;
+                message = `ðŸ“„ **Your Sales Order is created!**\n\nâœ… Sales Order PDF generated\nðŸ“‹ File: ${filename}\nðŸ“ Size: ${Math.round(pdfBuffer.length / 1024)}KB\n\nðŸ“Ž **Download Link:**\n${uploadResult.url}\n\nðŸ’¼ Click the link to download your sales order.\nðŸ™ Thank you for your business!`;
             }
             await sendMessage(phoneNumber, message);
             console.log('[PDF_WHATSAPP] PDF link sent successfully');
@@ -121,7 +121,7 @@ const sendPDFViaWhatsApp = async (phoneNumber, pdfBuffer, filename, caption = ''
     } catch (error) {
         console.error('[PDF_WHATSAPP] GCS method failed:', error.message);
         // Final fallback: notification only
-        const fallbackMsg = `📄 **Invoice Generated!**\n\n✅ Your sales order PDF has been created\n📋 Reference: ${filename.replace('sales_order_', '').replace('.pdf', '')}\n📁 Size: ${Math.round(pdfBuffer.length / 1024)}KB\n\n💼 Please contact us to receive your invoice.\n🙏 Thank you for your business!`;
+        const fallbackMsg = `ðŸ“„ **Invoice Generated!**\n\nâœ… Your sales order PDF has been created\nðŸ“‹ Reference: ${filename.replace('sales_order_', '').replace('.pdf', '')}\nðŸ“ Size: ${Math.round(pdfBuffer.length / 1024)}KB\n\nðŸ’¼ Please contact us to receive your invoice.\nðŸ™ Thank you for your business!`;
         await sendMessage(phoneNumber, fallbackMsg);
         return { success: true, method: 'notification_fallback' };
     }
@@ -147,7 +147,7 @@ const sendDocumentMessage = async (phoneNumber, documentUrl, filename, caption) 
             document: {
                 link: documentUrl,
                 filename: filename,
-                caption: caption || `📄 Your sales order document: ${filename}`
+                caption: caption || `ðŸ“„ Your sales order document: ${filename}`
             }
         };
         
@@ -233,7 +233,7 @@ const deliverOrderPDF = async (tenantId, orderId, phoneNumber) => {
             phoneNumber,
             zohoResult.pdfBuffer,
             zohoResult.filename,
-            `📋 Your sales order from ${new Date().toLocaleDateString()}\n\nOrder ID: ${orderId.substring(0, 8)}\nZoho Sales Order: ${zohoResult.zohoOrderId.substring(0, 8)}\n\nThank you for your business!`
+            `ðŸ“‹ Your sales order from ${new Date().toLocaleDateString()}\n\nOrder ID: ${orderId.substring(0, 8)}\nZoho Sales Order: ${zohoResult.zohoOrderId.substring(0, 8)}\n\nThank you for your business!`
         );
         
         if (!deliveryResult.success) {
@@ -246,7 +246,7 @@ const deliverOrderPDF = async (tenantId, orderId, phoneNumber) => {
         }
         
         // Step 3: Update order with delivery status
-        await supabase
+        await dbClient
             .from('orders')
             .update({
                 pdf_delivery_status: 'delivered',
@@ -270,7 +270,7 @@ const deliverOrderPDF = async (tenantId, orderId, phoneNumber) => {
         console.error('[PDF_DELIVERY] Error in complete delivery:', error.message);
         
         // Update order with error status
-        await supabase
+        await dbClient
             .from('orders')
             .update({
                 pdf_delivery_status: 'failed',
@@ -294,7 +294,7 @@ const retryFailedDeliveries = async () => {
     try {
         console.log('[PDF_RETRY] Checking for failed deliveries');
         
-        const { data: failedOrders } = await supabase
+        const { data: failedOrders } = await dbClient
             .from('orders')
             .select(`
                 id,

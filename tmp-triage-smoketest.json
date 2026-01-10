@@ -1,0 +1,22 @@
+{
+    "ok":  true,
+    "created":  {
+                    "success":  true,
+                    "item":  {
+                                 "id":  "3e05a3d43728825fccc3e4b7891f8b3c",
+                                 "tenant_id":  "1",
+                                 "conversation_id":  null,
+                                 "end_user_phone":  "918484862949",
+                                 "type":  "HUMAN_ATTENTION",
+                                 "status":  "NEW",
+                                 "assigned_to":  null,
+                                 "message_preview":  "Need urgent quote",
+                                 "metadata":  null,
+                                 "created_at":  "2026-01-09 03:02:06",
+                                 "updated_at":  "2026-01-09T03:02:06.736Z",
+                                 "closed_at":  null,
+                                 "closed_reason":  null
+                             }
+                },
+    "listedCount":  5
+}

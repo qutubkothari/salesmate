@@ -1,4 +1,4 @@
-// Utility to normalize phone numbers for WhatsApp and digit-only formats
+﻿// Utility to normalize phone numbers for WhatsApp and digit-only formats
 function normalizePhone(phone) {
     if (!phone) return '';
     // Remove WhatsApp suffix if present
@@ -12,7 +12,7 @@ function normalizePhone(phone) {
 async function upsertCustomerProfile(tenantId, phone, updateData) {
     const normalizedPhone = normalizePhone(phone);
     // Upsert by tenant_id and phone
-    await supabase
+    await dbClient
         .from('customer_profiles')
         .upsert({
             tenant_id: tenantId,
@@ -24,3 +24,4 @@ async function upsertCustomerProfile(tenantId, phone, updateData) {
 }
 
 module.exports = { normalizePhone, upsertCustomerProfile };
+

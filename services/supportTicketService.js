@@ -1,8 +1,8 @@
-/**
+﻿/**
  * @title Support Ticket Service
  * @description Manages the logic for creating and viewing tenant support tickets.
  */
-const { supabase } = require('./config');
+const { dbClient } = require('./config');
 
 /**
  * Creates a new support ticket for a tenant.
@@ -13,7 +13,7 @@ const { supabase } = require('./config');
  */
 const createSupportTicket = async (tenantId, subject, description) => {
     try {
-        const { data, error } = await supabase
+        const { data, error } = await dbClient
             .from('support_tickets')
             .insert({
                 tenant_id: tenantId,
@@ -41,7 +41,7 @@ const createSupportTicket = async (tenantId, subject, description) => {
  */
 const listOpenTickets = async () => {
     try {
-        const { data, error } = await supabase
+        const { data, error } = await dbClient
             .from('support_tickets')
             .select(`
                 id,
@@ -58,7 +58,7 @@ const listOpenTickets = async () => {
             return 'There are no open support tickets at the moment. Great job!';
         }
 
-        let report = '🎫 *Open Support Tickets*\n\n';
+        let report = 'ðŸŽ« *Open Support Tickets*\n\n';
         data.forEach(ticket => {
             const ticketId = ticket.id.substring(0, 8);
             const date = new Date(ticket.created_at).toLocaleString();
@@ -83,7 +83,7 @@ const listOpenTickets = async () => {
  */
 const getTicketDetails = async (ticketId) => {
     try {
-        const { data, error } = await supabase
+        const { data, error } = await dbClient
             .from('support_tickets')
             .select(`
                 id,
@@ -100,7 +100,7 @@ const getTicketDetails = async (ticketId) => {
 
         const fullId = data.id.substring(0, 8);
         const date = new Date(data.created_at).toLocaleString();
-        let details = `🎫 *Ticket Details for #${fullId}*\n\n`;
+        let details = `ðŸŽ« *Ticket Details for #${fullId}*\n\n`;
         details += `*From:* ${data.tenant.phone_number}\n`;
         details += `*Status:* ${data.status}\n`;
         details += `*Received:* ${date}\n`;
@@ -123,7 +123,7 @@ const getTicketDetails = async (ticketId) => {
  */
 const closeTicket = async (ticketId) => {
     try {
-        const { data, error } = await supabase
+        const { data, error } = await dbClient
             .from('support_tickets')
             .update({ status: 'closed', updated_at: new Date().toISOString() })
             .ilike('id', `${ticketId}%`)
@@ -149,4 +149,5 @@ module.exports = {
     getTicketDetails,
     closeTicket,
 };
+
 

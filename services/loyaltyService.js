@@ -1,8 +1,8 @@
-/**
+﻿/**
  * @title Customer Loyalty Service
  * @description Manages all logic for tenant loyalty programs, including points and rewards.
  */
-const { supabase } = require('./config');
+const { dbClient } = require('./config');
 const { getConversationId } = require('./historyService');
 
 /**
@@ -11,14 +11,14 @@ const { getConversationId } = require('./historyService');
  * @returns {Promise<object>} The loyalty program object.
  */
 const getOrCreateLoyaltyProgram = async (tenantId) => {
-    let { data: program } = await supabase
+    let { data: program } = await dbClient
         .from('loyalty_programs')
         .select('*')
         .eq('tenant_id', tenantId)
         .single();
 
     if (!program) {
-        const { data: newProgram } = await supabase
+        const { data: newProgram } = await dbClient
             .from('loyalty_programs')
             .insert({ tenant_id: tenantId, is_active: true }) // Activate by default
             .select('*')
@@ -43,19 +43,19 @@ const addPointsForPurchase = async (tenantId, conversationId, totalAmount) => {
         if (pointsToAdd <= 0) return;
 
         // Upsert the customer's point balance
-        const { data: loyalty, error } = await supabase
+        const { data: loyalty, error } = await dbClient
             .from('customer_loyalty_points')
             .select('id, points_balance')
             .eq('conversation_id', conversationId)
             .single();
 
         if (loyalty) {
-            await supabase
+            await dbClient
                 .from('customer_loyalty_points')
                 .update({ points_balance: loyalty.points_balance + pointsToAdd })
                 .eq('id', loyalty.id);
         } else {
-            await supabase
+            await dbClient
                 .from('customer_loyalty_points')
                 .insert({ conversation_id: conversationId, points_balance: pointsToAdd });
         }
@@ -76,7 +76,7 @@ const addPointsForPurchase = async (tenantId, conversationId, totalAmount) => {
 const createReward = async (tenantId, rewardName, pointsCost, description) => {
     try {
         const program = await getOrCreateLoyaltyProgram(tenantId);
-        await supabase.from('loyalty_rewards').insert({
+        await dbClient.from('loyalty_rewards').insert({
             program_id: program.id,
             reward_name: rewardName,
             points_cost: pointsCost,
@@ -103,7 +103,7 @@ const viewLoyaltyStatus = async (tenantId, endUserPhone) => {
         const program = await getOrCreateLoyaltyProgram(tenantId);
         if (!program.is_active) return "Our loyalty program is not active at the moment.";
 
-        const { data: loyalty } = await supabase
+        const { data: loyalty } = await dbClient
             .from('customer_loyalty_points')
             .select('points_balance')
             .eq('conversation_id', conversationId)
@@ -111,13 +111,13 @@ const viewLoyaltyStatus = async (tenantId, endUserPhone) => {
         
         const balance = loyalty?.points_balance || 0;
 
-        const { data: rewards } = await supabase
+        const { data: rewards } = await dbClient
             .from('loyalty_rewards')
             .select('*')
             .eq('program_id', program.id)
             .order('points_cost', { ascending: true });
 
-        let message = `🌟 *Your Loyalty Status*\n\n`;
+        let message = `ðŸŒŸ *Your Loyalty Status*\n\n`;
         message += `You currently have *${balance} points*.\n\n`;
         message += `*Available Rewards:*\n`;
 
@@ -150,7 +150,7 @@ const redeemReward = async (tenantId, endUserPhone, rewardName) => {
         const program = await getOrCreateLoyaltyProgram(tenantId);
         if (!program.is_active) return "Our loyalty program is not active.";
 
-        const { data: reward } = await supabase
+        const { data: reward } = await dbClient
             .from('loyalty_rewards')
             .select('*')
             .eq('program_id', program.id)
@@ -159,7 +159,7 @@ const redeemReward = async (tenantId, endUserPhone, rewardName) => {
 
         if (!reward) return `Reward "${rewardName}" not found.`;
 
-        const { data: loyalty } = await supabase
+        const { data: loyalty } = await dbClient
             .from('customer_loyalty_points')
             .select('id, points_balance')
             .eq('conversation_id', conversationId)
@@ -171,7 +171,7 @@ const redeemReward = async (tenantId, endUserPhone, rewardName) => {
             return `You don't have enough points for this reward. You need ${reward.points_cost} points, but you have ${balance}.`;
         }
 
-        await supabase
+        await dbClient
             .from('customer_loyalty_points')
             .update({ points_balance: balance - reward.points_cost })
             .eq('id', loyalty.id);
@@ -189,3 +189,4 @@ module.exports = {
     viewLoyaltyStatus,
     redeemReward,
 };
+

@@ -1,5 +1,5 @@
-const axios = require('axios');
-const { supabase } = require('./config');
+﻿const axios = require('axios');
+const { dbClient } = require('./config');
 
 const VRL_SCRAPER_URL = process.env.VRL_SCRAPER_URL || 'https://vrl-scraper-557586370061.asia-south1.run.app/track';
 
@@ -47,9 +47,9 @@ async function trackVRLShipment(lrNumber) {
  * @returns {string} Formatted message
  */
 function formatVRLTrackingMessage(data) {
-  let message = `📦 *VRL Shipment Tracking*\n\n`;
-  message += `📋 *LR Number:* ${data.lrNumber}\n`;
-  message += `📊 *Status:* ${data.status}\n`;
+  let message = `ðŸ“¦ *VRL Shipment Tracking*\n\n`;
+  message += `ðŸ“‹ *LR Number:* ${data.lrNumber}\n`;
+  message += `ðŸ“Š *Status:* ${data.status}\n`;
   
   // Determine current location from the last history entry if available
   let currentLocation = data.currentLocation;
@@ -71,13 +71,13 @@ function formatVRLTrackingMessage(data) {
     }
   }
   
-  message += `📍 *Current Location:* ${currentLocation}\n`;
+  message += `ðŸ“ *Current Location:* ${currentLocation}\n`;
   
   if (data.origin) {
-    message += `🏁 *From:* ${data.origin}\n`;
+    message += `ðŸ *From:* ${data.origin}\n`;
   }
   if (data.destination) {
-    message += `🎯 *To:* ${data.destination}\n`;
+    message += `ðŸŽ¯ *To:* ${data.destination}\n`;
   }
   
   message += `\n`;
@@ -89,24 +89,24 @@ function formatVRLTrackingMessage(data) {
       const dateB = b.datetime ? new Date(b.datetime) : new Date(0);
       return dateA - dateB;
     });
-    message += `*📜 Tracking History:*\n`;
+    message += `*ðŸ“œ Tracking History:*\n`;
     sortedHistory.forEach((event, index) => {
       // Highlight the latest event
       const isLatest = index === sortedHistory.length - 1;
-      const icon = isLatest ? '⭐' : (index === 0 ? '🔴' : '🟢');
+      const icon = isLatest ? 'â­' : (index === 0 ? 'ðŸ”´' : 'ðŸŸ¢');
       message += `\n${icon} *${event.status}*`;
       if (isLatest) message += ' (Latest Update)';
       message += `\n`;
       if (event.datetime) {
-        message += `   📅 ${event.datetime}\n`;
+        message += `   ðŸ“… ${event.datetime}\n`;
       }
       if (event.location) {
-        message += `   📍 ${event.location}\n`;
+        message += `   ðŸ“ ${event.location}\n`;
       }
     });
   }
   
-  message += `\n\n💡 _Track updated: ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}_`;
+  message += `\n\nðŸ’¡ _Track updated: ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}_`;
   
   return message;
 }
@@ -126,7 +126,7 @@ async function saveShipmentTracking(lrNumber, phoneNumber, trackingData, custome
     // Check if tracking already exists for this LR number or order
     let existing = null;
     if (orderId) {
-      const { data } = await supabase
+      const { data } = await dbClient
         .from('shipment_tracking')
         .select('*')
         .eq('order_id', orderId)
@@ -134,7 +134,7 @@ async function saveShipmentTracking(lrNumber, phoneNumber, trackingData, custome
       existing = data;
     } else {
       // For standalone tracking, check by LR number
-      const { data } = await supabase
+      const { data } = await dbClient
         .from('shipment_tracking')
         .select('*')
         .eq('lr_number', lrNumber)
@@ -155,7 +155,7 @@ async function saveShipmentTracking(lrNumber, phoneNumber, trackingData, custome
     
     if (existing) {
       // Update existing record
-      const { data, error } = await supabase
+      const { data, error } = await dbClient
         .from('shipment_tracking')
         .update(trackingRecord)
         .eq('id', existing.id)
@@ -171,7 +171,7 @@ async function saveShipmentTracking(lrNumber, phoneNumber, trackingData, custome
       return data;
     } else {
       // Insert new record
-      const { data, error } = await supabase
+      const { data, error } = await dbClient
         .from('shipment_tracking')
         .insert([trackingRecord])
         .select()
@@ -201,7 +201,7 @@ async function saveTrackingHistory(shipmentTrackingId, history) {
   
   try {
     // Delete existing history
-    await supabase
+    await dbClient
       .from('shipment_tracking_history')
       .delete()
       .eq('shipment_tracking_id', shipmentTrackingId);
@@ -216,7 +216,7 @@ async function saveTrackingHistory(shipmentTrackingId, history) {
       event_data: event
     }));
     
-    const { error } = await supabase
+    const { error } = await dbClient
       .from('shipment_tracking_history')
       .insert(historyRecords);
     
@@ -285,7 +285,7 @@ function isDelivered(status) {
 async function getActiveShipments() {
   try {
     // Get shipments linked to orders
-    const { data: orderShipments, error: orderError } = await supabase
+    const { data: orderShipments, error: orderError } = await dbClient
       .from('shipment_tracking')
       .select(`
         *,
@@ -300,7 +300,7 @@ async function getActiveShipments() {
     if (orderError) throw orderError;
     
     // Get standalone shipments (no order_id)
-    const { data: standaloneShipments, error: standaloneError } = await supabase
+    const { data: standaloneShipments, error: standaloneError } = await dbClient
       .from('shipment_tracking')
       .select('*')
       .is('actual_delivery_date', null) // Not delivered yet
@@ -365,7 +365,7 @@ async function checkShipmentsForUpdates(sendMessageFunc) {
           
           // Check if status changed
           if (oldStatus !== newStatus) {
-            console.log(`[VRL_TRACKING] Status changed for ${shipment.lr_number}: ${oldStatus} → ${newStatus}`);
+            console.log(`[VRL_TRACKING] Status changed for ${shipment.lr_number}: ${oldStatus} â†’ ${newStatus}`);
             
             // Update database
             const updateData = {
@@ -381,7 +381,7 @@ async function checkShipmentsForUpdates(sendMessageFunc) {
               updateData.actual_delivery_date = new Date().toISOString();
             }
             
-            await supabase
+            await dbClient
               .from('shipment_tracking')
               .update(updateData)
               .eq('id', shipment.id);
@@ -390,7 +390,7 @@ async function checkShipmentsForUpdates(sendMessageFunc) {
             
             // Send notification to customer (only if not delivered, or if this is the delivery notification)
             if (sendMessageFunc && shipment.phone_number && (!isDelivered(newStatus) || isDelivered(newStatus))) {
-              const message = `🔔 *Shipment Update*\n\n${formatVRLTrackingMessage(result.tracking)}`;
+              const message = `ðŸ”” *Shipment Update*\n\n${formatVRLTrackingMessage(result.tracking)}`;
               
               try {
                 await sendMessageFunc(shipment.phone_number, message);
@@ -402,7 +402,7 @@ async function checkShipmentsForUpdates(sendMessageFunc) {
             }
           } else {
             // Update last checked time even if no status change
-            await supabase
+            await dbClient
               .from('shipment_tracking')
               .update({ 
                 last_checked_at: new Date().toISOString(),
@@ -440,3 +440,4 @@ module.exports = {
   checkShipmentsForUpdates,
   isDelivered
 };
+

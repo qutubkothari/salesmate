@@ -1,4 +1,4 @@
-// routes/handlers/messageProcessors/processors/AudioProcessor.js
+﻿// routes/handlers/messageProcessors/processors/AudioProcessor.js
 const BaseProcessor = require('./BaseProcessor');
 const FormData = require('form-data');
 const fetch = require('node-fetch');
@@ -154,7 +154,7 @@ class ConversationProcessor extends BaseProcessor {
 
     async handleGSTLookup(tenantId, from) {
         try {
-            const { supabase } = require('../../../services/config');
+            const { dbClient } = require('../../../services/config');
             
             // Build phone variants for lookup
             const phoneVariants = [
@@ -167,7 +167,7 @@ class ConversationProcessor extends BaseProcessor {
             const orClauses = phoneVariants.map(p => `phone.ilike.%${p}%`).join(',');
             
             // Check customer_profiles first
-            const { data: rows, error } = await supabase
+            const { data: rows, error } = await dbClient
                 .from('customer_profiles')
                 .select('*')
                 .eq('tenant_id', tenantId)
@@ -191,7 +191,7 @@ class ConversationProcessor extends BaseProcessor {
 
                 // Update verification status
                 if (customer && verification) {
-                    await supabase.from('customer_profiles').update({
+                    await dbClient.from('customer_profiles').update({
                         gst_verified: verification.isValid ? true : false,
                         gst_verified_at: verification.isValid ? new Date().toISOString() : null,
                         updated_at: new Date().toISOString()
@@ -200,9 +200,9 @@ class ConversationProcessor extends BaseProcessor {
 
                 let responseMsg;
                 if (verification && verification.isValid) {
-                    responseMsg = `*GST Verified* ✅\nGSTIN: ${customer.gst_number}\nName: ${verification.businessDetails?.legalName || verification.businessDetails?.tradeName || customer.company || 'Not available'}\nState: ${verification.businessDetails?.state || 'N/A'}`;
+                    responseMsg = `*GST Verified* âœ…\nGSTIN: ${customer.gst_number}\nName: ${verification.businessDetails?.legalName || verification.businessDetails?.tradeName || customer.company || 'Not available'}\nState: ${verification.businessDetails?.state || 'N/A'}`;
                 } else {
-                    responseMsg = `*Your GST Details:*\n📋 *GST Number:* ${customer.gst_number}\n🏢 *Company:* ${customer.company || 'Not provided'}\n👤 *Name:* ${customer.first_name || ''} ${customer.last_name || ''}\n\n⚠️ *Note:* Details from our records`;
+                    responseMsg = `*Your GST Details:*\nðŸ“‹ *GST Number:* ${customer.gst_number}\nðŸ¢ *Company:* ${customer.company || 'Not provided'}\nðŸ‘¤ *Name:* ${customer.first_name || ''} ${customer.last_name || ''}\n\nâš ï¸ *Note:* Details from our records`;
                 }
 
                 await this.sendAndLog(from, responseMsg, tenantId, 'gst_lookup_response');
@@ -436,7 +436,7 @@ class CommandProcessor extends BaseProcessor {
                     return { handled: true, type: 'search_no_results' };
                 }
 
-                let message = `🔍 **Search Results for "${searchTerm}":**\n\n`;
+                let message = `ðŸ” **Search Results for "${searchTerm}":**\n\n`;
                 results.forEach((product, index) => {
                     message += `${index + 1}. ${formatProductDisplay(product)}\n---\n`;
                 });
@@ -592,6 +592,36 @@ class AIProcessor extends BaseProcessor {
                     cartItems: null,
                     orderValue: null
                 };
+
+                // Flag for attention + triage (best-effort)
+                try {
+                    const { getConversationId } = require('../../../services/historyService');
+                    const { upsertTriageForConversation } = require('../../../services/triageService');
+                    const conversationId = conversation?.id || await getConversationId(tenant.id, from);
+
+                    if (conversationId) {
+                        try {
+                            const { dbClient } = require('../../../services/config');
+                            await dbClient
+                                .from('conversations')
+                                .update({ requires_human_attention: true, updated_at: new Date().toISOString() })
+                                .eq('id', conversationId);
+
+                            await upsertTriageForConversation(dbClient, {
+                                tenantId: tenant.id,
+                                conversationId,
+                                endUserPhone: from,
+                                type: 'HUMAN_ATTENTION',
+                                messagePreview: 'Auto-triage: customer requested human',
+                                metadata: { source: 'AudioProcessor', trigger: 'detectHandoverTriggers' }
+                            });
+                        } catch (_) {
+                            // best-effort
+                        }
+                    }
+                } catch (_) {
+                    // best-effort
+                }
                 
                 const handoverSuccess = await notifySalesTeam(tenant, from, userQuery, handoverContext);
                 
@@ -609,9 +639,11 @@ class AIProcessor extends BaseProcessor {
 
             let aiResponse;
             try {
-                aiResponse = await getAIResponseV2(tenant.id, aiPrompt, { 
+                aiResponse = await getAIResponseV2(tenant.id, aiPrompt, {
                     mode: 'fast',
-                    temperature: 0.7
+                    temperature: 0.7,
+                    originalUserQuery: userQuery,
+                    conversationId: conversation?.id || null
                 });
             } catch (error) {
                 console.error('[AI] V2 failed, using fallback:', error.message);
@@ -639,16 +671,16 @@ class AIProcessor extends BaseProcessor {
 
     async createDynamicAIPrompt(userQuery, userLanguage, tenantId, conversation, from) {
         try {
-            const { supabase } = require('../../../services/config');
+            const { dbClient } = require('../../../services/config');
             const customerPersonalizationService = require('../../../services/customerPersonalizationService');
 
-            const { data: tenant } = await supabase
+            const { data: tenant } = await dbClient
                 .from('tenants')
                 .select('business_name, bot_personality, bot_language, industry_type')
                 .eq('id', tenantId)
                 .single();
 
-            const { data: products } = await supabase
+            const { data: products } = await dbClient
                 .from('products')
                 .select('name, description, price, packaging_unit, units_per_carton, technical_details')
                 .eq('tenant_id', tenantId)
@@ -656,12 +688,12 @@ class AIProcessor extends BaseProcessor {
 
             const productContext = products?.length > 0 ? 
                 `Available Products:\n${products.map(p => 
-                    `- ${p.name}: ${p.description} (₹${p.price}${p.packaging_unit === 'carton' ? '/carton' : ''})${p.units_per_carton ? ` [${p.units_per_carton} pcs/carton]` : ''}`
+                    `- ${p.name}: ${p.description} (â‚¹${p.price}${p.packaging_unit === 'carton' ? '/carton' : ''})${p.units_per_carton ? ` [${p.units_per_carton} pcs/carton]` : ''}`
                 ).join('\n')}` : 
                 'No products configured yet.';
 
             const languageInstructions = {
-                'hi': 'Respond in Hindi (हिंदी में जवाब दें)',
+                'hi': 'Respond in Hindi (à¤¹à¤¿à¤‚à¤¦à¥€ à¤®à¥‡à¤‚ à¤œà¤µà¤¾à¤¬ à¤¦à¥‡à¤‚)',
                 'hinglish': 'Respond in Hinglish (Hindi-English mix). Use words like: hai, hain, kya, aapke paas, chahiye, kar do, thik hai.',
                 'en': 'Respond in English'
             };

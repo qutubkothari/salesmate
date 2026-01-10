@@ -1,5 +1,5 @@
-// middleware/requireTenant.js
-const { supabase } = require('../services/config');
+﻿// middleware/requireTenant.js
+const { dbClient } = require('../services/config');
 const whatsappService = require('../services/whatsappService');
 const { ensureTenantByBot } = require('../services/tenantService');
 const { activateSubscription } = require('../services/subscriptionService');
@@ -14,7 +14,7 @@ module.exports = async function requireTenant(req, res, next) {
   // 1) try existing tenant by bot number
   let tenant = null;
   try {
-    const { data, error } = await supabase
+    const { data, error } = await dbClient
       .from('tenants')
       .select('*')
       .eq('bot_phone_number', toDigits)
@@ -36,7 +36,7 @@ module.exports = async function requireTenant(req, res, next) {
       } catch (e) {
         // duplicate owner? reuse that tenant and attach the current bot
         if (e && (e.code === '23505' || /duplicate key value/i.test(String(e)))) {
-          const { data: existing, error: selErr } = await supabase
+          const { data: existing, error: selErr } = await dbClient
             .from('tenants')
             .select('id,business_name,admin_phones')
             .eq('owner_whatsapp_number', from)
@@ -47,7 +47,7 @@ module.exports = async function requireTenant(req, res, next) {
           const admins = Array.isArray(existing.admin_phones) ? existing.admin_phones.slice(0, 50) : [];
           if (!admins.includes(from)) admins.push(from);
 
-          const { error: updErr } = await supabase
+          const { error: updErr } = await dbClient
             .from('tenants')
             .update({
               bot_phone_number: toDigits,
@@ -67,7 +67,7 @@ module.exports = async function requireTenant(req, res, next) {
         // set basics if came from /register
         if (txt.startsWith('/register')) {
           const name = rawText.split(/\s+/).slice(1).join(' ').trim() || 'My Business';
-          await supabase.from('tenants')
+          await dbClient.from('tenants')
             .update({
               business_name: name,
               owner_whatsapp_number: from,
@@ -76,7 +76,7 @@ module.exports = async function requireTenant(req, res, next) {
               maytapi_phone_id: msg.phone_id ?? null
             })
             .eq('id', ensured.id);
-          await whatsappService.sendText(from, `✅ Registered *${name}*. You can now use /status, /login, /products, /broadcast here.`);
+          await whatsappService.sendText(from, `âœ… Registered *${name}*. You can now use /status, /login, /products, /broadcast here.`);
         }
         tenant = { id: ensured.id };
       }
@@ -108,3 +108,4 @@ module.exports = async function requireTenant(req, res, next) {
   req.tenant = tenant;
   return next();
 };
+

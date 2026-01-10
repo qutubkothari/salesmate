@@ -1,8 +1,8 @@
-/**
+﻿/**
  * @title Subscription Tier Service
  * @description Manages feature access and permissions based on a tenant's subscription tier.
  */
-const { supabase } = require('./config');
+const { dbClient } = require('./config');
 
 // Define the features available for each tier. 'standard' has access to everything not listed here.
 const TIER_FEATURES = {
@@ -44,7 +44,7 @@ const hasTierAccess = async (tenantId, featureName) => {
         }
 
         // 1. Get the tenant's current subscription tier.
-        const { data: tenant, error } = await supabase
+        const { data: tenant, error } = await dbClient
             .from('tenants')
             .select('subscription_tier')
             .eq('id', tenantId)
@@ -72,3 +72,4 @@ const hasTierAccess = async (tenantId, featureName) => {
 module.exports = {
     hasTierAccess,
 };
+

@@ -1,8 +1,8 @@
-/**
+﻿/**
  * @title AI Survey Service
  * @description Manages all logic for creating, deploying, and analyzing AI-powered surveys.
  */
-const { supabase, openai } = require('./config');
+const { dbClient, openai } = require('./config');
 const { sendMessage } = require('./whatsappService');
 const { logMessage, getConversationId } = require('./historyService');
 const xlsx = require('xlsx');
@@ -16,7 +16,7 @@ const fetch = require('node-fetch');
  */
 const createSurvey = async (tenantId, surveyName) => {
     try {
-        await supabase.from('surveys').insert({ tenant_id: tenantId, survey_name: surveyName });
+        await dbClient.from('surveys').insert({ tenant_id: tenantId, survey_name: surveyName });
         return `Survey "${surveyName}" created successfully. Now add questions with /add_survey_question.`;
     } catch (error) {
         if (error.code === '23505') return `A survey with the name "${surveyName}" already exists.`;
@@ -35,7 +35,7 @@ const createSurvey = async (tenantId, surveyName) => {
  */
 const addSurveyQuestion = async (tenantId, surveyName, sequenceOrder, questionText) => {
     try {
-        const { data: survey, error } = await supabase
+        const { data: survey, error } = await dbClient
             .from('surveys')
             .select('id')
             .eq('tenant_id', tenantId)
@@ -44,7 +44,7 @@ const addSurveyQuestion = async (tenantId, surveyName, sequenceOrder, questionTe
 
         if (error || !survey) return `Could not find a survey named "${surveyName}".`;
 
-        await supabase.from('survey_questions').upsert({
+        await dbClient.from('survey_questions').upsert({
             survey_id: survey.id,
             sequence_order: sequenceOrder,
             question_text: questionText
@@ -66,7 +66,7 @@ const addSurveyQuestion = async (tenantId, surveyName, sequenceOrder, questionTe
  */
 const deploySurveyFromSheet = async (tenantId, surveyName, mediaUrl) => {
     try {
-        const { data: survey, error } = await supabase
+        const { data: survey, error } = await dbClient
             .from('surveys')
             .select('id')
             .eq('tenant_id', tenantId)
@@ -90,7 +90,7 @@ const deploySurveyFromSheet = async (tenantId, surveyName, mediaUrl) => {
             end_user_phone: phone,
         }));
 
-        await supabase.from('survey_deployments').insert(deployments);
+        await dbClient.from('survey_deployments').insert(deployments);
         return `Survey "${surveyName}" has been scheduled for deployment to ${phoneNumbers.length} contacts.`;
     } catch (error) {
         console.error('Error deploying survey from sheet:', error.message);
@@ -137,7 +137,7 @@ const handleSurveyFlow = async (tenant, conversation, userMessage) => {
 
     // 1. Save the response to the previous question
     const sentiment = await analyzeSentiment(userMessage);
-    await supabase.from('survey_responses').insert({
+    await dbClient.from('survey_responses').insert({
         survey_id: surveyId,
         conversation_id: conversationId,
         question_id: currentQuestionId,
@@ -147,7 +147,7 @@ const handleSurveyFlow = async (tenant, conversation, userMessage) => {
 
     // 2. Find the next question in the sequence
     const nextSequence = currentSequence + 1;
-    const { data: nextQuestion } = await supabase
+    const { data: nextQuestion } = await dbClient
         .from('survey_questions')
         .select('*')
         .eq('survey_id', surveyId)
@@ -156,21 +156,21 @@ const handleSurveyFlow = async (tenant, conversation, userMessage) => {
 
     if (nextQuestion) {
         // 3. Ask the next question
-        await supabase.from('conversations').update({
+        await dbClient.from('conversations').update({
             temp_storage: JSON.stringify({ surveyId, currentQuestionId: nextQuestion.id, currentSequence: nextSequence })
         }).eq('id', conversationId);
         await sendMessage(end_user_phone, nextQuestion.question_text);
         await logMessage(tenant.id, end_user_phone, 'bot', nextQuestion.question_text, 'survey_question');
     } else {
         // 4. End of survey
-        await supabase.from('conversations').update({ state: null, temp_storage: null }).eq('id', conversationId);
-        await supabase.from('survey_deployments').update({ status: 'completed' }).eq('survey_id', surveyId).eq('end_user_phone', end_user_phone);
+        await dbClient.from('conversations').update({ state: null, temp_storage: null }).eq('id', conversationId);
+        await dbClient.from('survey_deployments').update({ status: 'completed' }).eq('survey_id', surveyId).eq('end_user_phone', end_user_phone);
         
         const endMessage = "Thank you for completing our survey!";
         await sendMessage(end_user_phone, endMessage);
         await logMessage(tenant.id, end_user_phone, 'bot', endMessage, 'survey_end');
 
-        const tenantNotification = `📋 *Survey Completed!*\n\n The user at ${end_user_phone} has completed your survey.`;
+        const tenantNotification = `ðŸ“‹ *Survey Completed!*\n\n The user at ${end_user_phone} has completed your survey.`;
         await sendMessage(tenant.phone_number, tenantNotification);
     }
 };
@@ -180,7 +180,7 @@ const handleSurveyFlow = async (tenant, conversation, userMessage) => {
  */
 const processSurveyDeployments = async () => {
     try {
-        const { data: pendingDeployments, error } = await supabase
+        const { data: pendingDeployments, error } = await dbClient
             .from('survey_deployments')
             .select(`
                 *,
@@ -194,7 +194,7 @@ const processSurveyDeployments = async () => {
         console.log(`Processing ${pendingDeployments.length} survey deployments...`);
 
         for (const deployment of pendingDeployments) {
-            const { data: firstQuestion } = await supabase
+            const { data: firstQuestion } = await dbClient
                 .from('survey_questions')
                 .select('*')
                 .eq('survey_id', deployment.survey_id)
@@ -203,7 +203,7 @@ const processSurveyDeployments = async () => {
 
             if (firstQuestion) {
                 const conversationId = await getConversationId(deployment.survey.tenant_id, deployment.end_user_phone);
-                await supabase.from('conversations').update({
+                await dbClient.from('conversations').update({
                     state: 'awaiting_survey_response',
                     temp_storage: JSON.stringify({
                         surveyId: deployment.survey_id,
@@ -214,7 +214,7 @@ const processSurveyDeployments = async () => {
 
                 await sendMessage(deployment.end_user_phone, firstQuestion.question_text);
                 await logMessage(deployment.survey.tenant_id, deployment.end_user_phone, 'bot', firstQuestion.question_text, 'survey_question');
-                await supabase.from('survey_deployments').update({ status: 'sent', sent_at: new Date().toISOString() }).eq('id', deployment.id);
+                await dbClient.from('survey_deployments').update({ status: 'sent', sent_at: new Date().toISOString() }).eq('id', deployment.id);
             }
         }
     } catch (error) {
@@ -230,7 +230,7 @@ const processSurveyDeployments = async () => {
  */
 const getSurveyReport = async (tenantId, surveyName) => {
     try {
-        const { data: survey, error: surveyError } = await supabase
+        const { data: survey, error: surveyError } = await dbClient
             .from('surveys')
             .select(`
                 id,
@@ -245,7 +245,7 @@ const getSurveyReport = async (tenantId, surveyName) => {
         if (surveyError || !survey) return `Could not find a survey named "${surveyName}".`;
         if (survey.responses.length === 0) return `Survey "${surveyName}" has no responses yet.`;
         
-        let report = `📊 *Survey Report: ${survey.survey_name}*\n\n`;
+        let report = `ðŸ“Š *Survey Report: ${survey.survey_name}*\n\n`;
         
         survey.questions.sort((a, b) => a.sequence_order - b.sequence_order);
 
@@ -280,4 +280,5 @@ module.exports = {
     processSurveyDeployments,
     getSurveyReport,
 };
+
 

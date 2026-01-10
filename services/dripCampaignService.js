@@ -1,8 +1,8 @@
-/**
+﻿/**
  * @title Drip Campaign Service
  * @description Manages all logic related to creating, managing, and executing automated drip campaigns.
  */
-const { supabase } = require('./config');
+const { dbClient } = require('./config');
 const { sendMessage, sendMessageWithImage } = require('./whatsappService');
 const xlsx = require('xlsx');
 const fetch = require('node-fetch');
@@ -15,7 +15,7 @@ const fetch = require('node-fetch');
  */
 const createDripCampaign = async (tenantId, campaignName) => {
     try {
-        const { error } = await supabase
+        const { error } = await dbClient
             .from('drip_campaigns')
             .insert({ tenant_id: tenantId, campaign_name: campaignName });
 
@@ -44,7 +44,7 @@ const createDripCampaign = async (tenantId, campaignName) => {
  */
 const addMessageToDripCampaign = async (tenantId, campaignName, sequenceOrder, delayHours, messageBody, mediaUrl = null) => {
     try {
-        const { data: campaign, error: campError } = await supabase
+        const { data: campaign, error: campError } = await dbClient
             .from('drip_campaigns')
             .select('id')
             .eq('tenant_id', tenantId)
@@ -55,7 +55,7 @@ const addMessageToDripCampaign = async (tenantId, campaignName, sequenceOrder, d
             return `Could not find a campaign named "${campaignName}". Please create it first.`;
         }
 
-        await supabase.from('drip_campaign_messages').upsert({
+        await dbClient.from('drip_campaign_messages').upsert({
             campaign_id: campaign.id,
             sequence_order: sequenceOrder,
             delay_hours: delayHours,
@@ -79,7 +79,7 @@ const addMessageToDripCampaign = async (tenantId, campaignName, sequenceOrder, d
  */
 const subscribeUsersToDripCampaign = async (tenantId, campaignName, phoneNumbers) => {
     try {
-        const { data: campaign, error: campError } = await supabase
+        const { data: campaign, error: campError } = await dbClient
             .from('drip_campaigns')
             .select('id')
             .eq('tenant_id', tenantId)
@@ -95,7 +95,7 @@ const subscribeUsersToDripCampaign = async (tenantId, campaignName, phoneNumbers
             end_user_phone: phone,
         }));
 
-        await supabase.from('drip_campaign_subscribers').upsert(subscribers, { onConflict: 'campaign_id, end_user_phone' });
+        await dbClient.from('drip_campaign_subscribers').upsert(subscribers, { onConflict: 'campaign_id, end_user_phone' });
 
         return `Successfully subscribed ${phoneNumbers.length} user(s) to the "${campaignName}" campaign. The first message will be sent according to its schedule.`;
     } catch (error) {
@@ -147,7 +147,7 @@ const subscribeUsersFromSheet = async (tenantId, campaignName, mediaUrl) => {
  */
 const listDripCampaigns = async (tenantId) => {
     try {
-        const { data, error } = await supabase
+        const { data, error } = await dbClient
             .from('drip_campaigns')
             .select('campaign_name')
             .eq('tenant_id', tenantId);
@@ -167,7 +167,7 @@ const listDripCampaigns = async (tenantId) => {
  */
 const viewDripCampaign = async (tenantId, campaignName) => {
     try {
-        const { data, error } = await supabase
+        const { data, error } = await dbClient
             .from('drip_campaigns')
             .select(`
                 campaign_name,
@@ -201,7 +201,7 @@ const viewDripCampaign = async (tenantId, campaignName) => {
 const deleteDripCampaign = async (tenantId, campaignName) => {
     try {
         // We must delete from the DB by ID, not name, so we fetch it first.
-        const { data: campaign, error: findError } = await supabase
+        const { data: campaign, error: findError } = await dbClient
             .from('drip_campaigns')
             .select('id')
             .eq('tenant_id', tenantId)
@@ -211,8 +211,8 @@ const deleteDripCampaign = async (tenantId, campaignName) => {
         if (findError || !campaign) {
             return `Could not find a campaign named "${campaignName}" to delete.`;
         }
-        // Supabase CASCADE will handle deleting related messages and subscribers.
-        await supabase.from('drip_campaigns').delete().eq('id', campaign.id);
+        // dbClient CASCADE will handle deleting related messages and subscribers.
+        await dbClient.from('drip_campaigns').delete().eq('id', campaign.id);
         return `Campaign "${campaignName}" and all its data have been deleted.`;
     } catch (e) {
         return 'An error occurred while deleting the campaign.';
@@ -227,7 +227,7 @@ const deleteDripCampaign = async (tenantId, campaignName) => {
 const unsubscribeUser = async (endUserPhone) => {
     try {
         console.log(`Processing unsubscribe request for ${endUserPhone}...`);
-        const { error } = await supabase
+        const { error } = await dbClient
             .from('drip_campaign_subscribers')
             .update({ status: 'unsubscribed' })
             .eq('end_user_phone', endUserPhone)
@@ -246,7 +246,7 @@ const unsubscribeUser = async (endUserPhone) => {
  */
 const processDripCampaigns = async () => {
     try {
-        const { data: subscribers, error: subError } = await supabase
+        const { data: subscribers, error: subError } = await dbClient
             .from('drip_campaign_subscribers')
             .select('*')
             .eq('status', 'active');
@@ -259,7 +259,7 @@ const processDripCampaigns = async () => {
         for (const sub of subscribers) {
             const nextSequence = sub.current_sequence_number + 1;
 
-            const { data: nextMessage, error: msgError } = await supabase
+            const { data: nextMessage, error: msgError } = await dbClient
                 .from('drip_campaign_messages')
                 .select('*')
                 .eq('campaign_id', sub.campaign_id)
@@ -267,7 +267,7 @@ const processDripCampaigns = async () => {
                 .single();
 
             if (msgError || !nextMessage) {
-                await supabase.from('drip_campaign_subscribers').update({ status: 'completed' }).eq('id', sub.id);
+                await dbClient.from('drip_campaign_subscribers').update({ status: 'completed' }).eq('id', sub.id);
                 continue;
             }
 
@@ -282,7 +282,7 @@ const processDripCampaigns = async () => {
                 }
                 console.log(`Sent drip message #${nextSequence} to ${sub.end_user_phone} for campaign ${sub.campaign_id}`);
 
-                await supabase
+                await dbClient
                     .from('drip_campaign_subscribers')
                     .update({
                         current_sequence_number: nextSequence,
@@ -306,4 +306,5 @@ module.exports = {
     deleteDripCampaign,
     unsubscribeUser,
 };
+
 

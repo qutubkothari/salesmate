@@ -1,9 +1,9 @@
-require('dotenv').config();
-const { supabase } = require('./config/database');
+﻿require('dotenv').config();
+const { dbClient } = require('./config/database');
 
 (async () => {
   // Get a sample product to see the schema
-  const { data: product } = await supabase
+  const { data: product } = await dbClient
     .from('products')
     .select('*')
     .eq('name', 'NFF - 8x80')
@@ -18,3 +18,4 @@ const { supabase } = require('./config/database');
     console.log('Product not found');
   }
 })();
+

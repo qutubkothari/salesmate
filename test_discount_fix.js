@@ -1,5 +1,5 @@
-require('dotenv').config();
-const { supabase } = require('./config/database');
+﻿require('dotenv').config();
+const { dbClient } = require('./config/database');
 
 (async () => {
   const phone = '96567709452@c.us';
@@ -8,7 +8,7 @@ const { supabase } = require('./config/database');
   console.log('Testing discount handler logic...\n');
 
   // Get conversation
-  const { data: conversation } = await supabase
+  const { data: conversation } = await dbClient
     .from('conversations')
     .select('*')
     .eq('end_user_phone', phone)
@@ -34,7 +34,7 @@ const { supabase } = require('./config/database');
       quotedProducts = typeof conversation.last_quoted_products === 'string'
         ? JSON.parse(conversation.last_quoted_products)
         : conversation.last_quoted_products;
-      console.log('\n✅ Using last_quoted_products:', quotedProducts);
+      console.log('\nâœ… Using last_quoted_products:', quotedProducts);
     } catch (e) {
       console.warn('Failed to parse last_quoted_products:', e.message);
     }
@@ -42,16 +42,16 @@ const { supabase } = require('./config/database');
 
   // PRIORITY 2: Check cart
   if (quotedProducts.length === 0) {
-    console.log('\n⚠️ No last_quoted_products, checking cart...');
+    console.log('\nâš ï¸ No last_quoted_products, checking cart...');
 
-    const { data: cart } = await supabase
+    const { data: cart } = await dbClient
       .from('carts')
       .select('id, cart_items(*, products(*))')
       .eq('conversation_id', conversation.id)
       .maybeSingle();
 
     if (cart && cart.cart_items && cart.cart_items.length > 0) {
-      console.log('✅ Found', cart.cart_items.length, 'items in cart');
+      console.log('âœ… Found', cart.cart_items.length, 'items in cart');
 
       // NEW LOGIC: Extract product code from name
       quotedProducts = cart.cart_items.map(item => ({
@@ -68,15 +68,15 @@ const { supabase } = require('./config/database');
         sum + ((item.products?.price || item.unit_price) * item.quantity), 0
       );
 
-      console.log('\n✅ Cart-based context:');
+      console.log('\nâœ… Cart-based context:');
       console.log('  - Total Cartons:', totalCartons);
-      console.log('  - Cart Total: ₹' + cartTotal);
+      console.log('  - Cart Total: â‚¹' + cartTotal);
       console.log('  - Quoted Products:');
       quotedProducts.forEach(p => {
-        console.log(`    • ${p.productCode} (${p.productName}): ${p.quantity} cartons @ ₹${p.price}/carton`);
+        console.log(`    â€¢ ${p.productCode} (${p.productName}): ${p.quantity} cartons @ â‚¹${p.price}/carton`);
       });
     } else {
-      console.log('❌ No cart items found');
+      console.log('âŒ No cart items found');
     }
   }
 
@@ -98,7 +98,8 @@ const { supabase } = require('./config/database');
       quotedProducts: quotedProducts
     };
 
-    console.log('\n✅ Context built successfully!');
+    console.log('\nâœ… Context built successfully!');
     console.log('Products in context:', conversationContext.products.map(p => p.productCode));
   }
 })();
+

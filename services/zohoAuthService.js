@@ -1,4 +1,4 @@
-// services/zohoAuthService.js - Zoho Authorization Handler
+﻿// services/zohoAuthService.js - Zoho Authorization Handler
 
 /**
  * Generate Zoho authorization URL with required scopes
@@ -46,7 +46,7 @@ const exchangeCodeForToken = async (code, tenantId) => {
         }
 
         // Store tokens in database
-        await supabase
+        await dbClient
             .from('tenants')
             .update({
                 zoho_access_token: tokenData.access_token,
@@ -68,7 +68,7 @@ const exchangeCodeForToken = async (code, tenantId) => {
             const orgId = orgData.organizations[0].organization_id;
             
             // Update organization ID
-            await supabase
+            await dbClient
                 .from('tenants')
                 .update({ zoho_organization_id: orgId })
                 .eq('id', tenantId);

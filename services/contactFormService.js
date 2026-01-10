@@ -1,8 +1,8 @@
-/**
+﻿/**
  * @title Contact Form Service
  * @description Manages the multi-step logic for the contact form feature.
  */
-const { supabase } = require('./config');
+const { dbClient } = require('./config');
 const { sendMessage } = require('./whatsappService');
 const { logMessage, getConversationId } = require('./historyService');
 
@@ -19,12 +19,12 @@ const handleContactForm = async (tenant, conversation, userMessage) => {
     switch (conversation.state) {
         case 'awaiting_name':
             // 1. Save the name and update the state to ask for the email.
-            await supabase
+            await dbClient
                 .from('contact_submissions')
                 .update({ customer_name: userMessage })
                 .eq('conversation_id', conversation.id);
 
-            await supabase
+            await dbClient
                 .from('conversations')
                 .update({ state: 'awaiting_email' })
                 .eq('id', conversation.id);
@@ -36,12 +36,12 @@ const handleContactForm = async (tenant, conversation, userMessage) => {
 
         case 'awaiting_email':
             // 2. Save the email and update the state to ask for the query.
-            await supabase
+            await dbClient
                 .from('contact_submissions')
                 .update({ customer_email: userMessage })
                 .eq('conversation_id', conversation.id);
 
-            await supabase
+            await dbClient
                 .from('conversations')
                 .update({ state: 'awaiting_query' })
                 .eq('id', conversation.id);
@@ -53,13 +53,13 @@ const handleContactForm = async (tenant, conversation, userMessage) => {
 
         case 'awaiting_query':
             // 3. Save the final query, clear the state, and notify the tenant.
-            await supabase
+            await dbClient
                 .from('contact_submissions')
                 .update({ customer_query: userMessage })
                 .eq('conversation_id', conversation.id);
 
             // Clear the state to end the contact form flow.
-            await supabase
+            await dbClient
                 .from('conversations')
                 .update({ state: null })
                 .eq('id', conversation.id);
@@ -69,7 +69,7 @@ const handleContactForm = async (tenant, conversation, userMessage) => {
             await logMessage(tenantId, endUserPhone, 'bot', confirmationMessage);
 
             // Notify the tenant of the new submission.
-            const tenantNotification = `🎉 *New Contact Form Submission!*\n\nA new inquiry has been received from ${endUserPhone}. View the full conversation using the /history command.`;
+            const tenantNotification = `ðŸŽ‰ *New Contact Form Submission!*\n\nA new inquiry has been received from ${endUserPhone}. View the full conversation using the /history command.`;
             await sendMessage(tenant.phone_number, tenantNotification);
             break;
     }
@@ -88,7 +88,7 @@ const startContactForm = async (tenantId, endUserPhone) => {
     }
 
     // Create a new submission record
-    await supabase
+    await dbClient
         .from('contact_submissions')
         .insert({
             tenant_id: tenantId,
@@ -96,7 +96,7 @@ const startContactForm = async (tenantId, endUserPhone) => {
         });
 
     // Set the initial state for the conversation
-    await supabase
+    await dbClient
         .from('conversations')
         .update({ state: 'awaiting_name' })
         .eq('id', conversationId);
@@ -110,3 +110,4 @@ module.exports = {
     handleContactForm,
     startContactForm,
 };
+

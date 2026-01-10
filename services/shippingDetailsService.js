@@ -1,16 +1,16 @@
-/**
+﻿/**
  * SHIPPING DETAILS COLLECTION SERVICE
  * Captures shipping address and transporter info after order placement
  */
 
-const { supabase } = require('../config/database');
+const { dbClient } = require('../config/database');
 
 /**
  * Check if order needs shipping details collection
  */
 async function shouldCollectShippingDetails(orderId) {
   try {
-    const { data: order, error } = await supabase
+    const { data: order, error } = await dbClient
       .from('orders')
       .select('id, shipping_details_collected, order_status')
       .eq('id', orderId)
@@ -35,32 +35,32 @@ async function initiateShippingDetailsCollection(tenantId, customerPhone, orderI
     console.log(`[SHIPPING] Initiating collection for order ${orderId}`);
 
     // Get customer's default shipping info if available
-    const { data: customer } = await supabase
+    const { data: customer } = await dbClient
       .from('customer_profiles')
       .select('first_name, default_shipping_address, default_shipping_city, default_transporter_name')
       .eq('tenant_id', tenantId)
       .eq('phone', customerPhone)
       .single();
 
-    let message = `✅ Order confirmed!\n\n`;
-    message += `📦 *Shipping Details Required*\n\n`;
+    let message = `âœ… Order confirmed!\n\n`;
+    message += `ðŸ“¦ *Shipping Details Required*\n\n`;
 
     // If customer has default address, offer to use it
     if (customer?.default_shipping_address) {
       message += `We have your previous shipping address on file:\n`;
-      message += `📍 ${customer.default_shipping_address}\n`;
-      message += `🏙️ ${customer.default_shipping_city || ''}\n\n`;
+      message += `ðŸ“ ${customer.default_shipping_address}\n`;
+      message += `ðŸ™ï¸ ${customer.default_shipping_city || ''}\n\n`;
       message += `Reply with:\n`;
-      message += `• *"Same address"* to use this\n`;
-      message += `• *"New address"* to provide different address\n\n`;
+      message += `â€¢ *"Same address"* to use this\n`;
+      message += `â€¢ *"New address"* to provide different address\n\n`;
     } else {
       message += `Please provide your shipping details:\n\n`;
-      message += `📍 *Shipping Address*\n`;
+      message += `ðŸ“ *Shipping Address*\n`;
       message += `Example: "123, ABC Road, Near XYZ Mall, Area Name"\n\n`;
     }
 
     // Set conversation state to collect shipping
-    await supabase
+    await dbClient
       .from('conversations')
       .update({
         state: 'collecting_shipping_address',
@@ -90,7 +90,7 @@ async function processShippingAddress(tenantId, customerPhone, userMessage, orde
 
     // Check for "same address" response
     if (message.includes('same') && message.includes('address')) {
-      const { data: customer } = await supabase
+      const { data: customer } = await dbClient
         .from('customer_profiles')
         .select('default_shipping_address, default_shipping_city, default_shipping_state, default_shipping_pincode')
         .eq('tenant_id', tenantId)
@@ -99,7 +99,7 @@ async function processShippingAddress(tenantId, customerPhone, userMessage, orde
 
       if (customer?.default_shipping_address) {
         // Update order with default address
-        await supabase
+        await dbClient
           .from('orders')
           .update({
             shipping_address: customer.default_shipping_address,
@@ -110,7 +110,7 @@ async function processShippingAddress(tenantId, customerPhone, userMessage, orde
           .eq('id', orderId);
 
         // Move to transporter collection
-        await supabase
+        await dbClient
           .from('conversations')
           .update({
             state: 'collecting_transporter_details',
@@ -120,7 +120,7 @@ async function processShippingAddress(tenantId, customerPhone, userMessage, orde
           .eq('end_user_phone', customerPhone);
 
         return {
-          message: `✅ Address confirmed!\n\n🚚 *Transporter Details*\n\nPlease provide:\n1. Transporter name\n2. Contact number\n3. Vehicle number (if known)\n\nExample: "ABC Transport, 9876543210, MH01AB1234"`,
+          message: `âœ… Address confirmed!\n\nðŸšš *Transporter Details*\n\nPlease provide:\n1. Transporter name\n2. Contact number\n3. Vehicle number (if known)\n\nExample: "ABC Transport, 9876543210, MH01AB1234"`,
           requiresResponse: true
         };
       }
@@ -129,7 +129,7 @@ async function processShippingAddress(tenantId, customerPhone, userMessage, orde
     // Check for "new address" or actual address
     if (message.includes('new') && message.includes('address')) {
       return {
-        message: `📍 Please provide your complete shipping address:\n\nInclude:\n• House/Building number\n• Street name\n• Landmark\n• Area/City\n• Pincode`,
+        message: `ðŸ“ Please provide your complete shipping address:\n\nInclude:\nâ€¢ House/Building number\nâ€¢ Street name\nâ€¢ Landmark\nâ€¢ Area/City\nâ€¢ Pincode`,
         requiresResponse: true
       };
     }
@@ -137,7 +137,7 @@ async function processShippingAddress(tenantId, customerPhone, userMessage, orde
     // Parse and store the address
     const addressData = parseAddress(userMessage);
     
-    await supabase
+    await dbClient
       .from('orders')
       .update({
         shipping_address: addressData.fullAddress,
@@ -149,7 +149,7 @@ async function processShippingAddress(tenantId, customerPhone, userMessage, orde
       .eq('id', orderId);
 
     // Move to transporter collection
-    await supabase
+    await dbClient
       .from('conversations')
       .update({
         state: 'collecting_transporter_details',
@@ -159,7 +159,7 @@ async function processShippingAddress(tenantId, customerPhone, userMessage, orde
       .eq('end_user_phone', customerPhone);
 
     return {
-      message: `✅ Shipping address saved!\n\n🚚 *Transporter Details*\n\nPlease provide:\n1. Transporter name\n2. Contact number\n3. Vehicle number (optional)\n\nExample: "ABC Transport, 9876543210, MH01AB1234"\n\nOr reply *"Self pickup"* if collecting yourself`,
+      message: `âœ… Shipping address saved!\n\nðŸšš *Transporter Details*\n\nPlease provide:\n1. Transporter name\n2. Contact number\n3. Vehicle number (optional)\n\nExample: "ABC Transport, 9876543210, MH01AB1234"\n\nOr reply *"Self pickup"* if collecting yourself`,
       requiresResponse: true
     };
   } catch (error) {
@@ -179,7 +179,7 @@ async function processTransporterDetails(tenantId, customerPhone, userMessage, o
 
     // Handle self pickup
     if (message.includes('self') && message.includes('pickup')) {
-      await supabase
+      await dbClient
         .from('orders')
         .update({
           transporter_name: 'Self Pickup',
@@ -189,7 +189,7 @@ async function processTransporterDetails(tenantId, customerPhone, userMessage, o
         .eq('id', orderId);
 
       // Clear conversation state
-      await supabase
+      await dbClient
         .from('conversations')
         .update({
           state: 'active',
@@ -202,7 +202,7 @@ async function processTransporterDetails(tenantId, customerPhone, userMessage, o
       await updateZohoWithShippingDetails(orderId);
 
       return {
-        message: `✅ All details saved!\n\n📦 Order will be ready for pickup.\n\nWe'll notify you when it's ready.\n\nIs there anything else I can help you with?`,
+        message: `âœ… All details saved!\n\nðŸ“¦ Order will be ready for pickup.\n\nWe'll notify you when it's ready.\n\nIs there anything else I can help you with?`,
         requiresResponse: false
       };
     }
@@ -210,7 +210,7 @@ async function processTransporterDetails(tenantId, customerPhone, userMessage, o
     // Parse transporter details
     const transporterData = parseTransporterDetails(userMessage);
 
-    await supabase
+    await dbClient
       .from('orders')
       .update({
         transporter_name: transporterData.name,
@@ -222,7 +222,7 @@ async function processTransporterDetails(tenantId, customerPhone, userMessage, o
       .eq('id', orderId);
 
     // Save as default for future orders
-    await supabase
+    await dbClient
       .from('customer_profiles')
       .update({
         default_transporter_name: transporterData.name
@@ -231,7 +231,7 @@ async function processTransporterDetails(tenantId, customerPhone, userMessage, o
       .eq('phone', customerPhone);
 
     // Clear conversation state
-    await supabase
+    await dbClient
       .from('conversations')
       .update({
         state: 'active',
@@ -244,7 +244,7 @@ async function processTransporterDetails(tenantId, customerPhone, userMessage, o
     await updateZohoWithShippingDetails(orderId);
 
     return {
-      message: `✅ Perfect! All shipping details saved.\n\n📦 *Summary:*\n• Transporter: ${transporterData.name}\n• Contact: ${transporterData.contact}\n${transporterData.vehicleNumber ? `• Vehicle: ${transporterData.vehicleNumber}\n` : ''}\n\nYour order will be dispatched soon!\n\nAnything else I can help with?`,
+      message: `âœ… Perfect! All shipping details saved.\n\nðŸ“¦ *Summary:*\nâ€¢ Transporter: ${transporterData.name}\nâ€¢ Contact: ${transporterData.contact}\n${transporterData.vehicleNumber ? `â€¢ Vehicle: ${transporterData.vehicleNumber}\n` : ''}\n\nYour order will be dispatched soon!\n\nAnything else I can help with?`,
       requiresResponse: false
     };
   } catch (error) {
@@ -328,7 +328,7 @@ async function updateZohoWithShippingDetails(orderId) {
     console.log(`[SHIPPING] Updating Zoho for order ${orderId}`);
 
     // Get order with shipping details
-    const { data: order } = await supabase
+    const { data: order } = await dbClient
       .from('orders')
       .select('*, customer_profiles(first_name, last_name)')
       .eq('id', orderId)
@@ -340,30 +340,30 @@ async function updateZohoWithShippingDetails(orderId) {
     }
 
     // Format notes
-    let notes = '📦 SHIPPING DETAILS:\n\n';
+    let notes = 'ðŸ“¦ SHIPPING DETAILS:\n\n';
     
     if (order.shipping_address) {
-      notes += `📍 Delivery Address:\n${order.shipping_address}\n`;
-      if (order.shipping_city) notes += `🏙️ City: ${order.shipping_city}\n`;
-      if (order.shipping_state) notes += `📍 State: ${order.shipping_state}\n`;
-      if (order.shipping_pincode) notes += `📮 Pincode: ${order.shipping_pincode}\n`;
-      if (order.shipping_landmark) notes += `🏛️ Landmark: ${order.shipping_landmark}\n`;
+      notes += `ðŸ“ Delivery Address:\n${order.shipping_address}\n`;
+      if (order.shipping_city) notes += `ðŸ™ï¸ City: ${order.shipping_city}\n`;
+      if (order.shipping_state) notes += `ðŸ“ State: ${order.shipping_state}\n`;
+      if (order.shipping_pincode) notes += `ðŸ“® Pincode: ${order.shipping_pincode}\n`;
+      if (order.shipping_landmark) notes += `ðŸ›ï¸ Landmark: ${order.shipping_landmark}\n`;
       notes += '\n';
     }
 
     if (order.transporter_name) {
-      notes += `🚚 Transporter Details:\n`;
-      notes += `• Name: ${order.transporter_name}\n`;
-      if (order.transporter_contact) notes += `• Contact: ${order.transporter_contact}\n`;
-      if (order.transporter_vehicle_number) notes += `• Vehicle: ${order.transporter_vehicle_number}\n`;
+      notes += `ðŸšš Transporter Details:\n`;
+      notes += `â€¢ Name: ${order.transporter_name}\n`;
+      if (order.transporter_contact) notes += `â€¢ Contact: ${order.transporter_contact}\n`;
+      if (order.transporter_vehicle_number) notes += `â€¢ Vehicle: ${order.transporter_vehicle_number}\n`;
       notes += '\n';
     }
 
     if (order.special_instructions) {
-      notes += `📝 Special Instructions:\n${order.special_instructions}\n\n`;
+      notes += `ðŸ“ Special Instructions:\n${order.special_instructions}\n\n`;
     }
 
-    notes += `✅ Collected on: ${new Date(order.shipping_details_collected_at).toLocaleString('en-IN')}`;
+    notes += `âœ… Collected on: ${new Date(order.shipping_details_collected_at).toLocaleString('en-IN')}`;
 
     // Update Zoho Books (you'll need to implement the Zoho API call)
     const zohoService = require('./zohoService');
@@ -386,3 +386,4 @@ module.exports = {
   processTransporterDetails,
   updateZohoWithShippingDetails
 };
+

@@ -1,6 +1,6 @@
-// schedulers/intelligenceRunner.js
+﻿// schedulers/intelligenceRunner.js
 const cron = require('node-cron');
-const { supabase } = require('../services/config');
+const { dbClient } = require('../services/config');
 const analytics = require('../services/analytics');
 
 /**
@@ -11,7 +11,7 @@ async function runIntelligenceAnalysis() {
         console.log('[INTELLIGENCE] Starting nightly analysis');
         
         // Get all active tenants
-        const { data: tenants, error } = await supabase
+        const { data: tenants, error } = await dbClient
             .from('tenants')
             .select('id, business_name')
             .eq('is_active', true);
@@ -22,7 +22,7 @@ async function runIntelligenceAnalysis() {
             console.log(`[INTELLIGENCE] Analyzing tenant: ${tenant.business_name}`);
             
             // Log job start
-            const { data: jobRun } = await supabase
+            const { data: jobRun } = await dbClient
                 .from('intelligence_job_runs')
                 .insert({
                     tenant_id: tenant.id,
@@ -38,7 +38,7 @@ async function runIntelligenceAnalysis() {
                 const productAffinity = require('../services/analytics/productAffinity');
 
                 // Fetch customers for this tenant
-                const { data: customersForTenant, error: custErr } = await supabase
+                const { data: customersForTenant, error: custErr } = await dbClient
                     .from('customer_profiles')
                     .select('id')
                     .eq('tenant_id', tenant.id);
@@ -78,7 +78,7 @@ async function runIntelligenceAnalysis() {
                 console.log(`[INTELLIGENCE] Proactive messages sent: ${messagingResult.messagesSent || 0}`);
 
                 // Send manager alerts for high-risk customers
-                const { data: highRisk } = await supabase
+                const { data: highRisk } = await dbClient
                     .from('customer_purchase_patterns')
                     .select(`
                         *,
@@ -107,7 +107,7 @@ async function runIntelligenceAnalysis() {
                 }
 
                 // Update job as completed
-                await supabase
+                await dbClient
                     .from('intelligence_job_runs')
                     .update({
                         status: 'completed',
@@ -123,7 +123,7 @@ async function runIntelligenceAnalysis() {
                 console.error(`[INTELLIGENCE] Error for tenant ${tenant.id}:`, tenantError);
                 
                 // Mark job as failed
-                await supabase
+                await dbClient
                     .from('intelligence_job_runs')
                     .update({
                         status: 'failed',

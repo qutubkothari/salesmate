@@ -1,4 +1,4 @@
-const {
+﻿const {
   trackVRLShipment,
   formatVRLTrackingMessage,
   saveShipmentTracking
@@ -24,7 +24,7 @@ async function handleShipmentTracking(sessionId, message, from, conversationCont
       // If transporter/contact context, do NOT treat as LR
       if (isTrackingQuery && !isTransporterContext) {
         await sendMessage(from, 
-          `📦 *Shipment Tracking*\n\n` +
+          `ðŸ“¦ *Shipment Tracking*\n\n` +
           `To track your VRL shipment, please provide your 10-digit LR number.\n\n` +
           `For example: "Track my shipment 1099492944"`
         );
@@ -38,7 +38,7 @@ async function handleShipmentTracking(sessionId, message, from, conversationCont
     
     // Send "tracking..." message
     await sendMessage(from, 
-      `⏳ Tracking your shipment...\n📋 LR Number: ${lrNumber}\n\nPlease wait 20-30 seconds...`
+      `â³ Tracking your shipment...\nðŸ“‹ LR Number: ${lrNumber}\n\nPlease wait 20-30 seconds...`
     );
     
     // Track the shipment
@@ -52,8 +52,8 @@ async function handleShipmentTracking(sessionId, message, from, conversationCont
       // Save to database
       try {
         // Try to get customer profile ID and tenant ID from phone number
-        const { supabase } = require('../services/config');
-        const { data: customerProfile } = await supabase
+        const { dbClient } = require('../services/config');
+        const { data: customerProfile } = await dbClient
           .from('customer_profiles')
           .select('id, tenant_id')
           .eq('phone', from)
@@ -82,12 +82,12 @@ async function handleShipmentTracking(sessionId, message, from, conversationCont
     } else {
       // Tracking failed
       await sendMessage(from, 
-        `❌ *Unable to Track Shipment*\n\n` +
+        `âŒ *Unable to Track Shipment*\n\n` +
         `LR Number: ${lrNumber}\n\n` +
         `Please check:\n` +
-        `• LR number is correct (10 digits)\n` +
-        `• Shipment is with VRL Logistics\n` +
-        `• Try again in a few minutes\n\n` +
+        `â€¢ LR number is correct (10 digits)\n` +
+        `â€¢ Shipment is with VRL Logistics\n` +
+        `â€¢ Try again in a few minutes\n\n` +
         `If the issue persists, please contact our support team.`
       );
       
@@ -97,7 +97,7 @@ async function handleShipmentTracking(sessionId, message, from, conversationCont
   } catch (error) {
     console.error('[SHIPMENT_TRACKING] Error:', error);
     await sendMessage(from, 
-      `❌ Sorry, there was an error tracking your shipment. Please try again later.`
+      `âŒ Sorry, there was an error tracking your shipment. Please try again later.`
     );
     return false;
   }
@@ -114,7 +114,7 @@ async function handleTrackCommand(sessionId, message, from, conversationContext,
     
     if (!commandMatch) {
       await sendMessage(from, 
-        `❌ *Invalid Command*\n\n` +
+        `âŒ *Invalid Command*\n\n` +
         `Usage: /track <LR_NUMBER>\n` +
         `Example: /track 1099492944`
       );
@@ -129,7 +129,7 @@ async function handleTrackCommand(sessionId, message, from, conversationContext,
   } catch (error) {
     console.error('[TRACK_COMMAND] Error:', error);
     await sendMessage(from, 
-      `❌ Sorry, there was an error processing your command. Please try again.`
+      `âŒ Sorry, there was an error processing your command. Please try again.`
     );
   }
 }
@@ -156,3 +156,4 @@ module.exports = {
   handleTrackCommand,
   isShipmentTrackingIntent
 };
+

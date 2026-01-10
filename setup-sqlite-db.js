@@ -6,7 +6,7 @@
 const Database = require('better-sqlite3');
 const path = require('path');
 
-const dbPath = path.join(__dirname, 'local-database.db');
+const dbPath = process.env.SQLITE_DB_PATH || process.env.DB_PATH || path.join(__dirname, 'local-database.db');
 const db = new Database(dbPath);
 
 console.log('[DB_SETUP] Creating SQLite database at:', dbPath);
@@ -34,6 +34,7 @@ DROP TABLE IF EXISTS website_embeddings;
 DROP TABLE IF EXISTS whatsapp_connections;
 DROP TABLE IF EXISTS contact_groups;
 DROP TABLE IF EXISTS message_templates;
+DROP TABLE IF EXISTS audit_logs;
 DROP TABLE IF EXISTS discounts;
 DROP TABLE IF EXISTS tenants;
 `;
@@ -73,6 +74,16 @@ CREATE TABLE tenants (
     abandoned_cart_delay_hours INTEGER DEFAULT 2,
     abandoned_cart_message TEXT,
     admin_phones TEXT,
+    -- Optional per-tenant AI configuration
+    openai_api_key TEXT,
+    openai_project TEXT,
+    openai_model TEXT,
+    anthropic_api_key TEXT,
+    gemini_api_key TEXT,
+    -- Optional per-tenant Maytapi configuration
+    maytapi_product_id TEXT,
+    maytapi_phone_id TEXT,
+    maytapi_api_key TEXT,
     created_at TEXT DEFAULT (DATETIME('now')),
     updated_at TEXT DEFAULT (DATETIME('now'))
 );
@@ -129,6 +140,22 @@ CREATE TABLE conversations (
     updated_at TEXT DEFAULT (DATETIME('now')),
     FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
     FOREIGN KEY (customer_profile_id) REFERENCES customer_profiles(id) ON DELETE CASCADE
+);
+
+-- Audit Logs table
+CREATE TABLE audit_logs (
+    id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+    tenant_id TEXT NOT NULL,
+    actor_type TEXT,
+    actor_id TEXT,
+    actor_name TEXT,
+    action TEXT NOT NULL,
+    entity_type TEXT,
+    entity_id TEXT,
+    summary TEXT,
+    metadata TEXT,
+    created_at TEXT DEFAULT (DATETIME('now')),
+    FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
 );
 
 -- Product Categories table

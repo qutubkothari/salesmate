@@ -1,7 +1,7 @@
-// services/pricingService.js - TARGETED FIX for GST rate inconsistency
+﻿// services/pricingService.js - TARGETED FIX for GST rate inconsistency
 const { calculateShippingCharges, calculateTotalCartons } = require('./shippingService');
 const { calculateGST, determineIfInterstate } = require('./gstService');
-const { supabase } = require('./config');
+const { dbClient } = require('./config');
 
 /**
  * Round amount according to business rules
@@ -27,7 +27,7 @@ const roundAmount = (amount) => {
 const calculateComprehensivePricing = async (tenantId, cartItems, options = {}) => {
     try {
         console.log('[PRICING] Calculating comprehensive pricing for', cartItems?.length || 0, 'items');
-        console.log('[PRICING] 🔍 DEBUG - Received options:', {
+        console.log('[PRICING] ðŸ” DEBUG - Received options:', {
             ignorePriceOverride: options.ignorePriceOverride,
             discountAmount: options.discountAmount,
             customerId: options.customerId,
@@ -78,7 +78,7 @@ const calculateComprehensivePricing = async (tenantId, cartItems, options = {}) 
                     console.log('[PRICING] Normalized phone from', customerPhone, 'to', normalizedPhone);
                 }
 
-                let query = supabase
+                let query = dbClient
                     .from('orders')
                     .select(`
                         order_items(
@@ -142,7 +142,7 @@ const calculateComprehensivePricing = async (tenantId, cartItems, options = {}) 
             const product = item.product;
             const quantity = item.quantity || 1;
             
-            // ✅ CRITICAL FIX: Proper priority with discount detection
+            // âœ… CRITICAL FIX: Proper priority with discount detection
             let unitPrice = product.price;
             let priceSource = 'catalog';
             
@@ -150,7 +150,7 @@ const calculateComprehensivePricing = async (tenantId, cartItems, options = {}) 
             const catalogPrice = product.price;
             const lastPurchasePrice = lastPurchasePrices[product.id];
             
-            console.log(`[PRICING] 🔍 DEBUG - Processing ${product.name}:`, {
+            console.log(`[PRICING] ðŸ” DEBUG - Processing ${product.name}:`, {
                 catalogPrice,
                 lastPurchasePrice,
                 carton_price_override: item.carton_price_override,
@@ -158,26 +158,26 @@ const calculateComprehensivePricing = async (tenantId, cartItems, options = {}) 
                 isReturningCustomer: options.isReturningCustomer
             });
             
-            // ✅ CRITICAL BUSINESS LOGIC:
+            // âœ… CRITICAL BUSINESS LOGIC:
             // - RETURNING customers: Always show last purchase prices (unless discount approved)
             // - NEW customers: Show catalog prices only
             if (options.ignorePriceOverride) {
                 // NEW customer OR returning customer with approved discount
                 unitPrice = catalogPrice;
                 priceSource = 'catalog';
-                console.log(`[PRICING] ⚠️ ignorePriceOverride=true (NEW customer), forcing catalog price: ₹${unitPrice}`);
+                console.log(`[PRICING] âš ï¸ ignorePriceOverride=true (NEW customer), forcing catalog price: â‚¹${unitPrice}`);
             } else if (lastPurchasePrice && options.isReturningCustomer) {
                 // RETURNING customer - show their loyal customer pricing
                 unitPrice = lastPurchasePrice;
                 priceSource = 'last_purchase';
-                console.log(`[PRICING] ✅ RETURNING customer, using last purchase price: ₹${unitPrice}`);
+                console.log(`[PRICING] âœ… RETURNING customer, using last purchase price: â‚¹${unitPrice}`);
             } else if (lastPurchasePrice) {
                 // Has last purchase but not flagged as returning - use last purchase
                 unitPrice = lastPurchasePrice;
                 priceSource = 'last_purchase';
             }
             
-            // ✅ CRITICAL: If carton_price_override exists AND is different from base price,
+            // âœ… CRITICAL: If carton_price_override exists AND is different from base price,
             // it means a discount was applied - USE IT (unless ignorePriceOverride option is set)
             if (!options.ignorePriceOverride &&
                 item.carton_price_override &&
@@ -187,21 +187,21 @@ const calculateComprehensivePricing = async (tenantId, cartItems, options = {}) 
 
                 unitPrice = item.carton_price_override;
                 priceSource = 'negotiated_discount';
-                console.log(`[PRICING] ✅ Using negotiated/discounted price for ${product.name}: ₹${unitPrice} (was ₹${lastPurchasePrice || catalogPrice})`);
+                console.log(`[PRICING] âœ… Using negotiated/discounted price for ${product.name}: â‚¹${unitPrice} (was â‚¹${lastPurchasePrice || catalogPrice})`);
             } else if (!options.ignorePriceOverride &&
                        item.carton_price_override &&
                        item.carton_price_override === lastPurchasePrice) {
                 // carton_price_override matches last purchase price - no additional discount
                 unitPrice = lastPurchasePrice;
                 priceSource = 'last_purchase';
-                console.log(`[PRICING] Using last purchase price for ${product.name}: ₹${unitPrice} (was ₹${catalogPrice})`);
+                console.log(`[PRICING] Using last purchase price for ${product.name}: â‚¹${unitPrice} (was â‚¹${catalogPrice})`);
             } else if (options.ignorePriceOverride && item.carton_price_override) {
                 // Explicitly ignoring price override - use catalog or last purchase price
-                console.log(`[PRICING] ⚠️ Ignoring carton_price_override (₹${item.carton_price_override}) for ${product.name}, using ${priceSource} price: ₹${unitPrice}`);
+                console.log(`[PRICING] âš ï¸ Ignoring carton_price_override (â‚¹${item.carton_price_override}) for ${product.name}, using ${priceSource} price: â‚¹${unitPrice}`);
             } else if (priceSource === 'last_purchase') {
-                console.log(`[PRICING] Using last purchase price for ${product.name}: ₹${unitPrice} (was ₹${catalogPrice})`);
+                console.log(`[PRICING] Using last purchase price for ${product.name}: â‚¹${unitPrice} (was â‚¹${catalogPrice})`);
             } else {
-                console.log(`[PRICING] Using catalog price for ${product.name}: ₹${unitPrice}`);
+                console.log(`[PRICING] Using catalog price for ${product.name}: â‚¹${unitPrice}`);
             }
             
             const itemTotal = unitPrice * quantity;
@@ -358,10 +358,10 @@ const formatPricingForWhatsApp = (pricing, options = {}) => {
         display += '*Your Cart:*\n';
         pricing.items.forEach(item => {
             display += `*${item.productName}*\n`;
-            display += `  - Qty: ${item.quantity} × ₹${item.unitPrice} = ₹${item.itemTotal}`;
+            display += `  - Qty: ${item.quantity} Ã— â‚¹${item.unitPrice} = â‚¹${item.itemTotal}`;
             
             if (item.isRounded) {
-                display += ` → ₹${item.roundedItemTotal} (rounded)`;
+                display += ` â†’ â‚¹${item.roundedItemTotal} (rounded)`;
             }
             
             display += '\n';
@@ -371,41 +371,41 @@ const formatPricingForWhatsApp = (pricing, options = {}) => {
 
     // Pricing breakdown
     display += '*Pricing Breakdown:*\n';
-    display += `Original Subtotal: ₹${pricing.originalSubtotal.toLocaleString()}\n`;
+    display += `Original Subtotal: â‚¹${pricing.originalSubtotal.toLocaleString()}\n`;
     
     // REMOVED: Volume discount display (no longer applicable)
     // Old automatic volume discount logic has been removed
     
     // Show manual/approved discount if any
     if (pricing.discountAmount > 0) {
-        display += `Discount: -₹${pricing.discountAmount.toLocaleString()}\n`;
+        display += `Discount: -â‚¹${pricing.discountAmount.toLocaleString()}\n`;
     }
     
-    display += `Subtotal After Discount: ₹${pricing.subtotal.toLocaleString()}\n`;
+    display += `Subtotal After Discount: â‚¹${pricing.subtotal.toLocaleString()}\n`;
     
     // Shipping
     if (pricing.shipping.freeShippingApplied) {
-        display += `Shipping: FREE ✓\n`;
+        display += `Shipping: FREE âœ“\n`;
     } else {
-        display += `Shipping: ₹${pricing.shipping.charges.toLocaleString()} (${pricing.totalCartons} cartons × ₹${pricing.shipping.ratePerCarton})\n`;
+        display += `Shipping: â‚¹${pricing.shipping.charges.toLocaleString()} (${pricing.totalCartons} cartons Ã— â‚¹${pricing.shipping.ratePerCarton})\n`;
     }
     
     // FIXED: GST display with proper rate formatting
     if (showGSTBreakdown && pricing.gst.isInterstate) {
-        display += `IGST (${pricing.gst.rate}%): ₹${pricing.gst.igstAmount.toLocaleString()}\n`;
+        display += `IGST (${pricing.gst.rate}%): â‚¹${pricing.gst.igstAmount.toLocaleString()}\n`;
     } else if (showGSTBreakdown) {
-        display += `CGST (${pricing.gst.rate/2}%): ₹${pricing.gst.cgstAmount.toLocaleString()}\n`;
-        display += `SGST (${pricing.gst.rate/2}%): ₹${pricing.gst.sgstAmount.toLocaleString()}\n`;
+        display += `CGST (${pricing.gst.rate/2}%): â‚¹${pricing.gst.cgstAmount.toLocaleString()}\n`;
+        display += `SGST (${pricing.gst.rate/2}%): â‚¹${pricing.gst.sgstAmount.toLocaleString()}\n`;
     } else {
-        display += `GST (${pricing.gst.rate}%): ₹${pricing.gst.amount.toLocaleString()}\n`;
+        display += `GST (${pricing.gst.rate}%): â‚¹${pricing.gst.amount.toLocaleString()}\n`;
     }
     
     // Grand total
-    display += `*Final Total: ₹${pricing.grandTotal.toLocaleString()}*`;
+    display += `*Final Total: â‚¹${pricing.grandTotal.toLocaleString()}*`;
     
     // Rounding info
     if (showRoundingInfo && pricing.isRounded && pricing.roundingAdjustment > 0) {
-        display += ` (rounded from ₹${pricing.grandTotalBeforeRounding.toLocaleString()})`;
+        display += ` (rounded from â‚¹${pricing.grandTotalBeforeRounding.toLocaleString()})`;
     }
     
     return display;

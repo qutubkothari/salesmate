@@ -48,17 +48,28 @@
             z-index: 50;
             overflow-y: auto;
         }
+        .sidebar::-webkit-scrollbar { width: 6px; }
+        .sidebar::-webkit-scrollbar-track { background: transparent; }
+        .sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.18); border-radius: 9999px; }
+        .sidebar { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.18) transparent; }
         .sidebar.collapsed { width: 80px; }
+        .sidebar-header { transition: padding 0.3s ease; }
+        .sidebar.collapsed .sidebar-header { padding: 16px 12px; }
+        .sidebar.collapsed .sidebar-header .flex { justify-content: center; }
+        .sidebar.collapsed .sidebar-text { opacity: 0; width: 0; overflow: hidden; }
         .sidebar-item {
             transition: all 0.2s ease;
             cursor: pointer;
-            padding: 12px 20px;
+            padding: 10px 14px;
             border-radius: 12px;
             margin: 4px 12px;
             display: flex;
             align-items: center;
             color: rgba(255,255,255,0.8);
+            font-size: 14px;
+            font-weight: 500;
         }
+        .sidebar.collapsed .sidebar-item { justify-content: center; padding: 12px; margin: 4px 10px; }
         .sidebar-item:hover { background: rgba(255,255,255,0.1); color: white; }
         .sidebar-item.active { 
             background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); 
@@ -82,19 +93,26 @@
         .sidebar-toggle {
             position: fixed;
             top: 24px;
-            left: 250px;
+            left: calc(280px - 18px);
             z-index: 51;
             transition: left 0.3s ease;
-            background: rgba(255,255,255,0.2);
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 9999px;
+            background: rgba(255,255,255,0.14);
             backdrop-filter: blur(10px);
             border: 1px solid rgba(255,255,255,0.3);
         }
-        .sidebar-toggle.collapsed { left: 50px; }
+        .sidebar-toggle:hover { background: rgba(255,255,255,0.22); }
+        .sidebar-toggle.collapsed { left: calc(80px - 18px); }
         @media (max-width: 768px) {
             .sidebar { transform: translateX(-100%); }
             .sidebar.mobile-open { transform: translateX(0); }
             .main-content { margin-left: 0; }
-            .sidebar-toggle { left: 20px; }
+            .sidebar-toggle { left: 16px; }
         }
     </style>
 </head>
@@ -113,7 +131,7 @@
         <div id="dashboard" class="hidden">
             <!-- Sidebar Navigation -->
             <aside id="sidebar" class="sidebar glass-effect">
-                <div class="p-6 border-b border-white/20">
+                <div class="sidebar-header p-6 border-b border-white/20">
                     <div class="flex items-center space-x-3">
                         <div class="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
                             <img src="/assets/logo.png" alt="Logo" class="w-6 h-6" />
@@ -126,11 +144,13 @@
                 </div>
                 
                 <nav class="py-4">
-                    <!-- Hidden tabs - will be activated based on subscription modules -->
-                    <div class="sidebar-item active" onclick="switchTab('overview')" data-tab="overview" style="display: none;">
+                    <!-- Dashboard / Overview - Always visible -->
+                    <div class="sidebar-item active" onclick="switchTab('overview')" data-tab="overview">
                         <i class="fas fa-chart-line"></i>
-                        <span>Overview</span>
+                        <span>Dashboard</span>
                     </div>
+                    
+                    <!-- Hidden tabs - will be activated based on subscription modules -->
                     <div class="sidebar-item" onclick="switchTab('conversations')" data-tab="conversations" style="display: none;">
                         <i class="fas fa-comments"></i>
                         <span>Conversations</span>
@@ -142,6 +162,10 @@
                     <div class="sidebar-item" onclick="switchTab('followups')" data-tab="followups">
                         <i class="fas fa-clock"></i>
                         <span>Follow-ups</span>
+                    </div>
+                    <div class="sidebar-item" onclick="switchTab('leads')" data-tab="leads">
+                        <i class="fas fa-user-tag"></i>
+                        <span>Leads</span>
                     </div>
                     <div class="sidebar-item" onclick="switchTab('triage')" data-tab="triage">
                         <i class="fas fa-life-ring"></i>
@@ -167,11 +191,36 @@
                         <i class="fas fa-chart-bar"></i>
                         <span>Analytics</span>
                     </div>
+
+                    <div class="sidebar-item" onclick="switchTab('reports')" data-tab="reports">
+                        <i class="fas fa-clipboard-check"></i>
+                        <span>Reports</span>
+                    </div>
+
+                    <div class="sidebar-item" onclick="switchTab('activity-feed')" data-tab="activity-feed">
+                        <i class="fas fa-stream"></i>
+                        <span>Activity Feed</span>
+                    </div>
+
+                    <div class="sidebar-item" onclick="switchTab('audit-logs')" data-tab="audit-logs">
+                        <i class="fas fa-clipboard-list"></i>
+                        <span>Audit Logs</span>
+                    </div>
                     
                     <!-- Active tabs - Based on subscription modules -->
                     <div class="sidebar-item" onclick="switchTab('broadcast')" data-tab="broadcast">
                         <i class="fas fa-bullhorn"></i>
                         <span>Broadcast</span>
+                    </div>
+
+                    <div class="sidebar-item" onclick="switchTab('templates')" data-tab="templates">
+                        <i class="fas fa-message"></i>
+                        <span>Templates</span>
+                    </div>
+
+                    <div class="sidebar-item" onclick="switchTab('unsubscribed')" data-tab="unsubscribed">
+                        <i class="fas fa-user-slash"></i>
+                        <span>Unsubscribed</span>
                     </div>
                     <!-- Hidden for now - focusing on broadcast functionality -->
                     <div class="sidebar-item" onclick="switchTab('whatsapp-web')" data-tab="whatsapp-web">
@@ -192,8 +241,8 @@
             </aside>
 
             <!-- Sidebar Toggle Button -->
-            <button id="sidebarToggle" onclick="toggleSidebar()" class="sidebar-toggle p-3 rounded-xl text-white hover:bg-white/30 transition-all">
-                <i class="fas fa-bars"></i>
+            <button id="sidebarToggle" onclick="toggleSidebar()" class="sidebar-toggle text-white transition-all" aria-label="Toggle sidebar" title="Toggle sidebar">
+                <i id="sidebarToggleIcon" class="fas fa-angles-left" style="font-size: 14px;"></i>
             </button>
 
             <!-- Main Content Area -->
@@ -239,8 +288,8 @@
                     </div>
                 </div>
 
-                <!-- Stats Overview -->
-                <section class="max-w-7xl mx-auto px-6 py-8">
+                <!-- Stats Overview - Only visible on Dashboard/Overview tab -->
+                <section id="statsSection" class="max-w-7xl mx-auto px-6 py-8">
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8" id="statsGrid">
                         <!-- Stats will be dynamically loaded -->
                     </div>
@@ -815,6 +864,10 @@
     };
     // ---------- API Helpers ----------
     const api = {
+        authHeaders() {
+            return state.session?.token ? { 'Authorization': `Bearer ${state.session.token}` } : {};
+        },
+
         async verifyToken(token) {
             const response = await fetch('/api/verify-token', {
                 method: 'POST',
@@ -826,7 +879,9 @@
 
         async fetchData(endpoint) {
             if (!state.session?.tenantId) throw new Error('No tenant session');
-            const response = await fetch(`/api/dashboard/${endpoint}/${state.session.tenantId}`);
+            const response = await fetch(`/api/dashboard/${endpoint}/${state.session.tenantId}`, {
+                headers: { ...this.authHeaders() }
+            });
             if (!response.ok) throw new Error(`Failed to fetch ${endpoint}`);
             return await response.json();
         },
@@ -834,7 +889,7 @@
         async updateSettings(settingsData) {
             const response = await fetch(`/api/dashboard/settings/${state.session.tenantId}`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...this.authHeaders() },
                 body: JSON.stringify(settingsData)
             });
             return await response.json();
@@ -842,7 +897,8 @@
 
         async deleteItem(type, id) {
             const response = await fetch(`/api/dashboard/${type}/${state.session.tenantId}/${id}`, {
-                method: 'DELETE'
+                method: 'DELETE',
+                headers: { ...this.authHeaders() }
             });
             return await response.json();
         },
@@ -850,7 +906,7 @@
         async putJSON(path, payload) {
             const response = await fetch(path, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...this.authHeaders() },
                 body: JSON.stringify(payload)
             });
             return await response.json();
@@ -859,7 +915,7 @@
         async postJSON(path, payload) {
             const response = await fetch(path, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...this.authHeaders() },
                 body: JSON.stringify(payload)
             });
             return await response.json();
@@ -1542,19 +1598,58 @@
     }
     
     // Toggle sidebar collapse/expand
-    function toggleSidebar() {
+    const SIDEBAR_STORAGE_KEY = 'salesmate_sidebar_collapsed_v1';
+
+    function setSidebarCollapsed(isCollapsed) {
         const sidebar = document.getElementById('sidebar');
         const mainContent = document.getElementById('mainContent');
         const toggleBtn = document.getElementById('sidebarToggle');
+        const icon = document.getElementById('sidebarToggleIcon') || toggleBtn?.querySelector('i');
+
+        if (!sidebar || !mainContent || !toggleBtn) return;
+
+        sidebar.classList.toggle('collapsed', isCollapsed);
+        mainContent.classList.toggle('expanded', isCollapsed);
+        toggleBtn.classList.toggle('collapsed', isCollapsed);
+
+        if (icon) {
+            icon.classList.remove('fa-bars', 'fa-angles-left', 'fa-angles-right');
+            icon.classList.add(isCollapsed ? 'fa-angles-right' : 'fa-angles-left');
+        }
+    }
+
+    function initSidebarUI() {
+        // Add a tooltip to each nav item so icon-only mode is usable.
+        document.querySelectorAll('.sidebar-item').forEach((item) => {
+            if (!item.getAttribute('title')) {
+                const label = item.querySelector('span')?.textContent?.trim();
+                if (label) item.setAttribute('title', label);
+            }
+        });
+
+        // Apply persisted collapse state on desktop.
+        try {
+            const saved = localStorage.getItem(SIDEBAR_STORAGE_KEY);
+            if (window.innerWidth > 768) setSidebarCollapsed(saved === '1');
+            else setSidebarCollapsed(false);
+        } catch (_) {
+            // If storage is blocked, just default to expanded.
+            setSidebarCollapsed(false);
+        }
+    }
+
+    function toggleSidebar() {
+        const sidebar = document.getElementById('sidebar');
+        if (!sidebar) return;
         
         // On mobile, toggle sidebar visibility
         if (window.innerWidth <= 768) {
             sidebar.classList.toggle('mobile-open');
         } else {
             // On desktop, toggle collapse
-            sidebar.classList.toggle('collapsed');
-            mainContent.classList.toggle('expanded');
-            toggleBtn.classList.toggle('collapsed');
+            const nextCollapsed = !sidebar.classList.contains('collapsed');
+            setSidebarCollapsed(nextCollapsed);
+            try { localStorage.setItem(SIDEBAR_STORAGE_KEY, nextCollapsed ? '1' : '0'); } catch (_) {}
         }
     }
 
@@ -1562,6 +1657,7 @@
         const content = document.getElementById('tabContent');
         const customersTab = document.getElementById('customersTab');
         const websiteTab = document.getElementById('websiteTab');
+        const statsSection = document.getElementById('statsSection');
         
         // Clear any auto-refresh intervals when switching tabs
         if (window.broadcastHistoryInterval && tabName !== 'broadcast') {
@@ -1571,6 +1667,15 @@
         if (window.waWebStatusInterval && tabName !== 'whatsapp-web') {
             clearInterval(window.waWebStatusInterval);
             window.waWebStatusInterval = null;
+        }
+        
+        // Show stats section only on overview/dashboard tab
+        if (statsSection) {
+            if (tabName === 'overview') {
+                statsSection.classList.remove('hidden');
+            } else {
+                statsSection.classList.add('hidden');
+            }
         }
         
         // Hide all tab content first
@@ -1588,9 +1693,15 @@
                 case 'products': await loadProducts(); break;
                 case 'settings': await loadSettings(); break;
                 case 'analytics': await loadAnalytics(); break;
+                case 'reports': await loadReports(); break;
+                case 'activity-feed': await loadActivityFeed(); break;
+                case 'audit-logs': await loadAuditLogs(); break;
                 case 'broadcast': await loadBroadcast(); break;
+                case 'templates': await loadMessageTemplates(); break;
+                case 'unsubscribed': await loadUnsubscribed(); break;
                 case 'whatsapp-web': await loadWhatsAppWeb(); break;
                 case 'followups': await loadFollowUps(); break;
+                case 'leads': await loadLeads(); break;
                 case 'triage': await loadTriage(); break;
                 case 'customers': 
                     content.classList.add('hidden');
@@ -2267,6 +2378,68 @@
                 </div>
             </div>
 
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
+                <div class="config-card p-6 rounded-2xl">
+                    <div class="flex items-center justify-between mb-6">
+                        <h3 class="text-gray-900 text-xl font-semibold"><i class="fas fa-robot mr-2 text-indigo-600"></i>AI Keys</h3>
+                        <span class="text-xs px-3 py-1 rounded-full ${s.openai_api_key_set || s.anthropic_api_key_set || s.gemini_api_key_set ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}">
+                            ${s.openai_api_key_set || s.anthropic_api_key_set || s.gemini_api_key_set ? 'Configured' : 'Not configured'}
+                        </span>
+                    </div>
+                    <form id="aiKeysForm" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">OpenAI API Key</label>
+                            <input type="password" id="openaiApiKey" autocomplete="new-password" placeholder="${s.openai_api_key_set ? '•••••••• (saved)' : 'sk-...'}" class="w-full px-4 py-3 border border-gray-300 rounded-xl" />
+                            <p class="text-xs text-gray-500 mt-1">Leave blank to keep the currently saved key.</p>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">OpenAI Project (optional)</label>
+                                <input type="text" id="openaiProject" value="${escapeHtml(s.openai_project || '')}" placeholder="proj_..." class="w-full px-4 py-3 border border-gray-300 rounded-xl" />
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">OpenAI Model (optional)</label>
+                                <input type="text" id="openaiModel" value="${escapeHtml(s.openai_model || '')}" placeholder="grok-code-fast-1" class="w-full px-4 py-3 border border-gray-300 rounded-xl" />
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Anthropic API Key (optional)</label>
+                            <input type="password" id="anthropicApiKey" autocomplete="new-password" placeholder="${s.anthropic_api_key_set ? '•••••••• (saved)' : 'sk-ant-...'}" class="w-full px-4 py-3 border border-gray-300 rounded-xl" />
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Gemini API Key (optional)</label>
+                            <input type="password" id="geminiApiKey" autocomplete="new-password" placeholder="${s.gemini_api_key_set ? '•••••••• (saved)' : 'AIza...'}" class="w-full px-4 py-3 border border-gray-300 rounded-xl" />
+                        </div>
+                        <button type="submit" class="w-full bg-gradient-to-r from-indigo-500 to-indigo-600 text-white py-3 rounded-xl hover:from-indigo-600 hover:to-indigo-700">Save AI Settings</button>
+                    </form>
+                </div>
+
+                <div class="config-card p-6 rounded-2xl">
+                    <div class="flex items-center justify-between mb-6">
+                        <h3 class="text-gray-900 text-xl font-semibold"><i class="fas fa-comment-dots mr-2 text-green-600"></i>Maytapi Configuration</h3>
+                        <span class="text-xs px-3 py-1 rounded-full ${s.maytapi_api_key_set ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}">
+                            ${s.maytapi_api_key_set ? 'Configured' : 'Not configured'}
+                        </span>
+                    </div>
+                    <form id="maytapiForm" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Maytapi Product ID</label>
+                            <input type="text" id="maytapiProductId" value="${escapeHtml(s.maytapi_product_id || '')}" placeholder="product_id" class="w-full px-4 py-3 border border-gray-300 rounded-xl" />
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Maytapi Phone ID</label>
+                            <input type="text" id="maytapiPhoneId" value="${escapeHtml(s.maytapi_phone_id || '')}" placeholder="phone_id" class="w-full px-4 py-3 border border-gray-300 rounded-xl" />
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Maytapi API Key</label>
+                            <input type="password" id="maytapiApiKey" autocomplete="new-password" placeholder="${s.maytapi_api_key_set ? '•••••••• (saved)' : 'api_key'}" class="w-full px-4 py-3 border border-gray-300 rounded-xl" />
+                            <p class="text-xs text-gray-500 mt-1">Leave blank to keep the currently saved key.</p>
+                        </div>
+                        <button type="submit" class="w-full bg-gradient-to-r from-green-500 to-green-600 text-white py-3 rounded-xl hover:from-green-600 hover:to-green-700">Save Maytapi Settings</button>
+                    </form>
+                </div>
+            </div>
+
             <div class="config-card p-6 rounded-2xl mt-8">
                 <h3 class="text-gray-900 text-xl font-semibold mb-6"><i class="fas fa-building mr-2 text-green-600"></i>Business Information</h3>
                 <form id="businessForm" class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -2320,6 +2493,539 @@
                         <div class="flex items-center justify-between p-4 bg-blue-50 rounded-xl"><div><div class="text-gray-900 font-semibold">Conversion Rate</div><div class="text-gray-600 text-sm">Conversations to orders</div></div><div class="text-2xl font-bold text-blue-600">${analytics.conversionRate || 0}%</div></div>
                         <div class="flex items-center justify-between p-4 bg-green-50 rounded-xl"><div><div class="text-gray-900 font-semibold">Response Rate</div><div class="text-gray-600 text-sm">Customer engagement</div></div><div class="text-2xl font-bold text-green-600">${analytics.responseRate || 0}%</div></div>
                         <div class="flex items-center justify-between p-4 bg-purple-50 rounded-xl"><div><div class="text-gray-900 font-semibold">Avg. Cart Size</div><div class="text-gray-600 text-sm">Items per order</div></div><div class="text-2xl font-bold text-purple-600">${analytics.avgCartSize || 0}</div></div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    async function loadReports() {
+        const data = await api.fetchData('reports');
+        if (!data.success) throw new Error(data.error || 'Failed to load reports');
+
+        const reports = data.reports || {};
+        const triage = reports.triage || {};
+        const triageByStatus = triage.byStatus || {};
+        const pipeline = reports.leadsPipeline || {};
+        const broadcasts = reports.broadcasts || {};
+        const today = broadcasts.today || {};
+        const audit = reports.audit || {};
+
+        const stageRows = Array.isArray(pipeline.stages) ? pipeline.stages : [];
+
+        const triageCards = [
+            { label: 'New', value: triageByStatus.NEW || 0 },
+            { label: 'In Progress', value: triageByStatus.IN_PROGRESS || 0 },
+            { label: 'Closed', value: triageByStatus.CLOSED || 0 },
+            { label: 'Total', value: triage.total || 0 }
+        ];
+
+        document.getElementById('tabContent').innerHTML = `
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-white text-2xl font-bold"><i class="fas fa-clipboard-check mr-3"></i>Reports</h2>
+                <div class="text-white/70 text-sm">Snapshot</div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                <div class="config-card p-6 rounded-2xl">
+                    <h3 class="text-gray-900 text-xl font-semibold mb-6">Triage</h3>
+                    <div class="grid grid-cols-2 gap-4">
+                        ${triageCards.map(c => `
+                            <div class="p-4 rounded-xl bg-gray-50 border border-gray-200">
+                                <div class="text-gray-600 text-sm">${escapeHtml(c.label)}</div>
+                                <div class="text-gray-900 text-2xl font-bold">${Number(c.value) || 0}</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+
+                <div class="config-card p-6 rounded-2xl">
+                    <h3 class="text-gray-900 text-xl font-semibold mb-6">Broadcasts (Today)</h3>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="p-4 rounded-xl bg-green-50 border border-green-200">
+                            <div class="text-green-800 text-sm">Sent</div>
+                            <div class="text-green-900 text-2xl font-bold">${Number(today.sent) || 0}</div>
+                        </div>
+                        <div class="p-4 rounded-xl bg-red-50 border border-red-200">
+                            <div class="text-red-800 text-sm">Failed</div>
+                            <div class="text-red-900 text-2xl font-bold">${Number(today.failed) || 0}</div>
+                        </div>
+                        <div class="p-4 rounded-xl bg-yellow-50 border border-yellow-200">
+                            <div class="text-yellow-800 text-sm">Pending</div>
+                            <div class="text-yellow-900 text-2xl font-bold">${Number(today.pending) || 0}</div>
+                        </div>
+                        <div class="p-4 rounded-xl bg-gray-50 border border-gray-200">
+                            <div class="text-gray-600 text-sm">Total</div>
+                            <div class="text-gray-900 text-2xl font-bold">${Number(today.total) || 0}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div class="config-card p-6 rounded-2xl">
+                    <h3 class="text-gray-900 text-xl font-semibold mb-6">Leads Pipeline</h3>
+                    <div class="space-y-3">
+                        ${stageRows.length ? stageRows.map(s => `
+                            <div class="flex items-center justify-between p-4 rounded-xl bg-gray-50 border border-gray-200">
+                                <div class="text-gray-900 font-medium">${escapeHtml(String(s.name || 'Stage'))}</div>
+                                <div class="text-gray-900 font-bold">${Number(s.count) || 0}</div>
+                            </div>
+                        `).join('') : `
+                            <div class="p-6 rounded-xl bg-gray-50 border border-gray-200 text-gray-600">No pipeline stages found</div>
+                        `}
+                        <div class="flex items-center justify-between p-4 rounded-xl bg-white border border-gray-200">
+                            <div class="text-gray-900 font-semibold">Total Leads</div>
+                            <div class="text-gray-900 text-lg font-bold">${Number(pipeline.total) || 0}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="config-card p-6 rounded-2xl">
+                    <h3 class="text-gray-900 text-xl font-semibold mb-6">Audit Activity</h3>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="p-4 rounded-xl bg-blue-50 border border-blue-200">
+                            <div class="text-blue-800 text-sm">Last 24h</div>
+                            <div class="text-blue-900 text-2xl font-bold">${Number(audit.last24h) || 0}</div>
+                        </div>
+                        <div class="p-4 rounded-xl bg-gray-50 border border-gray-200">
+                            <div class="text-gray-600 text-sm">Loaded (recent)</div>
+                            <div class="text-gray-900 text-2xl font-bold">${Number(audit.total) || 0}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    async function loadAuditLogs() {
+        const data = await api.fetchData('audit-logs');
+        if (!data.success) throw new Error(data.error || 'Failed to load audit logs');
+
+        const logs = Array.isArray(data.logs) ? data.logs : [];
+
+        document.getElementById('tabContent').innerHTML = `
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-white text-2xl font-bold"><i class="fas fa-clipboard-list mr-3"></i>Audit Logs</h2>
+                <div class="text-white/70 text-sm">Showing ${logs.length} recent events</div>
+            </div>
+
+            <div class="glass-effect rounded-2xl overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead>
+                            <tr class="bg-white/10">
+                                <th class="text-left px-6 py-4 text-white/80 text-sm font-semibold">Time</th>
+                                <th class="text-left px-6 py-4 text-white/80 text-sm font-semibold">Action</th>
+                                <th class="text-left px-6 py-4 text-white/80 text-sm font-semibold">Entity</th>
+                                <th class="text-left px-6 py-4 text-white/80 text-sm font-semibold">Summary</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${logs.length ? logs.map((l) => {
+                                const when = l.created_at ? new Date(l.created_at).toLocaleString() : '';
+                                const action = escapeHtml(String(l.action || ''));
+                                const entity = escapeHtml([l.entity_type, l.entity_id].filter(Boolean).join(': '));
+                                const summary = escapeHtml(String(l.summary || ''));
+                                return `
+                                    <tr class="border-t border-white/10 hover:bg-white/5">
+                                        <td class="px-6 py-4 text-white/70 text-sm whitespace-nowrap">${when}</td>
+                                        <td class="px-6 py-4 text-white text-sm font-medium">${action}</td>
+                                        <td class="px-6 py-4 text-white/70 text-sm">${entity || '-'}</td>
+                                        <td class="px-6 py-4 text-white/70 text-sm">${summary || '-'}</td>
+                                    </tr>
+                                `;
+                            }).join('') : `
+                                <tr>
+                                    <td colspan="4" class="px-6 py-10 text-center text-white/70">No audit events yet</td>
+                                </tr>
+                            `}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+    }
+
+    function getActivityIcon(action) {
+        const a = String(action || '').toLowerCase();
+        if (a.includes('create')) return 'fas fa-plus-circle';
+        if (a.includes('update') || a.includes('edit')) return 'fas fa-pen-to-square';
+        if (a.includes('assign')) return 'fas fa-user-check';
+        if (a.includes('close') || a.includes('resolve')) return 'fas fa-check-circle';
+        if (a.includes('reopen')) return 'fas fa-rotate-left';
+        if (a.includes('delete')) return 'fas fa-trash';
+        if (a.includes('pipeline')) return 'fas fa-diagram-project';
+        if (a.includes('triage')) return 'fas fa-life-ring';
+        return 'fas fa-bolt';
+    }
+
+    async function loadActivityFeed() {
+        const data = await api.fetchData('audit-logs');
+        if (!data.success) throw new Error(data.error || 'Failed to load activity feed');
+
+        const logs = Array.isArray(data.logs) ? data.logs : [];
+
+        document.getElementById('tabContent').innerHTML = `
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-white text-2xl font-bold"><i class="fas fa-stream mr-3"></i>Activity Feed</h2>
+                <div class="text-white/70 text-sm">Showing ${logs.length} recent events</div>
+            </div>
+
+            <div class="space-y-4">
+                ${logs.length ? logs.map((l) => {
+                    const when = l.created_at ? new Date(l.created_at).toLocaleString() : '';
+                    const action = escapeHtml(String(l.action || ''));
+                    const summary = escapeHtml(String(l.summary || ''));
+                    const entity = escapeHtml([l.entity_type, l.entity_id].filter(Boolean).join(': '));
+                    const actor = escapeHtml(String(l.actor_name || l.actor_type || ''));
+                    const icon = getActivityIcon(l.action);
+                    return `
+                        <div class="glass-effect rounded-2xl p-5">
+                            <div class="flex items-start gap-4">
+                                <div class="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center flex-shrink-0">
+                                    <i class="${icon} text-white"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <div class="flex items-center justify-between gap-4">
+                                        <div class="text-white font-semibold">${summary || action || 'Event'}</div>
+                                        <div class="text-white/60 text-xs whitespace-nowrap">${when}</div>
+                                    </div>
+                                    <div class="mt-1 text-white/70 text-sm">
+                                        ${action ? `<span class="font-medium text-white/80">${action}</span>` : ''}
+                                        ${entity ? `<span class="ml-2">• ${entity}</span>` : ''}
+                                        ${actor ? `<span class="ml-2">• ${actor}</span>` : ''}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('') : `
+                    <div class="glass-effect p-10 rounded-2xl text-center text-white/70">No activity yet</div>
+                `}
+            </div>
+        `;
+    }
+
+    // -------- Message Templates --------
+    window._templateEditor = window._templateEditor || { editingId: null };
+
+    function getTemplateFormValues() {
+        const name = (document.getElementById('tmplName')?.value || '').trim();
+        const category = (document.getElementById('tmplCategory')?.value || '').trim();
+        const text = (document.getElementById('tmplText')?.value || '').trim();
+        const variablesRaw = (document.getElementById('tmplVars')?.value || '').trim();
+        const isActive = !!document.getElementById('tmplActive')?.checked;
+
+        let variables = variablesRaw || '[]';
+        // Keep it permissive: accept JSON arrays/objects or comma-separated strings.
+        try {
+            const parsed = JSON.parse(variables);
+            variables = parsed;
+        } catch {
+            const parts = variablesRaw
+                .split(',')
+                .map(s => s.trim())
+                .filter(Boolean);
+            variables = parts.length ? parts : [];
+        }
+
+        return { name, category: category || null, templateText: text, variables, isActive };
+    }
+
+    function fillTemplateForm(t) {
+        const name = t?.name || '';
+        const category = t?.category || '';
+        const text = t?.template_text || '';
+        const vars = t?.variables || '[]';
+        const active = (t?.is_active == null) ? true : !!Number(t.is_active);
+
+        const elName = document.getElementById('tmplName');
+        const elCat = document.getElementById('tmplCategory');
+        const elText = document.getElementById('tmplText');
+        const elVars = document.getElementById('tmplVars');
+        const elActive = document.getElementById('tmplActive');
+
+        if (elName) elName.value = name;
+        if (elCat) elCat.value = category;
+        if (elText) elText.value = text;
+        if (elVars) elVars.value = (typeof vars === 'string') ? vars : JSON.stringify(vars);
+        if (elActive) elActive.checked = active;
+    }
+
+    function clearTemplateForm() {
+        window._templateEditor.editingId = null;
+        fillTemplateForm({ name: '', category: '', template_text: '', variables: '[]', is_active: 1 });
+        const title = document.getElementById('tmplFormTitle');
+        if (title) title.textContent = 'New Template';
+        const cancelBtn = document.getElementById('tmplCancelBtn');
+        if (cancelBtn) cancelBtn.classList.add('hidden');
+    }
+
+    async function fetchTemplates() {
+        const tenantId = state.session?.tenantId;
+        if (!tenantId) throw new Error('No tenant session');
+        const res = await fetch(`/api/broadcast/templates/${tenantId}`, { headers: { ...api.authHeaders() } });
+        const data = await res.json();
+        if (!res.ok || !data.success) throw new Error(data.error || 'Failed to load templates');
+        return Array.isArray(data.templates) ? data.templates : [];
+    }
+
+    async function saveTemplate() {
+        const tenantId = state.session?.tenantId;
+        if (!tenantId) throw new Error('No tenant session');
+
+        const v = getTemplateFormValues();
+        if (!v.name || !v.templateText) {
+            showNotification('Template name and text are required', 'warning');
+            return;
+        }
+
+        const payload = {
+            tenantId,
+            // back-compat keys supported by API
+            templateName: v.name,
+            messageText: v.templateText,
+            // explicit keys
+            name: v.name,
+            templateText: v.templateText,
+            category: v.category,
+            variables: v.variables,
+            isActive: v.isActive
+        };
+
+        if (window._templateEditor.editingId) {
+            const id = window._templateEditor.editingId;
+            const r = await api.putJSON(`/api/broadcast/templates/${id}`, payload);
+            if (!r.success) throw new Error(r.error || 'Failed to update template');
+            showNotification('Template updated', 'success');
+        } else {
+            const r = await api.postJSON('/api/broadcast/templates', payload);
+            if (!r.success) throw new Error(r.error || 'Failed to create template');
+            showNotification('Template created', 'success');
+        }
+
+        await loadMessageTemplates();
+        clearTemplateForm();
+    }
+
+    async function deleteTemplate(templateId) {
+        if (!templateId) return;
+        if (!confirm('Delete this template?')) return;
+        const res = await fetch(`/api/broadcast/templates/${templateId}`, {
+            method: 'DELETE',
+            headers: { ...api.authHeaders() }
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success) throw new Error(data.error || 'Failed to delete template');
+        showNotification('Template deleted', 'success');
+        await loadMessageTemplates();
+        if (window._templateEditor.editingId === templateId) clearTemplateForm();
+    }
+
+    function editTemplate(t) {
+        window._templateEditor.editingId = t?.id || null;
+        fillTemplateForm(t);
+        const title = document.getElementById('tmplFormTitle');
+        if (title) title.textContent = 'Edit Template';
+        const cancelBtn = document.getElementById('tmplCancelBtn');
+        if (cancelBtn) cancelBtn.classList.remove('hidden');
+    }
+
+    async function loadMessageTemplates() {
+        const templates = await fetchTemplates();
+
+        document.getElementById('tabContent').innerHTML = `
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-white text-2xl font-bold"><i class="fas fa-message mr-3"></i>Message Templates</h2>
+                <div class="text-white/70 text-sm">${templates.length} templates</div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div class="config-card p-6 rounded-2xl">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 id="tmplFormTitle" class="text-gray-900 text-xl font-semibold">New Template</h3>
+                        <button id="tmplCancelBtn" class="hidden text-sm px-3 py-1 rounded-lg bg-gray-200 hover:bg-gray-300" onclick="clearTemplateForm()">Cancel</button>
+                    </div>
+
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-gray-700 text-sm font-medium mb-2">Template Name</label>
+                            <input id="tmplName" class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="e.g. Payment Follow-up" />
+                        </div>
+
+                        <div>
+                            <label class="block text-gray-700 text-sm font-medium mb-2">Category (optional)</label>
+                            <input id="tmplCategory" class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="e.g. followup" />
+                        </div>
+
+                        <div>
+                            <label class="block text-gray-700 text-sm font-medium mb-2">Message Text</label>
+                            <textarea id="tmplText" rows="5" class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="Write the template message..."></textarea>
+                        </div>
+
+                        <div>
+                            <label class="block text-gray-700 text-sm font-medium mb-2">Variables (JSON or comma-separated)</label>
+                            <input id="tmplVars" class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder='e.g. ["name","order_id"]' value="[]" />
+                        </div>
+
+                        <label class="flex items-center gap-2 text-sm text-gray-800">
+                            <input id="tmplActive" type="checkbox" class="rounded" checked />
+                            Active
+                        </label>
+
+                        <button class="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white px-6 py-4 rounded-xl hover:from-blue-600 hover:to-purple-700 transition-all" onclick="saveTemplate()">
+                            <i class="fas fa-save mr-2"></i>Save Template
+                        </button>
+                    </div>
+                </div>
+
+                <div class="glass-effect p-0 rounded-2xl overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead>
+                                <tr class="bg-white/10">
+                                    <th class="text-left px-6 py-4 text-white/80 text-sm font-semibold">Name</th>
+                                    <th class="text-left px-6 py-4 text-white/80 text-sm font-semibold">Category</th>
+                                    <th class="text-left px-6 py-4 text-white/80 text-sm font-semibold">Active</th>
+                                    <th class="text-left px-6 py-4 text-white/80 text-sm font-semibold">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${templates.length ? templates.map((t) => {
+                                    const name = escapeHtml(String(t.name || ''));
+                                    const category = escapeHtml(String(t.category || ''));
+                                    const active = (t.is_active == null) ? 'Yes' : (Number(t.is_active) ? 'Yes' : 'No');
+                                    return `
+                                        <tr class="border-t border-white/10 hover:bg-white/5">
+                                            <td class="px-6 py-4 text-white text-sm font-medium">${name || '-'}</td>
+                                            <td class="px-6 py-4 text-white/70 text-sm">${category || '-'}</td>
+                                            <td class="px-6 py-4 text-white/70 text-sm">${active}</td>
+                                            <td class="px-6 py-4 text-white/70 text-sm whitespace-nowrap">
+                                                <button class="px-3 py-1 rounded-lg bg-white/10 hover:bg-white/20 mr-2" onclick='editTemplate(${JSON.stringify({
+                                                    id: t.id,
+                                                    name: t.name,
+                                                    category: t.category,
+                                                    template_text: t.template_text,
+                                                    variables: t.variables,
+                                                    is_active: t.is_active
+                                                }).replace(/'/g, "\\'")})'>Edit</button>
+                                                <button class="px-3 py-1 rounded-lg bg-red-500/30 hover:bg-red-500/40" onclick="deleteTemplate('${t.id}')">Delete</button>
+                                            </td>
+                                        </tr>
+                                    `;
+                                }).join('') : `
+                                    <tr>
+                                        <td colspan="4" class="px-6 py-10 text-center text-white/70">No templates yet</td>
+                                    </tr>
+                                `}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Ensure form is reset on first load
+        clearTemplateForm();
+    }
+
+    // -------- Unsubscribed (Opt-out list) --------
+    async function fetchUnsubscribed() {
+        const tenantId = state.session?.tenantId;
+        if (!tenantId) throw new Error('No tenant session');
+        const res = await fetch(`/api/broadcast/unsubscribed/${tenantId}`, { headers: { ...api.authHeaders() } });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success) throw new Error(data.error || 'Failed to load unsubscribed list');
+        return Array.isArray(data.items) ? data.items : [];
+    }
+
+    async function addUnsubscribed() {
+        const tenantId = state.session?.tenantId;
+        if (!tenantId) throw new Error('No tenant session');
+        const raw = (document.getElementById('unsubPhone')?.value || '').trim();
+        const phone = raw.replace(/\D/g, '');
+        if (!phone) {
+            showNotification('Enter a phone number', 'warning');
+            return;
+        }
+
+        const res = await api.postJSON(`/api/broadcast/unsubscribed/${tenantId}`, { phone_number: phone });
+        if (!res.success) throw new Error(res.error || 'Failed to add number');
+        showNotification('Added to unsubscribed list', 'success');
+        const el = document.getElementById('unsubPhone');
+        if (el) el.value = '';
+        await loadUnsubscribed();
+    }
+
+    async function removeUnsubscribed(phoneNumber) {
+        const tenantId = state.session?.tenantId;
+        if (!tenantId) throw new Error('No tenant session');
+        const p = String(phoneNumber || '').replace(/\D/g, '');
+        if (!p) return;
+        if (!confirm(`Remove ${p} from unsubscribed list?`)) return;
+
+        const res = await fetch(`/api/broadcast/unsubscribed/${tenantId}/${p}`, {
+            method: 'DELETE',
+            headers: { ...api.authHeaders() }
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success) throw new Error(data.error || 'Failed to remove number');
+        showNotification('Removed', 'success');
+        await loadUnsubscribed();
+    }
+
+    async function loadUnsubscribed() {
+        const items = await fetchUnsubscribed();
+
+        document.getElementById('tabContent').innerHTML = `
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-white text-2xl font-bold"><i class="fas fa-user-slash mr-3"></i>Unsubscribed</h2>
+                <div class="text-white/70 text-sm">${items.length} numbers</div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div class="config-card p-6 rounded-2xl">
+                    <h3 class="text-gray-900 text-xl font-semibold mb-4">Add Number</h3>
+                    <div class="flex gap-3">
+                        <input id="unsubPhone" class="flex-1 px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="Phone number (digits only is ok)" />
+                        <button class="px-5 py-3 rounded-xl bg-red-600 hover:bg-red-700 text-white font-semibold" onclick="addUnsubscribed()">
+                            <i class="fas fa-plus mr-2"></i>Add
+                        </button>
+                    </div>
+                    <div class="text-xs text-gray-500 mt-3">Numbers here are skipped by broadcasts and follow-ups.</div>
+                </div>
+
+                <div class="glass-effect rounded-2xl overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead>
+                                <tr class="bg-white/10">
+                                    <th class="text-left px-6 py-4 text-white/80 text-sm font-semibold">Phone</th>
+                                    <th class="text-left px-6 py-4 text-white/80 text-sm font-semibold">Added</th>
+                                    <th class="text-left px-6 py-4 text-white/80 text-sm font-semibold">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${items.length ? items.map((it) => {
+                                    const phone = escapeHtml(String(it.phone_number || ''));
+                                    const when = it.created_at ? new Date(it.created_at).toLocaleString() : '';
+                                    return `
+                                        <tr class="border-t border-white/10 hover:bg-white/5">
+                                            <td class="px-6 py-4 text-white text-sm font-medium">${phone}</td>
+                                            <td class="px-6 py-4 text-white/70 text-sm">${escapeHtml(when)}</td>
+                                            <td class="px-6 py-4 text-white/70 text-sm">
+                                                <button class="px-3 py-2 rounded-lg bg-white/10 hover:bg-white/20" onclick="removeUnsubscribed('${phone}')">Remove</button>
+                                            </td>
+                                        </tr>
+                                    `;
+                                }).join('') : `
+                                    <tr>
+                                        <td colspan="3" class="px-6 py-10 text-center text-white/70">No unsubscribed numbers</td>
+                                    </tr>
+                                `}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
@@ -2505,13 +3211,7 @@
         }
         
         try {
-            const response = await fetch(`/api/broadcast/daily-limit/${tenantId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ dailyLimit: newLimit })
-            });
-            
-            const data = await response.json();
+            const data = await api.putJSON(`/api/broadcast/daily-limit/${tenantId}`, { dailyLimit: newLimit });
             
             if (data.success) {
                 showNotification(`✅ Daily limit updated to ${newLimit} messages/day`, 'success');
@@ -2537,7 +3237,7 @@
         let currentDailyLimit = 1000; // Default value
         
         try {
-            const statsResponse = await fetch(`/api/broadcast/daily-stats/${tenantId}`);
+            const statsResponse = await fetch(`/api/broadcast/daily-stats/${tenantId}`, { headers: { ...api.authHeaders() } });
             if (statsResponse.ok) {
                 const statsData = await statsResponse.json();
                 stats = statsData.stats; // Assign to outer scope variable
@@ -2832,10 +3532,10 @@
                         <!-- Image Upload (hidden by default) -->
                         <div id="imageUploadSection" class="hidden">
                             <label class="block text-sm font-semibold text-gray-700 mb-2">
-                                <i class="fas fa-image mr-2"></i>Upload Image
+                                <i class="fas fa-image mr-2"></i>Upload Images
                             </label>
                             <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-indigo-500 transition">
-                                <input type="file" id="broadcastImage" accept="image/*" capture="environment"
+                                <input type="file" id="broadcastImage" accept="image/*" capture="environment" multiple
                                     class="hidden" onchange="handleImageUpload(event)">
                                 <label for="broadcastImage" class="cursor-pointer">
                                     <div class="flex flex-col md:flex-row items-center justify-center gap-3">
@@ -2855,6 +3555,7 @@
                                 </label>
                                 <div id="imagePreview" class="mt-4 hidden">
                                     <img id="previewImg" class="max-h-64 w-auto mx-auto rounded-lg shadow-lg border-2 border-green-200" alt="Preview">
+                                    <p id="imageCountLabel" class="mt-2 text-sm text-gray-600"></p>
                                     <button type="button" onclick="removeImage()" 
                                         class="mt-3 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm">
                                         <i class="fas fa-trash mr-2"></i>Remove Image
@@ -2870,7 +3571,7 @@
                                     Message <span id="messageLabel">Text</span>
                                 </label>
                                 <div class="flex gap-2">
-                                    <button type="button" onclick="loadMessageTemplates()" 
+                                    <button type="button" onclick="openBroadcastTemplatePicker()" 
                                         class="text-xs text-indigo-600 hover:text-indigo-700 font-semibold">
                                         <i class="fas fa-file-alt"></i> Load Template
                                     </button>
@@ -3021,7 +3722,7 @@
                     
                     <!-- Search and Filter Controls -->
                     <div class="bg-gray-50 rounded-lg p-4 mb-4">
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div class="grid grid-cols-1 md:grid-cols-5 gap-3">
                             <input type="text" id="campaignSearch" placeholder="Search by campaign name..."
                                 class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm"
                                 onkeyup="filterBroadcasts()">
@@ -3033,6 +3734,10 @@
                                 <option value="pending">Pending</option>
                                 <option value="failed">Failed</option>
                             </select>
+                            <input type="date" id="dateFromFilter" onchange="filterBroadcasts()"
+                                class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm" />
+                            <input type="date" id="dateToFilter" onchange="filterBroadcasts()"
+                                class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm" />
                             <button type="button" onclick="clearFilters()"
                                 class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm font-semibold">
                                 <i class="fas fa-times mr-1"></i> Clear Filters
@@ -3427,7 +4132,7 @@
         if (!tenantId) return;
         
         try {
-            const response = await fetch(`/api/broadcast/history/${tenantId}`);
+            const response = await fetch(`/api/broadcast/history/${tenantId}`, { headers: { ...api.authHeaders() } });
             const result = await response.json();
             
             if (result.success && result.broadcasts && result.broadcasts.length > 0) {
@@ -3462,6 +4167,8 @@
     async function filterBroadcasts() {
         const searchTerm = document.getElementById('campaignSearch')?.value.toLowerCase() || '';
         const statusFilter = document.getElementById('statusFilter')?.value || '';
+        const dateFromRaw = document.getElementById('dateFromFilter')?.value || '';
+        const dateToRaw = document.getElementById('dateToFilter')?.value || '';
         
         let filtered = window.allBroadcasts;
         
@@ -3473,6 +4180,24 @@
         
         if (statusFilter) {
             filtered = filtered.filter(b => b.status === statusFilter);
+        }
+
+        if (dateFromRaw) {
+            const from = new Date(dateFromRaw);
+            from.setHours(0, 0, 0, 0);
+            filtered = filtered.filter((b) => {
+                const d = new Date(b.sent_at || b.created_at || b.scheduled_at || 0);
+                return d >= from;
+            });
+        }
+
+        if (dateToRaw) {
+            const to = new Date(dateToRaw);
+            to.setHours(23, 59, 59, 999);
+            filtered = filtered.filter((b) => {
+                const d = new Date(b.sent_at || b.created_at || b.scheduled_at || 0);
+                return d <= to;
+            });
         }
         
         // Render filtered results (reuse the rendering logic from loadBroadcastHistory)
@@ -3493,6 +4218,10 @@
     function clearFilters() {
         document.getElementById('campaignSearch').value = '';
         document.getElementById('statusFilter').value = '';
+        const df = document.getElementById('dateFromFilter');
+        const dt = document.getElementById('dateToFilter');
+        if (df) df.value = '';
+        if (dt) dt.value = '';
         renderBroadcastList(window.allBroadcasts);
     }
     
@@ -3580,7 +4309,9 @@
     // View campaign report (per-contact delivery details)
     async function viewCampaignReport(campaignId) {
         try {
-            const response = await fetch(`/api/broadcast/campaign-report/${campaignId}`);
+            const response = await fetch(`/api/broadcast/campaign-report/${campaignId}`, {
+                headers: { ...api.authHeaders() }
+            });
             const result = await response.json();
             
             if (!result.success) {
@@ -3588,7 +4319,9 @@
                 return;
             }
             
-            const { campaign, recipients, stats } = result;
+            const { campaign, recipients, stats, click_stats } = result;
+            const linksTracked = click_stats?.links_tracked || 0;
+            const clicksTotal = click_stats?.clicks_total || 0;
             
             // Create modal
             const modal = document.createElement('div');
@@ -3609,7 +4342,7 @@
                                 <i class="fas fa-times text-xl"></i>
                             </button>
                         </div>
-                        <div class="grid grid-cols-4 gap-4 mt-4">
+                        <div class="grid grid-cols-6 gap-4 mt-4">
                             <div class="bg-white/10 rounded-lg p-3 text-center">
                                 <p class="text-2xl font-bold">${stats.total}</p>
                                 <p class="text-xs opacity-90">Total</p>
@@ -3622,10 +4355,21 @@
                                 <p class="text-2xl font-bold">${stats.failed}</p>
                                 <p class="text-xs opacity-90">Failed</p>
                             </div>
+                            <div class="bg-gray-500/30 rounded-lg p-3 text-center">
+                                <p class="text-2xl font-bold">${stats.skipped || 0}</p>
+                                <p class="text-xs opacity-90">Skipped</p>
+                            </div>
+                            <div class="bg-blue-500/30 rounded-lg p-3 text-center">
+                                <p class="text-2xl font-bold">${stats.replied || 0}</p>
+                                <p class="text-xs opacity-90">Replied</p>
+                            </div>
                             <div class="bg-yellow-500/30 rounded-lg p-3 text-center">
                                 <p class="text-2xl font-bold">${stats.pending}</p>
                                 <p class="text-xs opacity-90">Pending</p>
                             </div>
+                        </div>
+                        <div class="mt-3 text-sm opacity-90">
+                            <span class="font-semibold">Links Tracked:</span> ${linksTracked} &nbsp;|&nbsp; <span class="font-semibold">Clicks:</span> ${clicksTotal}
                         </div>
                     </div>
                     <div class="p-6 overflow-y-auto" style="max-height: calc(90vh - 250px);">
@@ -3634,6 +4378,8 @@
                                 <tr>
                                     <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600">Phone Number</th>
                                     <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600">Status</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600">Replied</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600">Replied At</th>
                                     <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600">Sent At</th>
                                     <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600">Error</th>
                                 </tr>
@@ -3646,10 +4392,21 @@
                                             <span class="px-2 py-1 rounded-full text-xs font-semibold ${
                                                 r.status === 'sent' ? 'bg-green-100 text-green-800' :
                                                 r.status === 'failed' ? 'bg-red-100 text-red-800' :
+                                                r.status === 'skipped' ? 'bg-gray-100 text-gray-800' :
                                                 'bg-yellow-100 text-yellow-800'
                                             }">
                                                 ${r.status}
                                             </span>
+                                        </td>
+                                        <td class="px-4 py-3">
+                                            <span class="px-2 py-1 rounded-full text-xs font-semibold ${
+                                                r.replied ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-600'
+                                            }">
+                                                ${r.replied ? 'Yes' : 'No'}
+                                            </span>
+                                        </td>
+                                        <td class="px-4 py-3 text-xs text-gray-600">
+                                            ${r.replied_at ? new Date(r.replied_at).toLocaleString() : '-'}
                                         </td>
                                         <td class="px-4 py-3 text-xs text-gray-600">
                                             ${r.sent_at ? new Date(r.sent_at).toLocaleString() : '-'}
@@ -3673,19 +4430,38 @@
     }
     
     // Export campaign report as CSV
-    function exportCampaignReport(campaignId, campaignName) {
-        const url = `/api/broadcast/campaign-report/${campaignId}/export`;
-        window.location.href = url;
-        showNotification('Downloading report...', 'success');
+    async function exportCampaignReport(campaignId, campaignName) {
+        try {
+            const url = `/api/broadcast/campaign-report/${campaignId}/export`;
+            const response = await fetch(url, { headers: { ...api.authHeaders() } });
+            if (!response.ok) throw new Error('Download failed');
+
+            const blob = await response.blob();
+            const a = document.createElement('a');
+            const safeName = String(campaignName || 'campaign').replace(/[^a-z0-9\-_ ]/gi, '_').slice(0, 80);
+            a.href = URL.createObjectURL(blob);
+            a.download = `${safeName}-${campaignId}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            URL.revokeObjectURL(a.href);
+            a.remove();
+
+            showNotification('Downloading report...', 'success');
+        } catch (e) {
+            console.error('Export campaign report error:', e);
+            showNotification('Failed to download report', 'error');
+        }
     }
     
-    // Load message templates
-    async function loadMessageTemplates() {
+    // Load message templates into the Broadcast composer (modal picker)
+    async function openBroadcastTemplatePicker() {
         const tenantId = state.session?.tenantId;
         if (!tenantId) return;
         
         try {
-            const response = await fetch(`/api/broadcast/templates/${tenantId}`);
+            const response = await fetch(`/api/broadcast/templates/${tenantId}`, {
+                headers: { ...api.authHeaders() }
+            });
             const result = await response.json();
             
             if (!result.success || !result.templates || result.templates.length === 0) {
@@ -3714,12 +4490,12 @@
                         <div class="space-y-3">
                             ${result.templates.map(template => `
                                 <div class="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 cursor-pointer transition"
-                                     onclick="useTemplate('${template.id}', ${JSON.stringify(escapeHtml(template.message_text)).replace(/'/g, "\\'")} , '${template.image_url || ''}', '${template.message_type}')">
+                                     onclick='useTemplate(${JSON.stringify(template.id)}, ${JSON.stringify(template.template_text || template.message_text || '')}, ${JSON.stringify(template.image_url || '')}, ${JSON.stringify(template.message_type || template.category || 'text')})'>
                                     <div class="flex justify-between items-start mb-2">
-                                        <h3 class="font-semibold text-gray-900">${escapeHtml(template.template_name)}</h3>
+                                        <h3 class="font-semibold text-gray-900">${escapeHtml(template.name || template.template_name || 'Template')}</h3>
                                         <span class="text-xs text-gray-500">Used ${template.usage_count || 0}x</span>
                                     </div>
-                                    <p class="text-sm text-gray-600 line-clamp-3">${escapeHtml(template.message_text)}</p>
+                                    <p class="text-sm text-gray-600 line-clamp-3">${escapeHtml(template.template_text || template.message_text || '')}</p>
                                     ${template.image_url ? `
                                         <div class="mt-2">
                                             <span class="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded">
@@ -3745,14 +4521,22 @@
     async function useTemplate(templateId, messageText, imageUrl, messageType) {
         document.getElementById('broadcastMessage').value = messageText;
         
-        if (messageType === 'image' && imageUrl) {
+        if ((String(messageType || '').toLowerCase() === 'image' || !!imageUrl) && imageUrl) {
             document.querySelector('input[name="messageType"][value="image"]').checked = true;
             toggleMessageType();
-            // Note: Can't set base64 image from URL easily, user will need to re-upload
+            // If the template stored a data URL/base64 (or a URL), show it as the selected image.
+            uploadedImageBase64 = imageUrl;
+            uploadedImagesBase64 = imageUrl ? [imageUrl] : [];
+            const preview = document.getElementById('imagePreview');
+            const img = document.getElementById('previewImg');
+            if (img) img.src = imageUrl;
+            const countLabel = document.getElementById('imageCountLabel');
+            if (countLabel) countLabel.textContent = uploadedImagesBase64.length ? '1 image selected' : '';
+            if (preview) preview.classList.remove('hidden');
         }
         
         // Increment usage count
-        await fetch(`/api/broadcast/templates/${templateId}/use`, { method: 'PUT' });
+        await fetch(`/api/broadcast/templates/${templateId}/use`, { method: 'PUT', headers: { ...api.authHeaders() } });
         
         // Close modal
         document.querySelector('.fixed.inset-0').remove();
@@ -3776,19 +4560,19 @@
         const messageType = document.querySelector('input[name="messageType"]:checked').value;
         
         try {
-            const response = await fetch('/api/broadcast/templates', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    tenantId,
-                    templateName,
-                    messageText,
-                    messageType,
-                    imageUrl: uploadedImageBase64
-                })
+            const result = await api.postJSON('/api/broadcast/templates', {
+                tenantId,
+                templateName,
+                messageText,
+                messageType,
+                imageUrl: (uploadedImagesBase64 && uploadedImagesBase64.length) ? uploadedImagesBase64[0] : uploadedImageBase64,
+                // Explicit fields used by the Templates tab editor too
+                name: templateName,
+                templateText: messageText,
+                category: messageType,
+                message_type: messageType,
+                isActive: true
             });
-            
-            const result = await response.json();
             
             if (result.success) {
                 showNotification('Template saved successfully!', 'success');
@@ -3804,6 +4588,7 @@
     // Broadcast helper functions
     let uploadedRecipients = [];
     let uploadedImageBase64 = null;
+    let uploadedImagesBase64 = [];
 
     function handleFileUpload(event) {
         const file = event.target.files[0];
@@ -4118,27 +4903,51 @@
     }
 
     function handleImageUpload(event) {
-        const file = event.target.files[0];
-        if (!file) return;
+        const files = Array.from(event.target.files || []).filter(Boolean);
+        if (!files.length) return;
 
-        // Check file size (max 5MB)
-        if (file.size > 5 * 1024 * 1024) {
-            showNotification('❌ Image too large! Please use an image under 5MB', 'error');
-            return;
+        // Check file size (max 5MB each)
+        for (const f of files) {
+            if (f.size > 5 * 1024 * 1024) {
+                showNotification('❌ Image too large! Please use images under 5MB', 'error');
+                return;
+            }
         }
 
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            uploadedImageBase64 = e.target.result;
-            document.getElementById('previewImg').src = uploadedImageBase64;
-            document.getElementById('imagePreview').classList.remove('hidden');
-            showNotification('✅ Image uploaded successfully!', 'success');
-        };
-        reader.readAsDataURL(file);
+        uploadedImagesBase64 = [];
+        uploadedImageBase64 = null;
+
+        const readAsDataUrl = (file) => new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+
+        Promise.all(files.map(readAsDataUrl))
+            .then((results) => {
+                uploadedImagesBase64 = results.filter(Boolean);
+                uploadedImageBase64 = uploadedImagesBase64[0] || null;
+
+                if (!uploadedImageBase64) {
+                    showNotification('❌ Failed to read image(s)', 'error');
+                    return;
+                }
+
+                document.getElementById('previewImg').src = uploadedImageBase64;
+                document.getElementById('imageCountLabel').textContent = `${uploadedImagesBase64.length} image${uploadedImagesBase64.length > 1 ? 's' : ''} selected`;
+                document.getElementById('imagePreview').classList.remove('hidden');
+                showNotification('✅ Image(s) uploaded successfully!', 'success');
+            })
+            .catch((err) => {
+                console.error('Image read error:', err);
+                showNotification('❌ Error reading image(s)', 'error');
+            });
     }
 
     function removeImage() {
         uploadedImageBase64 = null;
+        uploadedImagesBase64 = [];
         document.getElementById('broadcastImage').value = '';
         document.getElementById('imagePreview').classList.add('hidden');
         showNotification('Image removed', 'info');
@@ -4156,6 +4965,7 @@
             imageSection.classList.add('hidden');
             messageLabel.textContent = 'Text';
             uploadedImageBase64 = null;
+            uploadedImagesBase64 = [];
         }
     }
 
@@ -4207,7 +5017,7 @@
         const messageDelay = parseInt(document.getElementById('messageDelay').value) || 500;
         const batchDelay = parseInt(document.getElementById('batchDelay').value) || 2000;
 
-        if (messageType === 'image' && !uploadedImageBase64) {
+        if (messageType === 'image' && !(uploadedImagesBase64 && uploadedImagesBase64.length)) {
             showNotification('Please upload an image', 'error');
             return;
         }
@@ -4224,7 +5034,8 @@
             messageType,
             scheduleType,
             scheduleTime: scheduleType === 'later' ? scheduleTime : null,
-            imageBase64: messageType === 'image' ? uploadedImageBase64 : null,
+            imageBase64: messageType === 'image' ? (uploadedImagesBase64[0] || uploadedImageBase64) : null,
+            imageBase64List: messageType === 'image' ? (uploadedImagesBase64 || []) : null,
             batchSize,
             messageDelay,
             batchDelay,
@@ -4264,6 +5075,7 @@
                 document.getElementById('broadcastForm').reset();
                 clearRecipients();
                 uploadedImageBase64 = null;
+                uploadedImagesBase64 = [];
                 document.getElementById('imagePreview').classList.add('hidden');
                 
                 // Reload history immediately and set up auto-refresh
@@ -4655,13 +5467,261 @@
         }
     }
 
-    // ---------- Triage Functions (SAK-SMS embedded) ----------
+    // ---------- Leads Functions ----------
+    async function loadLeads() {
+        if (!state.session?.tenantId) throw new Error('No tenant session');
+
+        const params = new URLSearchParams();
+        if (state.searchQuery) params.append('q', state.searchQuery);
+
+        // Load pipeline board (includes enriched leads)
+        const url = `/api/leads-pipeline/${state.session.tenantId}/board${params.toString() ? `?${params.toString()}` : ''}`;
+        const response = await fetch(url, {
+            headers: { 'Authorization': `Bearer ${state.session.token}` }
+        });
+        const data = await response.json();
+        if (!data.success) throw new Error(data.error || 'Failed to load leads pipeline');
+
+        const leads = data.leads || [];
+        state.data.leads = leads;
+        state.data.leadsPipeline = { readonly: data.readonly === true, stages: data.stages || [], columns: data.columns || [] };
+
+        const scoreLabel = (s) => String(s || '').toUpperCase();
+        const badgeForScore = (s) => {
+            const v = scoreLabel(s);
+            if (v === 'HOT') return 'bg-red-100 text-red-800';
+            if (v === 'WARM') return 'bg-yellow-100 text-yellow-800';
+            if (v === 'COLD') return 'bg-blue-100 text-blue-800';
+            return 'bg-gray-100 text-gray-700';
+        };
+
+        const count = (v) => leads.filter(l => scoreLabel(l.lead_score) === v).length;
+        const hot = count('HOT');
+        const warm = count('WARM');
+        const cold = count('COLD');
+
+        const pipelineReadonly = state.data.leadsPipeline?.readonly === true;
+        const pipelineStages = state.data.leadsPipeline?.stages || [];
+        const pipelineColumns = state.data.leadsPipeline?.columns || [];
+
+        const stageBadge = (name) => {
+            const n = String(name || '').toLowerCase();
+            if (n.includes('won')) return 'bg-emerald-100 text-emerald-800';
+            if (n.includes('lost')) return 'bg-red-100 text-red-800';
+            if (n.includes('qual')) return 'bg-blue-100 text-blue-800';
+            return 'bg-gray-100 text-gray-700';
+        };
+
+        document.getElementById('tabContent').innerHTML = `
+            <div class="mb-6">
+                <h2 class="text-white text-2xl font-bold mb-4"><i class="fas fa-user-tag mr-3"></i>Leads</h2>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <div class="config-card p-6 rounded-xl">
+                        <div class="text-gray-600 text-sm mb-1">Hot</div>
+                        <div class="text-3xl font-bold text-red-700">${hot}</div>
+                    </div>
+                    <div class="config-card p-6 rounded-xl">
+                        <div class="text-gray-600 text-sm mb-1">Warm</div>
+                        <div class="text-3xl font-bold text-yellow-700">${warm}</div>
+                    </div>
+                    <div class="config-card p-6 rounded-xl">
+                        <div class="text-gray-600 text-sm mb-1">Cold</div>
+                        <div class="text-3xl font-bold text-blue-700">${cold}</div>
+                    </div>
+                </div>
+
+                <div class="config-card p-4 rounded-xl mb-6">
+                    <div class="flex items-center justify-between flex-wrap gap-3">
+                        <div>
+                            <div class="text-gray-900 font-semibold flex items-center gap-2">
+                                <span>Pipeline</span>
+                                ${pipelineReadonly ? `<span class="px-2 py-1 rounded-lg text-xs font-medium bg-gray-100 text-gray-700">Read-only</span>` : ''}
+                            </div>
+                            <div class="text-xs text-gray-500">${pipelineReadonly ? 'Pipeline is read-only in this environment.' : 'Move leads across stages (New → Qualified → Won/Lost).'}</div>
+                        </div>
+                        <button onclick="loadLeads()" class="glass-effect px-4 py-2 rounded-xl text-white hover:bg-white/20">
+                            <i class="fas fa-rotate mr-2"></i>Refresh
+                        </button>
+                    </div>
+                </div>
+
+                ${pipelineStages.length === 0 ? `
+                    <div class="config-card p-10 rounded-xl text-center mb-6">
+                        <div class="text-gray-700 font-semibold">Pipeline not available</div>
+                        <div class="text-gray-500 text-sm mt-1">Pipeline stages are created automatically in local mode.</div>
+                    </div>
+                ` : `
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                        ${pipelineColumns.map(col => {
+                            const st = col.stage || {};
+                            const stName = st.name || '';
+                            const stId = st.id || '';
+                            const colLeads = col.leads || [];
+                            return `
+                                <div class="config-card p-4 rounded-xl">
+                                    <div class="flex items-center justify-between mb-3">
+                                        <div class="flex items-center gap-2 min-w-0">
+                                            <span class="px-2 py-1 rounded-lg text-xs font-medium ${stageBadge(stName)}">${escapeHtml(stName)}</span>
+                                            <span class="text-xs text-gray-500">${colLeads.length}</span>
+                                        </div>
+                                    </div>
+                                    <div class="space-y-3">
+                                        ${colLeads.length === 0 ? `<div class="text-xs text-gray-500">No leads</div>` : colLeads.map(l => {
+                                            const phone = l.end_user_phone || '';
+                                            const preview = l.last_message || l.lastMessage || '';
+                                            const updated = l.updated_at ? new Date(l.updated_at).toLocaleString() : '';
+                                            const needsHuman = (l.requires_human_attention === true || l.requires_human_attention === 1);
+                                            const score = scoreLabel(l.lead_score);
+                                            const currentStageId = l.pipeline_stage_id || stId;
+                                            return `
+                                                <div class="bg-white/80 rounded-xl p-4 hover:shadow-md transition cursor-pointer" onclick="openConversation('${state.session.tenantId}','${l.id}')">
+                                                    <div class="flex items-start justify-between gap-3">
+                                                        <div class="min-w-0">
+                                                            <div class="flex items-center gap-2 flex-wrap">
+                                                                <div class="text-sm font-semibold text-gray-900 truncate">${escapeHtml(phone || 'Unknown')}</div>
+                                                                <span class="px-2 py-1 rounded-lg text-xs font-medium ${badgeForScore(score)}">${escapeHtml(score || 'LEAD')}</span>
+                                                                ${needsHuman ? `<span class="px-2 py-1 rounded-lg text-xs font-medium bg-purple-100 text-purple-800"><i class='fas fa-user-shield mr-1'></i>Attention</span>` : ''}
+                                                            </div>
+                                                            ${preview ? `<div class="mt-2 text-xs text-gray-700 bg-gray-50 rounded-lg p-2">${escapeHtml(preview)}</div>` : ''}
+                                                            <div class="mt-2 text-[11px] text-gray-500">Updated: ${escapeHtml(updated)}</div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="mt-3" onclick="event.stopPropagation()">
+                                                        <select class="search-input px-3 py-2 rounded-xl text-xs w-full" ${pipelineReadonly ? 'disabled title="Read-only"' : ''} onchange="moveLeadStage('${l.id}', this.value)">
+                                                            ${pipelineStages.map(s => {
+                                                                const sid = String(s.id);
+                                                                const selected = String(currentStageId) === sid ? 'selected' : '';
+                                                                return `<option value="${escapeHtml(sid)}" ${selected}>Move to: ${escapeHtml(String(s.name || ''))}</option>`;
+                                                            }).join('')}
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                            `;
+                                        }).join('')}
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                `}
+
+                ${leads.length === 0 ? `
+                    <div class="config-card p-10 rounded-xl text-center">
+                        <div class="text-gray-700 font-semibold">No leads found</div>
+                        <div class="text-gray-500 text-sm mt-1">Leads appear when conversations are scored or flagged for attention.</div>
+                    </div>
+                ` : `
+                    <div class="space-y-3">
+                        ${leads.map(l => {
+                            const phone = l.end_user_phone || '';
+                            const preview = l.last_message || l.lastMessage || '';
+                            const updated = l.updated_at ? new Date(l.updated_at).toLocaleString() : '';
+                            const needsHuman = (l.requires_human_attention === true || l.requires_human_attention === 1);
+                            const score = scoreLabel(l.lead_score);
+                            const stageName = l.pipeline_stage_name || '';
+                            return `
+                                <div class="config-card p-5 rounded-xl hover:shadow-lg transition-all cursor-pointer" onclick="openConversation('${state.session.tenantId}','${l.id}')">
+                                    <div class="flex items-start justify-between gap-4">
+                                        <div class="flex-1">
+                                            <div class="flex items-center gap-2 flex-wrap">
+                                                <div class="text-gray-900 font-semibold">${escapeHtml(phone || 'Unknown')}</div>
+                                                <span class="px-2 py-1 rounded-lg text-xs font-medium ${badgeForScore(score)}">${escapeHtml(score || 'LEAD')}</span>
+                                                ${stageName ? `<span class="px-2 py-1 rounded-lg text-xs font-medium ${stageBadge(stageName)}">${escapeHtml(stageName)}</span>` : ''}
+                                                ${needsHuman ? `<span class="px-2 py-1 rounded-lg text-xs font-medium bg-purple-100 text-purple-800"><i class='fas fa-user-shield mr-1'></i>Needs Attention</span>` : ''}
+                                            </div>
+                                            ${preview ? `<div class="mt-2 text-sm text-gray-700 bg-gray-50 rounded-lg p-3">${escapeHtml(preview)}</div>` : ''}
+                                            <div class="mt-2 text-xs text-gray-500">Updated: ${escapeHtml(updated)}</div>
+                                        </div>
+                                        <div class="flex items-center text-gray-400">
+                                            <i class="fas fa-chevron-right"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                `}
+            </div>
+        `;
+    }
+
+    async function moveLeadStage(conversationId, stageId) {
+        try {
+            if (!state.session?.tenantId) throw new Error('No tenant session');
+            if (state.data?.leadsPipeline?.readonly === true) {
+                showNotification('Pipeline is read-only in this environment', 'warning');
+                return;
+            }
+            const path = `/api/leads-pipeline/${state.session.tenantId}/leads/${conversationId}/stage`;
+            const resp = await api.putJSON(path, { stage_id: stageId });
+            if (!resp.success) throw new Error(resp.error || 'Failed to move lead');
+            showNotification('Lead moved', 'success');
+            await loadLeads();
+        } catch (err) {
+            showNotification(err.message || String(err), 'error');
+        }
+    }
+
+    // ---------- Triage Functions ----------
     async function loadTriage() {
         if (!state.session?.tenantId) throw new Error('No tenant session');
 
+        // Load sales team assignees (best-effort; triage should still render if unavailable)
+        try {
+            const teamRes = await fetch(`/api/sales-team/${state.session.tenantId}`, {
+                headers: { 'Authorization': `Bearer ${state.session.token}` }
+            });
+            const teamData = await teamRes.json();
+            state.data.salesTeam = teamData?.success ? (teamData.users || []) : [];
+        } catch (_) {
+            state.data.salesTeam = [];
+        }
+
+        // Load smart-assign status (best-effort)
+        try {
+            const asRes = await fetch(`/api/triage-assignment/${state.session.tenantId}/status`, {
+                headers: { 'Authorization': `Bearer ${state.session.token}` }
+            });
+            const asData = await asRes.json();
+            state.data.triageAssignStatus = asData?.success ? asData : null;
+        } catch (_) {
+            state.data.triageAssignStatus = null;
+        }
+
+        // Load smart-assign config (best-effort; may be readonly in hosted env)
+        try {
+            const cfgRes = await fetch(`/api/triage-assignment/${state.session.tenantId}/config`, {
+                headers: { 'Authorization': `Bearer ${state.session.token}` }
+            });
+            const cfgData = await cfgRes.json();
+            state.data.triageAssignConfig = cfgData?.success ? (cfgData.config || null) : null;
+            state.data.triageAssignConfigReadonly = cfgData?.readonly === true;
+        } catch (_) {
+            state.data.triageAssignConfig = null;
+            state.data.triageAssignConfigReadonly = true;
+        }
+
+        // Load SLA config (best-effort)
+        try {
+            const slaRes = await fetch(`/api/triage/${state.session.tenantId}/sla-config`, {
+                headers: { 'Authorization': `Bearer ${state.session.token}` }
+            });
+            const slaData = await slaRes.json();
+            state.data.triageSlaConfig = slaData?.success ? (slaData.config || null) : null;
+        } catch (_) {
+            state.data.triageSlaConfig = null;
+        }
+
         const statusFilter = document.getElementById('triageStatusFilter')?.value || '';
+        const assigneeFilter = document.getElementById('triageAssigneeFilter')?.value || '';
         const params = new URLSearchParams();
         if (statusFilter) params.append('status', statusFilter);
+        if (assigneeFilter === '__UNASSIGNED__') {
+            params.append('unassigned', '1');
+        } else if (assigneeFilter) {
+            params.append('assigned_to', assigneeFilter);
+        }
 
         const url = `/api/triage/${state.session.tenantId}${params.toString() ? `?${params.toString()}` : ''}`;
         const response = await fetch(url, {
@@ -4688,7 +5748,19 @@
 
         document.getElementById('tabContent').innerHTML = `
             <div class="mb-6">
-                <h2 class="text-white text-2xl font-bold mb-4"><i class="fas fa-life-ring mr-3"></i>Triage</h2>
+                ${(() => {
+                    const team = Array.isArray(state.data.salesTeam) ? state.data.salesTeam : [];
+                    const statusObj = state.data.triageAssignStatus;
+                    const enabled = statusObj?.enabled === true ? true : (team.length > 0);
+                    const pillClass = enabled ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-700';
+                    const pillText = enabled ? 'Smart Assign: ON' : 'Smart Assign: OFF';
+                    return `
+                        <div class="flex items-center justify-between flex-wrap gap-3 mb-4">
+                            <h2 class="text-white text-2xl font-bold"><i class="fas fa-life-ring mr-3"></i>Triage</h2>
+                            <span class="px-3 py-1 rounded-xl text-xs font-semibold ${pillClass}">${pillText}</span>
+                        </div>
+                    `;
+                })()}
 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                     <div class="config-card p-6 rounded-xl">
@@ -4706,17 +5778,142 @@
                 </div>
 
                 <div class="config-card p-4 rounded-xl mb-6">
-                    <div class="flex flex-wrap gap-4 items-center">
-                        <select id="triageStatusFilter" class="search-input px-4 py-2 rounded-xl text-sm" onchange="loadTriage()">
-                            <option value="" ${statusFilter===''?'selected':''}>All Statuses</option>
-                            <option value="NEW" ${statusFilter==='NEW'?'selected':''}>New</option>
-                            <option value="IN_PROGRESS" ${statusFilter==='IN_PROGRESS'?'selected':''}>In Progress</option>
-                            <option value="CLOSED" ${statusFilter==='CLOSED'?'selected':''}>Closed</option>
-                        </select>
-                        <button onclick="loadTriage()" class="glass-effect px-4 py-2 rounded-xl text-white hover:bg-white/20">
-                            <i class="fas fa-rotate mr-2"></i>Refresh
-                        </button>
-                    </div>
+                    ${(() => {
+                        const team = Array.isArray(state.data.salesTeam) ? state.data.salesTeam : [];
+                        const assignee = assigneeFilter || '';
+                        const unassignedActive = assignee === '__UNASSIGNED__';
+                        return `
+                            <div class="flex flex-wrap gap-4 items-center">
+                                <select id="triageStatusFilter" class="search-input px-4 py-2 rounded-xl text-sm" onchange="loadTriage()">
+                                    <option value="" ${statusFilter===''?'selected':''}>All Statuses</option>
+                                    <option value="NEW" ${statusFilter==='NEW'?'selected':''}>New</option>
+                                    <option value="IN_PROGRESS" ${statusFilter==='IN_PROGRESS'?'selected':''}>In Progress</option>
+                                    <option value="CLOSED" ${statusFilter==='CLOSED'?'selected':''}>Closed</option>
+                                </select>
+
+                                <select id="triageAssigneeFilter" class="search-input px-4 py-2 rounded-xl text-sm" onchange="loadTriage()">
+                                    <option value="" ${assignee===''?'selected':''}>All Assignees</option>
+                                    <option value="__UNASSIGNED__" ${unassignedActive?'selected':''}>Unassigned</option>
+                                    ${team.map(u => {
+                                        const label = `${u.name || 'Assignee'}${u.phone ? ` (${u.phone})` : ''}`;
+                                        const selected = String(u.id) === String(assignee) ? 'selected' : '';
+                                        return `<option value="${escapeHtml(String(u.id))}" ${selected}>${escapeHtml(label)}</option>`;
+                                    }).join('')}
+                                </select>
+
+                                <button onclick="setTriageAssigneeFilter('__UNASSIGNED__')" class="px-4 py-2 rounded-xl text-sm ${unassignedActive ? 'bg-white/25 text-white' : 'glass-effect text-white hover:bg-white/20'}">
+                                    <i class="fas fa-user-slash mr-2"></i>Unassigned
+                                </button>
+
+                                <button onclick="loadTriage()" class="glass-effect px-4 py-2 rounded-xl text-white hover:bg-white/20">
+                                    <i class="fas fa-rotate mr-2"></i>Refresh
+                                </button>
+                            </div>
+                        `;
+                    })()}
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                    ${(() => {
+                        const cfg = state.data.triageAssignConfig || { strategy: 'LEAST_ACTIVE', auto_assign: 1 };
+                        const readonly = state.data.triageAssignConfigReadonly === true;
+                        const autoAssignChecked = (cfg.auto_assign === 1 || cfg.auto_assign === true) ? 'checked' : '';
+                        const strategy = String(cfg.strategy || 'LEAST_ACTIVE').toUpperCase();
+                        const slaCfg = state.data.triageSlaConfig || { enabled: true, minutes: 60 };
+                        const slaEnabled = slaCfg?.enabled === false ? false : true;
+                        const slaEnabledChecked = slaEnabled ? 'checked' : '';
+                        const slaMinutes = Number.isFinite(Number(slaCfg?.minutes)) ? Number(slaCfg?.minutes) : 60;
+                        return `
+                            <div class="config-card p-6 rounded-xl">
+                                <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
+                                    <div>
+                                        <div class="text-gray-900 font-semibold">Smart Assign Settings</div>
+                                        <div class="text-xs text-gray-500">Controls how new triage items are auto-assigned.</div>
+                                    </div>
+                                    <button onclick="saveTriageAssignmentConfig()" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold" ${readonly ? 'disabled style=\'opacity:0.6;cursor:not-allowed\'' : ''}>
+                                        <i class="fas fa-save mr-2"></i>Save
+                                    </button>
+                                </div>
+
+                                <div class="space-y-4">
+                                    <label class="flex items-center gap-3">
+                                        <input id="triageAutoAssignToggle" type="checkbox" class="h-4 w-4" ${autoAssignChecked} ${readonly ? 'disabled' : ''} />
+                                        <span class="text-sm text-gray-800">Enable auto-assign</span>
+                                    </label>
+                                    <div>
+                                        <div class="text-xs text-gray-600 mb-1">Strategy</div>
+                                        <select id="triageAssignStrategy" class="search-input px-4 py-2 rounded-xl text-sm w-full" ${readonly ? 'disabled' : ''}>
+                                            <option value="LEAST_ACTIVE" ${strategy==='LEAST_ACTIVE'?'selected':''}>Least Active</option>
+                                            <option value="ROUND_ROBIN" ${strategy==='ROUND_ROBIN'?'selected':''}>Round Robin</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="pt-4 border-t">
+                                        <div class="flex items-center justify-between mb-2">
+                                            <div>
+                                                <div class="text-gray-900 font-semibold">SLA Timer</div>
+                                                <div class="text-xs text-gray-500">Shows overdue/remaining time on triage items.</div>
+                                            </div>
+                                            <button onclick="saveTriageSlaConfig()" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold">
+                                                <i class="fas fa-save mr-2"></i>Save SLA
+                                            </button>
+                                        </div>
+                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                            <label class="flex items-center gap-3">
+                                                <input id="triageSlaEnabled" type="checkbox" class="h-4 w-4" ${slaEnabledChecked} />
+                                                <span class="text-sm text-gray-800">Enable SLA</span>
+                                            </label>
+                                            <div>
+                                                <div class="text-xs text-gray-600 mb-1">SLA Minutes</div>
+                                                <input id="triageSlaMinutes" type="number" min="1" max="10080" class="search-input px-4 py-2 rounded-xl text-sm w-full" value="${escapeHtml(String(slaMinutes))}" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                    ${readonly ? `<div class="text-xs text-gray-500">This environment is read-only for smart-assign settings.</div>` : ''}
+                                </div>
+                            </div>
+                        `;
+                    })()}
+
+                    ${(() => {
+                        const team = Array.isArray(state.data.salesTeam) ? state.data.salesTeam : [];
+                        return `
+                            <div class="config-card p-6 rounded-xl">
+                                <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
+                                    <div>
+                                        <div class="text-gray-900 font-semibold">Sales Team</div>
+                                        <div class="text-xs text-gray-500">Manage triage assignees for this tenant.</div>
+                                    </div>
+                                    <button onclick="showSalesUserModal('create')" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold">
+                                        <i class="fas fa-user-plus mr-2"></i>Add
+                                    </button>
+                                </div>
+
+                                ${team.length === 0 ? `
+                                    <div class="text-sm text-gray-600">No sales users yet.</div>
+                                ` : `
+                                    <div class="space-y-2">
+                                        ${team.map(u => {
+                                            const label = `${u.name || 'Assignee'}${u.phone ? ` (${u.phone})` : ''}`;
+                                            const role = u.role ? String(u.role) : '';
+                                            return `
+                                                <div class="flex items-center justify-between gap-3 bg-white/80 rounded-xl px-4 py-3">
+                                                    <div class="min-w-0">
+                                                        <div class="text-sm font-semibold text-gray-900 truncate">${escapeHtml(label)}</div>
+                                                        <div class="text-xs text-gray-500 truncate">${escapeHtml(role)}</div>
+                                                    </div>
+                                                    <div class="flex gap-2">
+                                                        <button onclick="showSalesUserModal('edit','${escapeHtml(String(u.id))}')" class="px-3 py-2 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 text-xs font-semibold">Edit</button>
+                                                        <button onclick="deleteSalesUser('${escapeHtml(String(u.id))}')" class="px-3 py-2 rounded-lg bg-red-50 text-red-700 hover:bg-red-100 text-xs font-semibold">Delete</button>
+                                                    </div>
+                                                </div>
+                                            `;
+                                        }).join('')}
+                                    </div>
+                                `}
+                            </div>
+                        `;
+                    })()}
                 </div>
 
                 ${items.length === 0 ? `
@@ -4731,6 +5928,26 @@
                             const preview = item.message_preview || '';
                             const created = item.created_at ? new Date(item.created_at).toLocaleString() : '';
                             const assignedTo = item.assigned_to || '';
+                            const team = Array.isArray(state.data.salesTeam) ? state.data.salesTeam : [];
+                            const assignee = assignedTo
+                                ? (team.find(u => String(u.id) === String(assignedTo)) || null)
+                                : null;
+                            const assignedLabel = assignee
+                                ? `${assignee.name || 'Assignee'}${assignee.phone ? ` (${assignee.phone})` : ''}`
+                                : assignedTo;
+
+                            const slaEnabled = item.sla_enabled === true;
+                            const slaStatus = String(item.sla_status || '');
+                            const slaPill = (() => {
+                                if (!slaEnabled) return '';
+                                if (slaStatus === 'closed') return '';
+                                if (slaStatus === 'overdue') {
+                                    const mins = Math.max(1, Math.ceil((Number(item.sla_overdue_seconds) || 0) / 60));
+                                    return `<span class="px-2 py-1 rounded-lg text-xs font-semibold bg-red-100 text-red-800">SLA: OVERDUE ${mins}m</span>`;
+                                }
+                                const minsLeft = Math.max(1, Math.ceil((Number(item.sla_remaining_seconds) || 0) / 60));
+                                return `<span class="px-2 py-1 rounded-lg text-xs font-semibold bg-emerald-100 text-emerald-800">SLA: ${minsLeft}m left</span>`;
+                            })();
 
                             const actions = String(item.status || '').toUpperCase() === 'CLOSED'
                                 ? `<button onclick="reopenTriage('${item.id}')" class="px-4 py-2 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 text-sm"><i class='fas fa-rotate-left mr-2'></i>Reopen</button>`
@@ -4744,10 +5961,11 @@
                                             <div class="flex items-center gap-2 flex-wrap">
                                                 <div class="text-gray-900 font-semibold">${escapeHtml(phone || 'Unknown')}</div>
                                                 <span class="px-2 py-1 rounded-lg text-xs font-medium ${badgeFor(item.status)}">${escapeHtml(String(item.status || ''))}</span>
+                                                ${slaPill}
                                                 <span class="text-xs text-gray-500">${escapeHtml(String(item.type || 'HUMAN_ATTENTION'))}</span>
                                             </div>
                                             ${preview ? `<div class="mt-2 text-sm text-gray-700 bg-gray-50 rounded-lg p-3">${escapeHtml(preview)}</div>` : ''}
-                                            <div class="mt-2 text-xs text-gray-500">Created: ${escapeHtml(created)}${assignedTo ? ` • Assigned: ${escapeHtml(assignedTo)}` : ''}</div>
+                                            <div class="mt-2 text-xs text-gray-500">Created: ${escapeHtml(created)}${assignedTo ? ` • Assigned: ${escapeHtml(assignedLabel)}` : ''}</div>
                                         </div>
                                         <div class="flex gap-2 flex-wrap justify-end">${actions}</div>
                                     </div>
@@ -4784,17 +6002,160 @@
         await loadTriage();
     }
 
+    function setTriageAssigneeFilter(value) {
+        const el = document.getElementById('triageAssigneeFilter');
+        if (el) el.value = value;
+        loadTriage();
+    }
+
+    async function saveTriageAssignmentConfig() {
+        try {
+            if (!state.session?.tenantId) throw new Error('No tenant session');
+            if (state.data.triageAssignConfigReadonly === true) {
+                showNotification('Smart assign settings are read-only here', 'warning');
+                return;
+            }
+
+            const autoAssign = document.getElementById('triageAutoAssignToggle')?.checked === true;
+            const strategy = document.getElementById('triageAssignStrategy')?.value || 'LEAST_ACTIVE';
+            const path = `/api/triage-assignment/${state.session.tenantId}/config`;
+            const resp = await api.putJSON(path, { auto_assign: autoAssign, strategy });
+            if (!resp.success) throw new Error(resp.error || 'Failed to save');
+            showNotification('Smart assign settings saved', 'success');
+            await loadTriage();
+        } catch (err) {
+            showNotification(err.message || String(err), 'error');
+        }
+    }
+
+    async function saveTriageSlaConfig() {
+        try {
+            if (!state.session?.tenantId) throw new Error('No tenant session');
+            const enabled = document.getElementById('triageSlaEnabled')?.checked === true;
+            const minutes = Number.parseInt(String(document.getElementById('triageSlaMinutes')?.value || ''), 10);
+            const path = `/api/triage/${state.session.tenantId}/sla-config`;
+            const resp = await api.putJSON(path, { enabled, minutes });
+            if (!resp.success) throw new Error(resp.error || 'Failed to save SLA');
+            showNotification('SLA settings saved', 'success');
+            await loadTriage();
+        } catch (err) {
+            showNotification(err.message || String(err), 'error');
+        }
+    }
+
+    function showSalesUserModal(mode, userId) {
+        const tenantId = state.session?.tenantId;
+        const team = Array.isArray(state.data.salesTeam) ? state.data.salesTeam : [];
+        const existing = mode === 'edit' ? (team.find(u => String(u.id) === String(userId)) || null) : null;
+
+        const modal = document.createElement('div');
+        modal.className = 'fixed inset-0 bg-black/60 flex items-center justify-center z-50';
+        modal.innerHTML = `
+            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4">
+                <div class="p-6 border-b">
+                    <h3 class="text-xl font-bold text-gray-900">
+                        <i class="fas fa-users mr-2 text-emerald-600"></i>
+                        ${mode === 'edit' ? 'Edit Sales User' : 'Add Sales User'}
+                    </h3>
+                    <p class="text-sm text-gray-500 mt-1">Used for triage assignment.</p>
+                </div>
+                <div class="p-6 space-y-4">
+                    <div>
+                        <div class="text-xs text-gray-600 mb-1">Name</div>
+                        <input id="salesUserName" class="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent" value="${escapeHtml(String(existing?.name || ''))}" placeholder="Sales 1" />
+                    </div>
+                    <div>
+                        <div class="text-xs text-gray-600 mb-1">Phone (optional)</div>
+                        <input id="salesUserPhone" class="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent" value="${escapeHtml(String(existing?.phone || ''))}" placeholder="+9715..." />
+                    </div>
+                    <div>
+                        <div class="text-xs text-gray-600 mb-1">Role (optional)</div>
+                        <input id="salesUserRole" class="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent" value="${escapeHtml(String(existing?.role || 'sales'))}" placeholder="sales" />
+                    </div>
+                    <label class="flex items-center gap-3">
+                        <input id="salesUserActive" type="checkbox" class="h-4 w-4" ${(existing?.is_active === undefined || existing?.is_active === 1 || existing?.is_active === true) ? 'checked' : ''} />
+                        <span class="text-sm text-gray-800">Active</span>
+                    </label>
+
+                    <div class="flex gap-3">
+                        <button id="salesUserCancel" class="flex-1 px-4 py-3 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-800 font-medium">Cancel</button>
+                        <button id="salesUserSave" class="flex-1 px-4 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold">Save</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+        modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+        modal.querySelector('#salesUserCancel').addEventListener('click', () => modal.remove());
+        modal.querySelector('#salesUserSave').addEventListener('click', async () => {
+            const name = String(modal.querySelector('#salesUserName').value || '').trim();
+            const phone = String(modal.querySelector('#salesUserPhone').value || '').trim();
+            const role = String(modal.querySelector('#salesUserRole').value || '').trim();
+            const is_active = modal.querySelector('#salesUserActive').checked;
+            if (!name) {
+                showNotification('Name is required', 'error');
+                return;
+            }
+            try {
+                if (mode === 'edit' && existing?.id) {
+                    const resp = await api.putJSON(`/api/sales-team/${tenantId}/${existing.id}`, { name, phone: phone || null, role: role || null, is_active });
+                    if (!resp.success) throw new Error(resp.error || 'Update failed');
+                    showNotification('Sales user updated', 'success');
+                } else {
+                    const resp = await api.postJSON(`/api/sales-team/${tenantId}`, { name, phone: phone || null, role: role || null });
+                    if (!resp.success) throw new Error(resp.error || 'Create failed');
+                    showNotification('Sales user added', 'success');
+                }
+                modal.remove();
+                await loadTriage();
+            } catch (err) {
+                showNotification(err.message || String(err), 'error');
+            }
+        });
+    }
+
+    async function deleteSalesUser(userId) {
+        try {
+            if (!confirm('Delete this sales user?')) return;
+            const tenantId = state.session?.tenantId;
+            const resp = await fetch(`/api/sales-team/${tenantId}/${userId}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': state.session?.token ? `Bearer ${state.session.token}` : '' }
+            });
+            const data = await resp.json();
+            if (!data.success) throw new Error(data.error || 'Delete failed');
+            showNotification('Sales user deleted', 'success');
+            await loadTriage();
+        } catch (err) {
+            showNotification(err.message || String(err), 'error');
+        }
+    }
+
     function showAssignTriageModal(itemId) {
+        const team = Array.isArray(state.data.salesTeam) ? state.data.salesTeam : [];
+        const optionsHtml = team.length
+            ? `<select id="triageAssignTo" class="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                    <option value="">Select assignee</option>
+                    ${team.map(u => {
+                        const label = `${u.name || 'Assignee'}${u.phone ? ` (${u.phone})` : ''}`;
+                        return `<option value="${escapeHtml(String(u.id))}">${escapeHtml(label)}</option>`;
+                    }).join('')}
+               </select>
+               <div class="text-xs text-gray-500">Tip: Manage assignees via the Sales Team API.</div>`
+            : `<input id="triageAssignTo" class="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="Assigned to (e.g. agent name/phone)" />
+               <div class="text-xs text-gray-500">No sales team users found yet. Create one via the Sales Team API.</div>`;
+
         const modal = document.createElement('div');
         modal.className = 'fixed inset-0 bg-black/60 flex items-center justify-center z-50';
         modal.innerHTML = `
             <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4">
                 <div class="p-6 border-b">
                     <h3 class="text-xl font-bold text-gray-900"><i class="fas fa-user-plus mr-2 text-purple-600"></i>Assign Triage</h3>
-                    <p class="text-sm text-gray-500 mt-1">Assign to a phone/user identifier (simple mode).</p>
+                    <p class="text-sm text-gray-500 mt-1">Assign to a sales team member.</p>
                 </div>
                 <div class="p-6 space-y-4">
-                    <input id="triageAssignTo" class="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="Assigned to (e.g. +9715... or agent id)" />
+                    ${optionsHtml}
                     <div class="flex gap-3">
                         <button id="triageAssignCancel" class="flex-1 px-4 py-3 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-800 font-medium">Cancel</button>
                         <button id="triageAssignSave" class="flex-1 px-4 py-3 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-semibold">Assign</button>
@@ -4807,6 +6168,10 @@
         modal.querySelector('#triageAssignCancel').addEventListener('click', () => modal.remove());
         modal.querySelector('#triageAssignSave').addEventListener('click', async () => {
             const v = modal.querySelector('#triageAssignTo').value;
+            if (!v) {
+                showNotification(team.length ? 'Please select an assignee' : 'Please enter an assignee', 'error');
+                return;
+            }
             try {
                 await assignTriage(itemId, v);
                 modal.remove();
@@ -5248,6 +6613,64 @@
             };
         }
 
+        const aiKeysForm = document.getElementById('aiKeysForm');
+        if (aiKeysForm) {
+            aiKeysForm.onsubmit = async (ev) => {
+                ev.preventDefault();
+                const payload = {
+                    openai_project: document.getElementById('openaiProject')?.value || '',
+                    openai_model: document.getElementById('openaiModel')?.value || ''
+                };
+
+                const openaiApiKey = (document.getElementById('openaiApiKey')?.value || '').trim();
+                const anthropicApiKey = (document.getElementById('anthropicApiKey')?.value || '').trim();
+                const geminiApiKey = (document.getElementById('geminiApiKey')?.value || '').trim();
+
+                if (openaiApiKey) payload.openai_api_key = openaiApiKey;
+                if (anthropicApiKey) payload.anthropic_api_key = anthropicApiKey;
+                if (geminiApiKey) payload.gemini_api_key = geminiApiKey;
+
+                try {
+                    const resp = await api.updateSettings(payload);
+                    if (resp.success) {
+                        showNotification('AI settings updated', 'success');
+                        await loadSettings();
+                    } else {
+                        throw new Error(resp.error || 'Failed');
+                    }
+                } catch (err) {
+                    console.error(err);
+                    showNotification('Failed to update AI settings', 'error');
+                }
+            };
+        }
+
+        const maytapiForm = document.getElementById('maytapiForm');
+        if (maytapiForm) {
+            maytapiForm.onsubmit = async (ev) => {
+                ev.preventDefault();
+                const payload = {
+                    maytapi_product_id: document.getElementById('maytapiProductId')?.value || '',
+                    maytapi_phone_id: document.getElementById('maytapiPhoneId')?.value || ''
+                };
+                const maytapiApiKey = (document.getElementById('maytapiApiKey')?.value || '').trim();
+                if (maytapiApiKey) payload.maytapi_api_key = maytapiApiKey;
+
+                try {
+                    const resp = await api.updateSettings(payload);
+                    if (resp.success) {
+                        showNotification('Maytapi settings updated', 'success');
+                        await loadSettings();
+                    } else {
+                        throw new Error(resp.error || 'Failed');
+                    }
+                } catch (err) {
+                    console.error(err);
+                    showNotification('Failed to update Maytapi settings', 'error');
+                }
+            };
+        }
+
         // Zoho Sync Handlers
         const syncProductsBtn = document.getElementById('syncProductsBtn');
         if (syncProductsBtn) {
@@ -5554,7 +6977,7 @@
                 document.getElementById('loadingScreen').classList.add('hidden');
                 document.getElementById('dashboard').classList.remove('hidden');
                 await loadStats();
-                switchTab('whatsapp-web');
+                switchTab('overview');
                 loadNotifications();
                 showNotification('Welcome back, ' + state.session.businessName + '!', 'success');
                 return;
@@ -5610,6 +7033,26 @@
 
     // ---------- Event listeners ----------
     document.addEventListener('DOMContentLoaded', function(){
+        initSidebarUI();
+
+        // Keep sidebar state sane when switching between mobile/desktop.
+        window.addEventListener('resize', () => {
+            const sidebar = document.getElementById('sidebar');
+            if (!sidebar) return;
+
+            if (window.innerWidth <= 768) {
+                sidebar.classList.remove('mobile-open');
+                setSidebarCollapsed(false);
+            } else {
+                try {
+                    const saved = localStorage.getItem(SIDEBAR_STORAGE_KEY);
+                    setSidebarCollapsed(saved === '1');
+                } catch (_) {
+                    setSidebarCollapsed(false);
+                }
+            }
+        });
+
         // Initialize bulk upload handlers
         initBulkUploadHandlers();
         // Initialize manage categories handler
@@ -5630,6 +7073,7 @@
             state.searchQuery = e.target.value.trim().toLowerCase();
             if (state.currentTab === 'conversations') loadConversations();
             else if (state.currentTab === 'orders') loadOrders();
+            else if (state.currentTab === 'leads') loadLeads();
         });
         // Customer search filter listeners
         document.getElementById('customerSearchBtn')?.addEventListener('click', loadCustomers);

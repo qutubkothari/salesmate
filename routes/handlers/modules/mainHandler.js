@@ -1,4 +1,4 @@
-// routes/handlers/modules/mainHandler.js
+﻿// routes/handlers/modules/mainHandler.js
 // Main orchestrator for customer message handling - refactored and modular
 
 const { processIntentAndContext } = require('./intentHandler');
@@ -6,7 +6,7 @@ const { handleSmartResponse } = require('./smartResponseHandler');
 const { handleDiscountRequests } = require('./discountHandler');
 const { handleAddProduct } = require('./addProductHandler');
 const { sendMessage } = require('../../../services/whatsappService');
-const { supabase } = require('../../../services/config');
+const { dbClient } = require('../../../services/config');
 
 // Import Enhanced AI Intelligence system
 const ConversationMemory = require('../../../services/core/ConversationMemory');
@@ -20,13 +20,16 @@ console.log('[MAIN_HANDLER] Enhanced AI Intelligence System loaded with human-li
 // Helper function to send message and save to database
 async function sendAndSaveMessage(to, messageBody, conversationId, tenantId) {
     try {
-        // Send message via WhatsApp
-        const messageId = await sendMessage(to, messageBody);
+        // Send message via configured provider (Maytapi for paid tiers; WhatsApp Web otherwise)
+        const messageId = await sendMessage(to, messageBody, tenantId);
+        if (!messageId) {
+            throw new Error('Failed to send WhatsApp message');
+        }
         
         // Save bot message to database
         try {
             if (conversationId) {
-                await supabase.from('messages').insert({
+                await dbClient.from('messages').insert({
                     tenant_id: tenantId,
                     conversation_id: conversationId,
                     message_body: messageBody,
@@ -62,16 +65,37 @@ async function handleCustomerMessage(req, res, tenant, from, userQuery, conversa
         // This ensures every message is persisted regardless of processing outcome
         if (conversation && conversation.id) {
             try {
-                await supabase.from('messages').insert({
-                    conversation_id: conversation.id,
-                    message_body: userQuery,
-                    sender: 'user',
-                    message_type: 'user_input',
-                    created_at: new Date().toISOString()
-                });
+                const createdAt = new Date().toISOString();
+                let insertedMessageId = null;
+
+                try {
+                    const { data: insertedRow } = await dbClient
+                        .from('messages')
+                        .insert({
+                            tenant_id: tenant.id,
+                            conversation_id: conversation.id,
+                            message_body: userQuery,
+                            sender: 'user',
+                            message_type: 'user_input',
+                            created_at: createdAt
+                        })
+                        .select('id')
+                        .maybeSingle();
+                    insertedMessageId = insertedRow?.id || null;
+                } catch (_) {
+                    // Fallback for DB wrappers that don't support select/maybeSingle on insert
+                    await dbClient.from('messages').insert({
+                        tenant_id: tenant.id,
+                        conversation_id: conversation.id,
+                        message_body: userQuery,
+                        sender: 'user',
+                        message_type: 'user_input',
+                        created_at: createdAt
+                    });
+                }
                 
                 // Update conversation's last_message_at timestamp
-                await supabase.from('conversations')
+                await dbClient.from('conversations')
                     .update({ 
                         last_message_at: new Date().toISOString(),
                         updated_at: new Date().toISOString()
@@ -208,13 +232,13 @@ async function handleCustomerMessage(req, res, tenant, from, userQuery, conversa
             try {
                 await saveShippingInfo(orderId, shippingInfo, tenant.id, from);
                 // Update conversation state
-                const { supabase } = require('../../../services/config');
-                await supabase
+                const { dbClient } = require('../../../services/config');
+                await dbClient
                 .from('conversations')
                 .update({ state: 'active', metadata: { ...conversation.metadata, pending_shipping_order_id: null } })
                 .eq('id', conversation.id);
                 // Confirmation message
-                let confirmationMsg = `✅ *Your shipping details have been updated!*\n\nHere's what we've saved for your future orders:\n\n📍 *Address:* ${shippingInfo.shippingAddress}\n🏙️ *City:* ${shippingInfo.shippingCity || ''}\n🌏 *State:* ${shippingInfo.shippingState || ''}\n🔢 *Pincode:* ${shippingInfo.shippingPincode || ''}\n🚛 *Transporter:* ${shippingInfo.transporterName}\n📞 *Transporter Contact:* ${shippingInfo.transporterContact}\n\nThank you! Your details are now saved and will be used for all upcoming deliveries. If you need to make any changes, just let us know!`;
+                let confirmationMsg = `âœ… *Your shipping details have been updated!*\n\nHere's what we've saved for your future orders:\n\nðŸ“ *Address:* ${shippingInfo.shippingAddress}\nðŸ™ï¸ *City:* ${shippingInfo.shippingCity || ''}\nðŸŒ *State:* ${shippingInfo.shippingState || ''}\nðŸ”¢ *Pincode:* ${shippingInfo.shippingPincode || ''}\nðŸš› *Transporter:* ${shippingInfo.transporterName}\nðŸ“ž *Transporter Contact:* ${shippingInfo.transporterContact}\n\nThank you! Your details are now saved and will be used for all upcoming deliveries. If you need to make any changes, just let us know!`;
                 await sendAndSaveMessage(from, confirmationMsg, conversation?.id, tenant.id);
                 return res.status(200).json({ ok: true, type: 'shipping_info_saved', details: shippingInfo });
             } catch (err) {
@@ -256,6 +280,58 @@ async function handleCustomerMessage(req, res, tenant, from, userQuery, conversa
                 await sendAndSaveMessage(from, result.message, conversation?.id, tenant.id);
                 return res.status(200).json({ ok: false, type: 'address_update_failed', error: result.error });
             }
+        }
+
+        // STEP 0.95: Human handover detection (text) + triage
+        // If the user explicitly asks for a human, short-circuit and create a triage item.
+        try {
+            const { detectHandoverTriggers, notifySalesTeam, sendHandoverResponse } = require('../../../services/humanHandoverService');
+            if (detectHandoverTriggers(userQuery)) {
+                const { getConversationId } = require('../../../services/historyService');
+                const { upsertTriageForConversation } = require('../../../services/triageService');
+
+                const conversationId = conversation?.id || await getConversationId(tenant.id, from);
+
+                if (conversationId) {
+                    try {
+                        await dbClient
+                            .from('conversations')
+                            .update({ requires_human_attention: true, updated_at: new Date().toISOString() })
+                            .eq('id', conversationId);
+                    } catch (_) {
+                        // best-effort
+                    }
+
+                    try {
+                        await upsertTriageForConversation(dbClient, {
+                            tenantId: tenant.id,
+                            conversationId,
+                            endUserPhone: from,
+                            type: 'HUMAN_ATTENTION',
+                            messagePreview: 'Auto-triage: customer requested human',
+                            metadata: { source: 'mainHandler', trigger: 'detectHandoverTriggers' }
+                        });
+                    } catch (_) {
+                        // best-effort
+                    }
+                }
+
+                try {
+                    await notifySalesTeam(tenant, from, userQuery, {
+                        lastProduct: conversation?.last_product_discussed || null,
+                        cartItems: null,
+                        orderValue: null
+                    });
+                } catch (_) {
+                    // best-effort
+                }
+
+                const handoverMsg = await sendHandoverResponse(from, tenant.id, 'english');
+                await sendAndSaveMessage(from, handoverMsg, conversationId || conversation?.id, tenant.id);
+                return res.status(200).json({ ok: true, type: 'human_handover' });
+            }
+        } catch (e) {
+            console.error('[MAIN_HANDLER] Handover detection error:', e?.message || e);
         }
 
         // ===== ENHANCED AI CLASSIFICATION =====
@@ -341,11 +417,7 @@ async function handleCustomerMessage(req, res, tenant, from, userQuery, conversa
 
             if (addProductResponse) {
                 console.log('[MAIN_HANDLER] Add product handler processed request (AI-routed)');
-                if (conversation && conversation.id) {
-                    await sendAndSaveMessage(from, addProductResponse.response, conversation?.id, tenant.id);
-                } else {
-                    await sendMessage(from, addProductResponse.response);
-                }
+                await sendAndSaveMessage(from, addProductResponse.response, conversation?.id || null, tenant.id);
                 return res.status(200).json({ ok: true, type: 'add_product_ai' });
             }
         }
@@ -393,12 +465,7 @@ async function handleCustomerMessage(req, res, tenant, from, userQuery, conversa
 
         if (addProductResponse) {
             console.log('[MAIN_HANDLER] Add product handler processed request');
-            if (conversation && conversation.id) {
-                await sendAndSaveMessage(from, addProductResponse.response, conversation.id, tenant.id);
-            } else {
-                // Just send message without saving if no conversation yet
-                await sendMessage(from, addProductResponse.response);
-            }
+            await sendAndSaveMessage(from, addProductResponse.response, conversation?.id || null, tenant.id);
             return res.status(200).json({ ok: true, type: addProductResponse.source });
         }
 
@@ -468,7 +535,7 @@ async function handleCustomerMessage(req, res, tenant, from, userQuery, conversa
                         }
 
                         // Clear quoted products after adding
-                        await supabase
+                        await dbClient
                             .from('conversations')
                             .update({ last_quoted_products: null })
                             .eq('id', conversation.id);
@@ -524,7 +591,7 @@ async function handleCustomerMessage(req, res, tenant, from, userQuery, conversa
                 
                 // Save clarification context for next message
                 if (conversation?.id) {
-                    await supabase.from('conversations')
+                    await dbClient.from('conversations')
                         .update({
                             metadata: {
                                 ...conversation.metadata,

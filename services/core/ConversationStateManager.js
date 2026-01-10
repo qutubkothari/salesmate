@@ -1,4 +1,4 @@
-/**
+﻿/**
  * ConversationStateManager - Centralized State Machine for Conversations
  * 
  * This service manages conversation states with:
@@ -10,7 +10,7 @@
  * @module services/core/ConversationStateManager
  */
 
-const { supabase } = require('../config');
+const { dbClient } = require('../config');
 const { toWhatsAppFormat } = require('../../utils/phoneUtils');
 
 /**
@@ -30,7 +30,7 @@ const STATES = {
 
 /**
  * Valid state transitions
- * Maps current state → array of allowed next states
+ * Maps current state â†’ array of allowed next states
  */
 const VALID_TRANSITIONS = {
     [STATES.INITIAL]: [STATES.BROWSING, STATES.CART_ACTIVE, STATES.AWAITING_GST, STATES.MULTI_PRODUCT_DISCUSSION],
@@ -95,7 +95,7 @@ async function getState(tenantId, phoneNumber) {
         
         const whatsappPhone = toWhatsAppFormat(phoneNumber);
         
-        const { data, error } = await supabase
+        const { data, error } = await dbClient
             .from('conversations')
             .select('id, state')
             .eq('tenant_id', tenantId)
@@ -143,7 +143,7 @@ async function setState(tenantId, phoneNumber, newState, options = {}) {
         
         // Validate transition unless forced
         if (!options.force && !isValidTransition(currentState, newState)) {
-            const error = `Invalid state transition: ${currentState} → ${newState}`;
+            const error = `Invalid state transition: ${currentState} â†’ ${newState}`;
             console.error(`[StateManager] ${error}`);
             throw new Error(error);
         }
@@ -153,9 +153,9 @@ async function setState(tenantId, phoneNumber, newState, options = {}) {
             throw new Error('No conversation found to update state');
         }
         
-        console.log(`[StateManager] State transition: ${currentState} → ${newState} for ${whatsappPhone}`);
+        console.log(`[StateManager] State transition: ${currentState} â†’ ${newState} for ${whatsappPhone}`);
         
-        const { error } = await supabase
+        const { error } = await dbClient
             .from('conversations')
             .update({
                 state: newState,
@@ -316,3 +316,4 @@ module.exports = {
     transitionToCheckoutReady,
     transitionToOrderPlaced
 };
+

@@ -1,8 +1,8 @@
-/**
+﻿/**
  * @title Smart FAQ Service
  * @description Manages the logic for adding, deleting, and searching for tenant FAQs using vector similarity.
  */
-const { supabase } = require('./config');
+const { dbClient } = require('./config');
 const { createEmbedding } = require('./aiService'); // We'll reuse the embedding function
 
 /**
@@ -12,22 +12,22 @@ const commonProductFAQs = [
     {
         question: "carton mein kitne pieces",
         patterns: [/carton.*pieces/i, /pieces.*carton/i, /kitne pieces/i, /how many.*pieces/i],
-        answer: "Standard carton sizes:\n• 6x40, 6x60: 3000-2000 pieces\n• 8x60, 8x80: 1500 pieces\n• 8x100, 8x120: 1200-1100 pieces\n• 10x80: 1000 pieces\n• 10x100+: 700-500 pieces"
+        answer: "Standard carton sizes:\nâ€¢ 6x40, 6x60: 3000-2000 pieces\nâ€¢ 8x60, 8x80: 1500 pieces\nâ€¢ 8x100, 8x120: 1200-1100 pieces\nâ€¢ 10x80: 1000 pieces\nâ€¢ 10x100+: 700-500 pieces"
     },
     {
         question: "bulk discount",
         patterns: [/bulk.*discount/i, /wholesale.*price/i, /quantity.*discount/i, /bulk.*rate/i, /wholesale.*rate/i],
-        answer: "Bulk discounts available:\n• 10+ cartons: 5% off\n• 50+ cartons: 10% off\n• 100+ cartons: 15% off\nContact us for custom rates on larger quantities."
+        answer: "Bulk discounts available:\nâ€¢ 10+ cartons: 5% off\nâ€¢ 50+ cartons: 10% off\nâ€¢ 100+ cartons: 15% off\nContact us for custom rates on larger quantities."
     },
     {
         question: "payment methods",
         patterns: [/payment.*method/i, /how.*pay/i, /payment.*option/i, /cash.*card/i],
-        answer: "We accept:\n• UPI (PhonePe, GPay, Paytm)\n• Bank Transfer (NEFT/IMPS)\n• Cash on Delivery\n• Credit/Debit Cards\n• Net Banking"
+        answer: "We accept:\nâ€¢ UPI (PhonePe, GPay, Paytm)\nâ€¢ Bank Transfer (NEFT/IMPS)\nâ€¢ Cash on Delivery\nâ€¢ Credit/Debit Cards\nâ€¢ Net Banking"
     },
     {
         question: "delivery time",
         patterns: [/delivery.*time/i, /when.*deliver/i, /shipping.*time/i, /kitne din/i],
-        answer: "Delivery timeframes:\n• Local: 1-2 days\n• Metro cities: 2-3 days\n• Other locations: 3-5 days\n• Bulk orders: 5-7 days"
+        answer: "Delivery timeframes:\nâ€¢ Local: 1-2 days\nâ€¢ Metro cities: 2-3 days\nâ€¢ Other locations: 3-5 days\nâ€¢ Bulk orders: 5-7 days"
     }
 ];
 
@@ -44,7 +44,7 @@ const addFaq = async (tenantId, question, answer) => {
         const embedding = await createEmbedding(question);
 
         // 2. Insert the FAQ into the database.
-        const { error } = await supabase
+        const { error } = await dbClient
             .from('faqs')
             .insert({
                 tenant_id: tenantId,
@@ -70,7 +70,7 @@ const addFaq = async (tenantId, question, answer) => {
  */
 const deleteFaq = async (tenantId, question) => {
     try {
-        const { error } = await supabase
+        const { error } = await dbClient
             .from('faqs')
             .delete()
             .eq('tenant_id', tenantId)
@@ -92,7 +92,7 @@ const deleteFaq = async (tenantId, question) => {
  */
 const listFaqs = async (tenantId) => {
     try {
-        const { data, error } = await supabase
+        const { data, error } = await dbClient
             .from('faqs')
             .select('question')
             .eq('tenant_id', tenantId);
@@ -138,7 +138,7 @@ const findFaqResponse = async (tenantId, userQuery) => {
 
         let data = null;
         try {
-            const { data: rpcData, error } = await supabase.rpc('match_faqs', {
+            const { data: rpcData, error } = await dbClient.rpc('match_faqs', {
                 tenant_id_param: tenantId,
                 query_embedding: queryEmbedding,
                 match_threshold: 0.8,
@@ -149,7 +149,7 @@ const findFaqResponse = async (tenantId, userQuery) => {
         } catch (rpcErr) {
             // Local SQLite mode: fall back to basic text matching.
             const needle = String(userQuery || '').trim().slice(0, 120);
-            const { data: rows, error: qErr } = await supabase
+            const { data: rows, error: qErr } = await dbClient
                 .from('tenant_faqs')
                 .select('question, answer')
                 .eq('tenant_id', tenantId)
@@ -207,3 +207,4 @@ module.exports = {
     checkCommonFAQs,
     commonProductFAQs
 };
+

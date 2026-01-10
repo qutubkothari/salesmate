@@ -1,10 +1,6 @@
-const { supabase } = require('../../config/database');
-const OpenAI = require('openai');
+﻿const { dbClient } = require('../../config/database');
+const { openai } = require('../config');
 const crypto = require('crypto');
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
 
 const SIMILARITY_THRESHOLD = 0.85;
 const CACHE_EXPIRY_DAYS = 90;
@@ -23,7 +19,7 @@ async function checkCache(query, customerContext = {}) {
       return null;
     }
 
-    const { data, error } = await supabase.rpc('search_similar_queries', {
+    const { data, error } = await dbClient.rpc('search_similar_queries', {
       p_query_embedding: embedding,
       p_similarity_threshold: SIMILARITY_THRESHOLD,
       p_match_count: 5
@@ -44,7 +40,7 @@ async function checkCache(query, customerContext = {}) {
     console.log(`[CACHE] Used ${bestMatch.hit_count} times`);
 
     // Increment hit count
-    await supabase
+    await dbClient
       .from('ai_response_cache')
       .update({ hit_count: bestMatch.hit_count + 1 })
       .eq('query_hash', bestMatch.query_hash);
@@ -81,7 +77,7 @@ async function storeInCache(query, response, customerContext, intent, tokens, co
     // Create hash of query for primary key
     const queryHash = crypto.createHash('md5').update(query).digest('hex');
 
-    const { data, error } = await supabase
+    const { data, error } = await dbClient
       .from('ai_response_cache')
       .upsert({
         query_hash: queryHash,
@@ -121,6 +117,9 @@ async function storeInCache(query, response, customerContext, intent, tokens, co
  */
 async function generateEmbedding(text) {
   try {
+    if (!openai) {
+      return null;
+    }
     const response = await openai.embeddings.create({
       model: 'text-embedding-ada-002',
       input: text.substring(0, 8000)
@@ -154,7 +153,7 @@ async function trackUsage(query, source, cacheId, tokens, cost, similarity = nul
   try {
     const costSaved = source === 'cache' ? AVG_AI_COST : 0;
 
-    await supabase
+    await dbClient
       .from('ai_usage_tracking')
       .insert({
         query_text: query.substring(0, 500),
@@ -176,12 +175,12 @@ async function trackUsage(query, source, cacheId, tokens, cost, similarity = nul
  */
 async function markAsEffective(queryHash, customerId, ledToOrder, orderId = null) {
   try {
-    await supabase
+    await dbClient
       .from('ai_response_cache')
       .update({ led_to_order: ledToOrder })
       .eq('query_hash', queryHash);
 
-    await supabase
+    await dbClient
       .from('response_effectiveness')
       .insert({
         cache_query_hash: queryHash,
@@ -205,7 +204,7 @@ async function getCacheStats(days = 7) {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
 
-    const { data, error } = await supabase
+    const { data, error } = await dbClient
       .from('ai_usage_tracking')
       .select('response_source, cost, cost_saved')
       .gte('created_at', startDate.toISOString());
@@ -236,7 +235,7 @@ async function getCacheStats(days = 7) {
  */
 async function cleanExpiredCache() {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await dbClient
       .from('ai_response_cache')
       .delete()
       .lt('expires_at', new Date().toISOString())
@@ -260,7 +259,7 @@ async function updateDailyAnalytics() {
   try {
     const today = new Date().toISOString().split('T')[0];
     
-    const { data: usage } = await supabase
+    const { data: usage } = await dbClient
       .from('ai_usage_tracking')
       .select('*')
       .gte('created_at', `${today}T00:00:00Z`)
@@ -273,7 +272,7 @@ async function updateDailyAnalytics() {
     const totalCost = usage.reduce((sum, u) => sum + parseFloat(u.cost || 0), 0);
     const costSaved = usage.reduce((sum, u) => sum + parseFloat(u.cost_saved || 0), 0);
 
-    await supabase
+    await dbClient
       .from('cache_analytics_daily')
       .upsert({
         date: today,

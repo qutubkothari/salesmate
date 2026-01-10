@@ -1,12 +1,12 @@
-// services/responseAnalytics.js
-const { supabase } = require('./config');
+﻿// services/responseAnalytics.js
+const { dbClient } = require('./config');
 
 /**
  * Track response sources and costs
  */
 const trackResponse = async (tenantId, userQuery, responseSource, cost = 0) => {
     try {
-        await supabase
+        await dbClient
             .from('response_analytics')
             .insert({
                 tenant_id: tenantId,

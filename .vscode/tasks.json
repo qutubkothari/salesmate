@@ -1,49 +1,62 @@
 {
-  "version": "2.0.0",
-  "tasks": [
-    {
-      "label": "Deploy to EC2",
-      "type": "shell",
-      "command": "powershell.exe",
-      "args": [
-        "-ExecutionPolicy",
-        "Bypass",
-        "-File",
-        "${workspaceFolder}/deploy-to-ec2.ps1",
-        "-Message",
-        "Auto-deploy: ${input:commitMessage}"
-      ],
-      "problemMatcher": [],
-      "presentation": {
-        "reveal": "always",
-        "panel": "new",
-        "focus": false
-      }
-    },
-    {
-      "label": "Quick Deploy (no message)",
-      "type": "shell",
-      "command": "powershell.exe",
-      "args": [
-        "-ExecutionPolicy",
-        "Bypass",
-        "-File",
-        "${workspaceFolder}/deploy-to-ec2.ps1"
-      ],
-      "problemMatcher": [],
-      "presentation": {
-        "reveal": "always",
-        "panel": "new",
-        "focus": false
-      }
-    }
-  ],
-  "inputs": [
-    {
-      "id": "commitMessage",
-      "type": "promptString",
-      "description": "Commit message:",
-      "default": "Quick update"
-    }
-  ]
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Deploy to EC2",
+			"type": "shell",
+			"command": "powershell.exe",
+			"args": [
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				"${workspaceFolder}/deploy-to-ec2.ps1",
+				"-Message",
+				"Auto-deploy: ${input:commitMessage}"
+			],
+			"problemMatcher": [],
+			"presentation": {
+				"reveal": "always",
+				"panel": "new",
+				"focus": false
+			}
+		},
+		{
+			"label": "Quick Deploy (no message)",
+			"type": "shell",
+			"command": "powershell.exe",
+			"args": [
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				"${workspaceFolder}/deploy-to-ec2.ps1"
+			],
+			"problemMatcher": [],
+			"presentation": {
+				"reveal": "always",
+				"panel": "new",
+				"focus": false
+			}
+		},
+		{
+			"label": "Kill Salesmate node processes",
+			"type": "shell",
+			"command": "powershell.exe",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-Command",
+				"$procs = Get-CimInstance Win32_Process -Filter \"Name='node.exe'\" | Where-Object { $_.CommandLine -match 'Documents\\\\GitHub\\\\salesmate' }; if ($procs) { $procs | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }; Write-Host \"Killed $($procs.Count) salesmate node process(es).\" } else { Write-Host \"No salesmate node processes found.\" }"
+			],
+			"isBackground": false
+		}
+	],
+	"inputs": [
+		{
+			"id": "commitMessage",
+			"type": "promptString",
+			"description": "Commit message:",
+			"default": "Quick update"
+		}
+	]
 }

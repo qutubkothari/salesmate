@@ -1,10 +1,10 @@
-const discountCalculationService = require('../services/discountCalculationService');
-const { supabase } = require('../services/config');
+﻿const discountCalculationService = require('../services/discountCalculationService');
+const { dbClient } = require('../services/config');
 
 (async () => {
   const tenantId = 'a10aa26a-b5f9-4afe-87cc-70bfb4d1f6e6';
   const productCodes = ['8x80','8x100','10x100'];
-  const { data: productsByName } = await supabase
+  const { data: productsByName } = await dbClient
     .from('products')
     .select('id, name, category, price, units_per_carton')
     .or(productCodes.map(c => `name.ilike.%${c}%`).join(','));

@@ -1,8 +1,8 @@
-/**
+﻿/**
  * @title Manual Reminder Service
  * @description Handles the logic for setting and sending manual conversation reminders for tenants.
  */
-const { supabase } = require('./config');
+const { dbClient } = require('./config');
 const { sendMessage } = require('./whatsappService');
 const chrono = require('chrono-node');
 
@@ -16,7 +16,7 @@ const chrono = require('chrono-node');
 const setManualReminder = async (tenantId, endUserPhone, reminderText) => {
     try {
         // 1. Find the conversation to set the reminder on.
-        const { data: conversation, error: convError } = await supabase
+        const { data: conversation, error: convError } = await dbClient
             .from('conversations')
             .select('id')
             .eq('tenant_id', tenantId)
@@ -34,7 +34,7 @@ const setManualReminder = async (tenantId, endUserPhone, reminderText) => {
         }
 
         // 3. Update the conversation with the reminder details.
-        const { error: updateError } = await supabase
+        const { error: updateError } = await dbClient
             .from('conversations')
             .update({
                 reminder_at: parsedDate.toISOString(),
@@ -59,7 +59,7 @@ const setManualReminder = async (tenantId, endUserPhone, reminderText) => {
 const sendDueManualReminders = async () => {
     try {
         const now = new Date().toISOString();
-        const { data: dueReminders, error } = await supabase
+        const { data: dueReminders, error } = await dbClient
             .from('conversations')
             .select(`
                 id,
@@ -79,13 +79,13 @@ const sendDueManualReminders = async () => {
             for (const reminder of dueReminders) {
                 const tenantPhoneNumber = reminder.tenant.phone_number;
                 const customerPhoneNumber = reminder.end_user_phone;
-                const reminderMessage = `🔔 *Reminder for your chat with ${customerPhoneNumber}*\n\nYou asked me to remind you: "${reminder.reminder_message}"`;
+                const reminderMessage = `ðŸ”” *Reminder for your chat with ${customerPhoneNumber}*\n\nYou asked me to remind you: "${reminder.reminder_message}"`;
 
                 // Send the reminder message to the tenant.
                 await sendMessage(tenantPhoneNumber, reminderMessage);
 
                 // Clear the reminder fields so it doesn't send again.
-                await supabase
+                await dbClient
                     .from('conversations')
                     .update({ reminder_at: null, reminder_message: null })
                     .eq('id', reminder.id);
@@ -102,3 +102,4 @@ module.exports = {
     setManualReminder,
     sendDueManualReminders,
 };
+

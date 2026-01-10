@@ -1,10 +1,10 @@
-const { supabase } = require('../services/config');
+﻿const { dbClient } = require('../services/config');
 
 (async () => {
   try {
     const code = '8x80';
     console.log('Querying products with name ilike %' + code + '%');
-    const { data, error } = await supabase
+    const { data, error } = await dbClient
       .from('products')
       .select('id, name, category, price, units_per_carton')
       .ilike('name', `%${code}%`)
@@ -20,3 +20,4 @@ const { supabase } = require('../services/config');
     console.error(err);
   }
 })();
+

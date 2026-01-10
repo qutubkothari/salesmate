@@ -1,8 +1,8 @@
-/**
+﻿/**
  * @title Tenant Referral Service
  * @description Manages all logic for the tenant referral program, including code generation and rewards.
  */
-const { supabase } = require('./config');
+const { dbClient } = require('./config');
 const { sendMessage } = require('./whatsappService');
 const crypto = require('crypto');
 
@@ -24,7 +24,7 @@ const generateReferralCode = () => {
  */
 const applyReferralBonus = async (tenantId, reason) => {
     try {
-        const { data: tenant, error } = await supabase
+        const { data: tenant, error } = await dbClient
             .from('tenants')
             .select('id, phone_number, subscription_end_date')
             .eq('id', tenantId)
@@ -38,12 +38,12 @@ const applyReferralBonus = async (tenantId, reason) => {
         const currentEndDate = new Date(tenant.subscription_end_date || Date.now());
         const newEndDate = new Date(currentEndDate.setDate(currentEndDate.getDate() + REFERRAL_BONUS_DAYS));
 
-        await supabase
+        await dbClient
             .from('tenants')
             .update({ subscription_end_date: newEndDate.toISOString(), subscription_status: 'active' })
             .eq('id', tenant.id);
 
-        const bonusMessage = `🎉 *Referral Bonus!*\n\n${reason} We've extended your subscription by ${REFERRAL_BONUS_DAYS} days!`;
+        const bonusMessage = `ðŸŽ‰ *Referral Bonus!*\n\n${reason} We've extended your subscription by ${REFERRAL_BONUS_DAYS} days!`;
         await sendMessage(tenant.phone_number, bonusMessage);
         console.log(`Applied ${REFERRAL_BONUS_DAYS}-day referral bonus to tenant ${tenantId}.`);
 
@@ -61,7 +61,7 @@ const applyReferralBonus = async (tenantId, reason) => {
 const processReferral = async (tenantId, referralCode) => {
     try {
         // 1. Check if the current tenant has already been referred.
-        const { data: currentTenant, error: tenantError } = await supabase
+        const { data: currentTenant, error: tenantError } = await dbClient
             .from('tenants')
             .select('referred_by')
             .eq('id', tenantId)
@@ -73,7 +73,7 @@ const processReferral = async (tenantId, referralCode) => {
         }
 
         // 2. Find the tenant who owns the referral code (the referrer).
-        const { data: referrer, error: referrerError } = await supabase
+        const { data: referrer, error: referrerError } = await dbClient
             .from('tenants')
             .select('id, phone_number')
             .eq('referral_code', referralCode.toUpperCase())
@@ -89,7 +89,7 @@ const processReferral = async (tenantId, referralCode) => {
         }
 
         // 4. Link the new tenant to the referrer.
-        await supabase
+        await dbClient
             .from('tenants')
             .update({ referred_by: referrer.id })
             .eq('id', tenantId);
@@ -112,4 +112,5 @@ module.exports = {
     generateReferralCode,
     processReferral,
 };
+
 

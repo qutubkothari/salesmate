@@ -1,8 +1,8 @@
-/**
+﻿/**
  * @title Campaign Analytics Service
  * @description Handles fetching and processing data to provide tenants with campaign performance analytics.
  */
-const { supabase } = require('./config');
+const { dbClient } = require('./config');
 
 /**
  * Fetches and aggregates analytics for all campaigns belonging to a tenant.
@@ -12,7 +12,7 @@ const { supabase } = require('./config');
 const getCampaignAnalytics = async (tenantId) => {
     try {
         // 1. Fetch all sent messages for the tenant, including campaign info.
-        const { data, error } = await supabase
+        const { data, error } = await dbClient
             .from('bulk_schedules')
             .select('campaign_id, campaign_name, delivery_status')
             .eq('tenant_id', tenantId)
@@ -41,7 +41,7 @@ const getCampaignAnalytics = async (tenantId) => {
         }, {});
 
         // 3. Format the aggregated data into a user-friendly message.
-        let analyticsMessage = '📊 *Campaign Analytics Report*\n\n';
+        let analyticsMessage = 'ðŸ“Š *Campaign Analytics Report*\n\n';
         if (Object.keys(campaigns).length === 0) {
             return 'No campaign data is available yet. Statuses will update as they are received.';
         }
@@ -67,3 +67,4 @@ const getCampaignAnalytics = async (tenantId) => {
 module.exports = {
     getCampaignAnalytics,
 };
+

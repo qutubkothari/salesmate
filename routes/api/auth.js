@@ -1,6 +1,6 @@
-const express = require('express');
+﻿const express = require('express');
 const router = express.Router();
-const { supabase } = require('../../services/config');
+const { dbClient } = require('../../services/config');
 const crypto = require('crypto');
 
 /**
@@ -66,7 +66,7 @@ router.post('/login', async (req, res) => {
         for (const col of phoneColumnsToTry) {
             if (tenant) break;
             for (const phoneFormat of phoneFormats) {
-                const { data, error } = await supabase
+                const { data, error } = await dbClient
                     .from('tenants')
                     .select('*')
                     .eq(col, phoneFormat)
@@ -83,7 +83,7 @@ router.post('/login', async (req, res) => {
         // We do a safe suffix match against stored digits across multiple possible fields.
         // If ambiguous, fail.
         if (!tenant) {
-            const { data: allTenants, error: listError } = await supabase
+            const { data: allTenants, error: listError } = await dbClient
                 .from('tenants')
                 .select('*');
 
@@ -175,7 +175,7 @@ router.post('/change-password', async (req, res) => {
         }
 
         // Get tenant
-        const { data: tenant, error: tenantError } = await supabase
+        const { data: tenant, error: tenantError } = await dbClient
             .from('tenants')
             .select('*')
             .eq('id', tenantId)
@@ -198,7 +198,7 @@ router.post('/change-password', async (req, res) => {
         }
 
         // Update password
-        const { error: updateError } = await supabase
+        const { error: updateError } = await dbClient
             .from('tenants')
             .update({ password: newPassword })
             .eq('id', tenantId);
@@ -235,3 +235,4 @@ router.post('/logout', async (req, res) => {
 });
 
 module.exports = router;
+

@@ -1,5 +1,5 @@
-// services/orderConfirmationService.js - COMPLETE FIXED VERSION
-const { supabase } = require('./config');
+﻿// services/orderConfirmationService.js - COMPLETE FIXED VERSION
+const { dbClient } = require('./config');
 
 /**
  * Enhanced order confirmation detection with context awareness
@@ -34,7 +34,7 @@ const isOrderConfirmationEnhanced = async (userQuery, conversation, tenantId) =>
         
         // Context check 2: Recent message history contains pricing
         try {
-            const { data: recentMessages } = await supabase
+            const { data: recentMessages } = await dbClient
                 .from('messages')
                 .select('message_body, sender')
                 .eq('conversation_id', conversation.id)
@@ -44,7 +44,7 @@ const isOrderConfirmationEnhanced = async (userQuery, conversation, tenantId) =>
             if (recentMessages) {
                 const hasRecentPricing = recentMessages.some(msg => 
                     msg.sender === 'bot' && 
-                    (msg.message_body.includes('₹') || 
+                    (msg.message_body.includes('â‚¹') || 
                      msg.message_body.includes('price') ||
                      msg.message_body.includes('NFF') ||
                      msg.message_body.includes('Total'))
@@ -87,7 +87,7 @@ const checkCartBeforeCheckout = async (tenantId, endUserPhone) => {
         }
         
         // Get cart with items
-        const { data: cart } = await supabase
+        const { data: cart } = await dbClient
             .from('carts')
             .select(`
                 id,
@@ -213,14 +213,14 @@ const autoAddDiscussedProductToCart = async (tenantId, endUserPhone, conversatio
         if (!conversationId) return { success: false, message: 'Could not identify conversation' };
 
         // Get or create cart
-        let { data: cart } = await supabase
+        let { data: cart } = await dbClient
             .from('carts')
             .select('*')
             .eq('conversation_id', conversationId)
             .single();
 
         if (!cart) {
-            const { data: newCart } = await supabase
+            const { data: newCart } = await dbClient
                 .from('carts')
                 .insert({ conversation_id: conversationId })
                 .select('*')
@@ -296,7 +296,7 @@ const autoAddDiscussedProductToCart = async (tenantId, endUserPhone, conversatio
         // Update conversation state if we added items
         if (added.length > 0) {
             try {
-                await supabase
+                await dbClient
                     .from('conversations')
                     .update({
                         state: 'order_discussion',
@@ -308,9 +308,9 @@ const autoAddDiscussedProductToCart = async (tenantId, endUserPhone, conversatio
             }
 
             // Refresh cart timestamp
-            await supabase.from('carts').update({ updated_at: new Date().toISOString() }).eq('id', cart.id);
+            await dbClient.from('carts').update({ updated_at: new Date().toISOString() }).eq('id', cart.id);
 
-            // ✅ CRITICAL: Apply any approved discounts to the newly added cart items
+            // âœ… CRITICAL: Apply any approved discounts to the newly added cart items
             try {
                 const { applyApprovedDiscountToCart } = require('./cartService');
                 await applyApprovedDiscountToCart(tenantId, endUserPhone);
@@ -402,7 +402,7 @@ const getCartSummary = async (tenantId, endUserPhone) => {
             return { success: false, message: 'No conversation found' };
         }
         
-        const { data: cart } = await supabase
+        const { data: cart } = await dbClient
             .from('carts')
             .select(`
                 id,
@@ -448,7 +448,7 @@ const clearOrderState = async (tenantId, endUserPhone) => {
         const conversationId = await getConversationId(tenantId, endUserPhone);
         
         if (conversationId) {
-            await supabase
+            await dbClient
                 .from('conversations')
                 .update({
                     state: null,
@@ -517,7 +517,7 @@ const handleMultiProductConfirmation = async (tenant, endUserPhone, conversation
 const confirmOrder = async (orderId) => {
     try {
         // Get order with items
-        const { data: order } = await supabase
+        const { data: order } = await dbClient
             .from('orders')
             .select('*, items:order_items(*)')
             .eq('id', orderId)
@@ -555,7 +555,7 @@ const confirmOrder = async (orderId) => {
         });
         
         // Save Zoho sales order ID
-        await supabase
+        await dbClient
             .from('orders')
             .update({ 
                 zoho_sales_order_id: salesOrder.salesOrderId,

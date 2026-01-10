@@ -1,9 +1,9 @@
-const express = require('express');
+﻿const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const { parse } = require('csv-parse/sync');
 const xlsx = require('xlsx');
-const { supabase } = require('../../services/config');
+const { dbClient } = require('../../services/config');
 
 // Configure multer for file upload (memory storage)
 const upload = multer({ storage: multer.memoryStorage() });
@@ -68,7 +68,7 @@ router.post('/bulk-upload', upload.single('file'), async (req, res) => {
         }
 
         // Fetch all categories for this tenant to map category names to IDs
-        const { data: categories, error: catError } = await supabase
+        const { data: categories, error: catError } = await dbClient
             .from('categories')
             .select('id, name')
             .eq('tenant_id', tenantId);
@@ -114,8 +114,8 @@ router.post('/bulk-upload', upload.single('file'), async (req, res) => {
             };
         });
 
-        // Insert products in batches (Supabase handles this well)
-        const { data: insertedProducts, error: insertError } = await supabase
+        // Insert products in batches (dbClient handles this well)
+        const { data: insertedProducts, error: insertError } = await dbClient
             .from('products')
             .insert(productsToInsert)
             .select();
@@ -138,3 +138,4 @@ router.post('/bulk-upload', upload.single('file'), async (req, res) => {
 });
 
 module.exports = router;
+

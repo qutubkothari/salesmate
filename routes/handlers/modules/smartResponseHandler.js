@@ -1,4 +1,4 @@
-// routes/handlers/modules/smartResponseHandler.js
+﻿// routes/handlers/modules/smartResponseHandler.js
 // Handles smart response router logic extracted from customerHandler.js
 
 const { getSmartResponse } = require('../../../services/smartResponseRouter');
@@ -20,10 +20,10 @@ async function handleSmartResponse(req, res, tenant, from, userQuery, intentResu
             if (smartResponse.quotedProducts && smartResponse.quotedProducts.length > 0) {
                 console.log('[SMART_HANDLER] Saving quoted products to conversation');
 
-                const { supabase } = require('../../../services/config');
+                const { dbClient } = require('../../../services/config');
 
                 // Get current conversation
-                const { data: conversation } = await supabase
+                const { data: conversation } = await dbClient
                     .from('conversations')
                     .select('id, context_data')
                     .eq('tenant_id', tenant.id)
@@ -32,7 +32,7 @@ async function handleSmartResponse(req, res, tenant, from, userQuery, intentResu
 
                 if (conversation) {
                     // Save quoted products
-                    await supabase
+                    await dbClient
                         .from('conversations')
                         .update({
                             last_quoted_products: JSON.stringify(smartResponse.quotedProducts),

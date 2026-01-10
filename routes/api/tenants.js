@@ -1,9 +1,9 @@
-// routes/api/tenants.js
+﻿// routes/api/tenants.js
 // Client/Tenant Management APIs
 
 const express = require('express');
 const router = express.Router();
-const { supabase } = require('../../services/config');
+const { dbClient } = require('../../services/config');
 const crypto = require('crypto');
 
 /**
@@ -50,7 +50,7 @@ router.post('/register', async (req, res) => {
         const normalizedOwnerWhatsApp = `${ownerDigits}@c.us`;
 
         // Check if tenant already exists
-        const { data: existing } = await supabase
+        const { data: existing } = await dbClient
             .from('tenants')
             .select('id, business_name, subscription_status')
             .eq('owner_whatsapp_number', normalizedOwnerWhatsApp)
@@ -75,7 +75,7 @@ router.post('/register', async (req, res) => {
         const tierConfig = getSubscriptionTierConfig(tier);
 
         // Create tenant
-        const { data: tenant, error } = await supabase
+        const { data: tenant, error } = await dbClient
             .from('tenants')
             .insert({
                 business_name,
@@ -92,7 +92,7 @@ router.post('/register', async (req, res) => {
                 status: 'active',
                 is_active: true,
                 bot_phone_number: normalizedOwnerWhatsApp, // Default to owner's number
-                currency_symbol: '₹',
+                currency_symbol: 'â‚¹',
                 default_packaging_unit: 'piece',
                 daily_summary_enabled: true,
                 abandoned_cart_delay_hours: 2,
@@ -145,7 +145,7 @@ router.get('/', async (req, res) => {
             offset = 0 
         } = req.query;
 
-        let query = supabase
+        let query = dbClient
             .from('tenants')
             .select('id, business_name, owner_whatsapp_number, subscription_status, subscription_tier, trial_ends_at, created_at, status, is_active')
             .order('created_at', { ascending: false })
@@ -192,7 +192,7 @@ router.get('/:tenantId', async (req, res) => {
     try {
         const { tenantId } = req.params;
 
-        const { data: tenant, error } = await supabase
+        const { data: tenant, error } = await dbClient
             .from('tenants')
             .select('*')
             .eq('id', tenantId)
@@ -265,7 +265,7 @@ router.put('/:tenantId/subscription', async (req, res) => {
 
         updates.updated_at = new Date().toISOString();
 
-        const { data: tenant, error } = await supabase
+        const { data: tenant, error } = await dbClient
             .from('tenants')
             .update(updates)
             .eq('id', tenantId)
@@ -319,7 +319,7 @@ router.put('/:tenantId/status', async (req, res) => {
             updates.is_active = is_active;
         }
 
-        const { data: tenant, error } = await supabase
+        const { data: tenant, error } = await dbClient
             .from('tenants')
             .update(updates)
             .eq('id', tenantId)
@@ -413,32 +413,32 @@ async function getTenantStats(tenantId) {
         startOfMonth.setDate(1);
         startOfMonth.setHours(0, 0, 0, 0);
 
-        const { count: conversationsThisMonth } = await supabase
+        const { count: conversationsThisMonth } = await dbClient
             .from('conversations')
             .select('id', { count: 'exact', head: true })
             .eq('tenant_id', tenantId)
             .gte('created_at', startOfMonth.toISOString());
 
         // Get total customers
-        const { count: totalCustomers } = await supabase
+        const { count: totalCustomers } = await dbClient
             .from('customer_profiles')
             .select('id', { count: 'exact', head: true })
             .eq('tenant_id', tenantId);
 
         // Get total products
-        const { count: totalProducts } = await supabase
+        const { count: totalProducts } = await dbClient
             .from('products')
             .select('id', { count: 'exact', head: true })
             .eq('tenant_id', tenantId);
 
         // Get total orders
-        const { count: totalOrders } = await supabase
+        const { count: totalOrders } = await dbClient
             .from('orders')
             .select('id', { count: 'exact', head: true })
             .eq('tenant_id', tenantId);
 
         // Get website pages crawled
-        const { count: websitePages } = await supabase
+        const { count: websitePages } = await dbClient
             .from('website_embeddings')
             .select('url', { count: 'exact', head: true })
             .eq('tenant_id', tenantId);
@@ -479,7 +479,7 @@ router.post('/update-password', async (req, res) => {
         }
 
         // Update tenant password
-        const { error } = await supabase
+        const { error } = await dbClient
             .from('tenants')
             .update({ password: password })
             .eq('id', tenantId);
@@ -509,3 +509,4 @@ router.post('/update-password', async (req, res) => {
 });
 
 module.exports = router;
+

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Shipment Tracking Commands
  * 
  * Commands for managing shipment tracking:
@@ -7,7 +7,7 @@
  * - /shipment_status - Check status of current order
  */
 
-const { supabase } = require('../config/database');
+const { dbClient } = require('../config/database');
 const { sendMessage } = require('../services/whatsappService');
 const { trackVRLShipment, formatTrackingMessage, getShipmentStatus } = require('../services/shipmentTrackingService');
 
@@ -19,7 +19,7 @@ async function requestShippingSlipUpload(tenantId, customerPhone, orderId) {
     console.log(`[TRACKING_CMD] Requesting shipping slip for order ${orderId}`);
 
     // Set conversation state
-    await supabase
+    await dbClient
       .from('conversations')
       .update({
         state: 'awaiting_shipping_slip',
@@ -29,11 +29,11 @@ async function requestShippingSlipUpload(tenantId, customerPhone, orderId) {
       .eq('end_user_phone', customerPhone);
 
     // Send request message
-    const message = `📦 *Shipment Tracking*
+    const message = `ðŸ“¦ *Shipment Tracking*
 
 Please upload your shipping slip/LR copy so we can track your order.
 
-📸 *How to upload:*
+ðŸ“¸ *How to upload:*
 1. Take a clear photo of the LR/Consignment slip
 2. Send it as an image with caption "LR" or "Shipping Slip"
 
@@ -88,7 +88,7 @@ async function getCustomerShipmentStatus(tenantId, customerPhone) {
     console.log(`[TRACKING_CMD] Getting status for ${customerPhone}`);
 
     // Get customer's most recent order with shipping info
-    const { data: conversation } = await supabase
+    const { data: conversation } = await dbClient
       .from('conversations')
       .select('id')
       .eq('tenant_id', tenantId)
@@ -102,7 +102,7 @@ async function getCustomerShipmentStatus(tenantId, customerPhone) {
       };
     }
 
-    const { data: order } = await supabase
+    const { data: order } = await dbClient
       .from('orders')
       .select('id, lr_number, transporter_name, shipping_slip_uploaded_at')
       .eq('tenant_id', tenantId)
@@ -115,7 +115,7 @@ async function getCustomerShipmentStatus(tenantId, customerPhone) {
     if (!order) {
       return {
         success: false,
-        message: '❌ No shipped orders found. Please upload your shipping slip first.'
+        message: 'âŒ No shipped orders found. Please upload your shipping slip first.'
       };
     }
 
@@ -180,7 +180,7 @@ async function handleTrackCommand(tenantId, customerPhone, commandText) {
 
   } catch (error) {
     console.error('[TRACKING_CMD] Error handling command:', error);
-    await sendMessage(customerPhone, '❌ Error processing tracking request. Please try again.');
+    await sendMessage(customerPhone, 'âŒ Error processing tracking request. Please try again.');
     return { success: false, error: error.message };
   }
 }
@@ -193,7 +193,7 @@ async function handleManualLRInput(tenantId, customerPhone, lrNumber) {
     console.log(`[TRACKING_CMD] Processing manual LR: ${lrNumber}`);
 
     // Find recent order without LR
-    const { data: conversation } = await supabase
+    const { data: conversation } = await dbClient
       .from('conversations')
       .select('id')
       .eq('tenant_id', tenantId)
@@ -201,7 +201,7 @@ async function handleManualLRInput(tenantId, customerPhone, lrNumber) {
       .single();
 
     if (conversation) {
-      const { data: order } = await supabase
+      const { data: order } = await dbClient
         .from('orders')
         .select('id, transporter_name')
         .eq('tenant_id', tenantId)
@@ -213,7 +213,7 @@ async function handleManualLRInput(tenantId, customerPhone, lrNumber) {
 
       if (order) {
         // Update order with LR number
-        await supabase
+        await dbClient
           .from('orders')
           .update({
             lr_number: lrNumber,
@@ -225,11 +225,11 @@ async function handleManualLRInput(tenantId, customerPhone, lrNumber) {
         const trackingData = await trackShipmentByLR(lrNumber, order.transporter_name);
         
         // Send tracking info
-        const message = `✅ LR Number saved: ${lrNumber}\n\n` + formatTrackingMessage(trackingData);
+        const message = `âœ… LR Number saved: ${lrNumber}\n\n` + formatTrackingMessage(trackingData);
         await sendMessage(customerPhone, message);
 
         // Clear state
-        await supabase
+        await dbClient
           .from('conversations')
           .update({ state: null })
           .eq('tenant_id', tenantId)
@@ -259,3 +259,4 @@ module.exports = {
   handleTrackCommand,
   handleManualLRInput
 };
+

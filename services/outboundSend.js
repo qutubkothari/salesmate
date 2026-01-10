@@ -1,6 +1,22 @@
 const axios = require('axios');
 
 async function sendTextViaProvider({ to, text, providerConfig }) {
+  // Global opt-out enforcement (best-effort)
+  try {
+    const { isUnsubscribed, toDigits } = require('./unsubscribeService');
+    const { isBypassNumber } = require('./outboundPolicy');
+    const digits = toDigits(to);
+    if (digits) {
+      const bypass = await isBypassNumber(digits);
+      if (!bypass && (await isUnsubscribed(digits))) {
+        console.warn('[OUTBOUND] skipped: unsubscribed', { to: digits });
+        return { ok: false, skipped: true, reason: 'unsubscribed' };
+      }
+    }
+  } catch (e) {
+    // Fail-open if policy lookup fails
+  }
+
   // build the provider payload (adapt field names)
   const payload = {
     to,

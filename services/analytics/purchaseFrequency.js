@@ -1,15 +1,15 @@
-const { supabase } = require('../../config/database');
+﻿const { dbClient } = require('../../config/database');
 
 /**
  * Analyzes customer's purchase frequency and patterns
- * Uses zoho_customer_id to link customer_profiles → orders
+ * Uses zoho_customer_id to link customer_profiles â†’ orders
  */
 async function analyzePurchaseFrequency(customerProfileId) {
   try {
     console.log('[FREQUENCY] Analyzing for customer:', customerProfileId);
 
     // STEP 1: Get customer's zoho_customer_id
-    const { data: customer, error: customerError } = await supabase
+    const { data: customer, error: customerError } = await dbClient
       .from('customer_profiles')
       .select('zoho_customer_id, first_name')
       .eq('id', customerProfileId)
@@ -23,7 +23,7 @@ async function analyzePurchaseFrequency(customerProfileId) {
     console.log('[FREQUENCY] Found customer:', customer.first_name, 'Zoho ID:', customer.zoho_customer_id);
 
     // STEP 2: Get orders via zoho_customer_id
-    const { data: orders, error } = await supabase
+    const { data: orders, error } = await dbClient
       .from('orders')
       .select('id, created_at, total_amount, status')
       .eq('zoho_customer_id', customer.zoho_customer_id)

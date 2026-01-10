@@ -1,8 +1,8 @@
-/**
+﻿/**
  * @title Carton-Level Pricing Service for NFF Products
  * @description Handles quantity breaks, bulk pricing, and carton-based discounts
  */
-const { supabase } = require('./config');
+const { dbClient } = require('./config');
 const { getConversationId } = require('./historyService');
 const { getOrCreateCart } = require('./cartService');
 
@@ -15,7 +15,7 @@ const { getOrCreateCart } = require('./cartService');
 const calculateCartonPricing = async (productId, requestedQuantity, requestedUnit = 'carton') => {
     try {
         // Get product with carton info and quantity breaks
-        const { data: product } = await supabase
+        const { data: product } = await dbClient
             .from('products')
             .select(`
                 *,
@@ -154,7 +154,7 @@ const addCartonProductToCart = async (tenantId, endUserPhone, productName, quant
         const cart = await getOrCreateCart(conversationId);
 
         // Check existing item
-        const { data: existingItem } = await supabase
+        const { data: existingItem } = await dbClient
             .from('cart_items')
             .select('id, quantity, carton_price_override')
             .eq('cart_id', cart.id)
@@ -166,7 +166,7 @@ const addCartonProductToCart = async (tenantId, endUserPhone, productName, quant
             const newQuantity = parseInt(existingItem.quantity) + pricing.cartonQuantity;
             console.log('[CART_INCREMENT] Existing:', existingItem.quantity, '+ New:', pricing.cartonQuantity, '= Total:', newQuantity);
             const newPricing = await calculateCartonPricing(product.id, newQuantity, requestedUnit);
-            await supabase
+            await dbClient
                 .from('cart_items')
                 .update({
                     quantity: newQuantity,
@@ -176,7 +176,7 @@ const addCartonProductToCart = async (tenantId, endUserPhone, productName, quant
                 .eq('id', existingItem.id);
         } else {
             // Add new item with carton pricing
-            await supabase
+            await dbClient
                 .from('cart_items')
                 .insert({
                     cart_id: cart.id,
@@ -188,7 +188,7 @@ const addCartonProductToCart = async (tenantId, endUserPhone, productName, quant
         }
 
         // Update cart timestamp
-        await supabase
+        await dbClient
             .from('carts')
             .update({ updated_at: new Date().toISOString() })
             .eq('id', cart.id);
@@ -203,11 +203,11 @@ const addCartonProductToCart = async (tenantId, endUserPhone, productName, quant
         }
         if (pricing.discountAmount > 0) {
             message += `Quantity break applied!\n`;
-            message += `Base price: ₹${pricing.baseUnitPrice}/carton\n`;
-            message += `Your price: ₹${pricing.finalUnitPrice.toFixed(2)}/carton\n`;
-            message += `You save: ₹${pricing.discountAmount.toFixed(2)} (${pricing.discountPercentage.toFixed(1)}%)\n`;
+            message += `Base price: â‚¹${pricing.baseUnitPrice}/carton\n`;
+            message += `Your price: â‚¹${pricing.finalUnitPrice.toFixed(2)}/carton\n`;
+            message += `You save: â‚¹${pricing.discountAmount.toFixed(2)} (${pricing.discountPercentage.toFixed(1)}%)\n`;
         }
-        message += `Total for this item: ₹${pricing.totalPrice.toFixed(2)}`;
+        message += `Total for this item: â‚¹${pricing.totalPrice.toFixed(2)}`;
 
         return message;
 
@@ -228,7 +228,7 @@ const viewCartonCart = async (tenantId, endUserPhone) => {
         const conversationId = await getConversationId(tenantId, endUserPhone);
         if (!conversationId) return "Could not identify your conversation.";
 
-        const { data: cart } = await supabase
+        const { data: cart } = await dbClient
             .from('carts')
             .select(`
                 *,
@@ -246,7 +246,7 @@ const viewCartonCart = async (tenantId, endUserPhone) => {
             return "Your shopping cart is empty.";
         }
 
-        let cartMessage = "📦 **Your Carton Cart**\n\n";
+        let cartMessage = "ðŸ“¦ **Your Carton Cart**\n\n";
         let totalAmount = 0;
         let totalSavings = 0;
 
@@ -267,12 +267,12 @@ const viewCartonCart = async (tenantId, endUserPhone) => {
             }
             
             if (itemDiscount > 0) {
-                cartMessage += `  - Base: ₹${product.price}/unit x ${quantity} = ₹${(product.price * quantity).toFixed(2)}\n`;
-                cartMessage += `  - Discount: -₹${itemDiscount.toFixed(2)}\n`;
-                cartMessage += `  - Final: ₹${itemTotal.toFixed(2)}\n`;
+                cartMessage += `  - Base: â‚¹${product.price}/unit x ${quantity} = â‚¹${(product.price * quantity).toFixed(2)}\n`;
+                cartMessage += `  - Discount: -â‚¹${itemDiscount.toFixed(2)}\n`;
+                cartMessage += `  - Final: â‚¹${itemTotal.toFixed(2)}\n`;
                 totalSavings += itemDiscount;
             } else {
-                cartMessage += `  - Price: ₹${unitPrice} x ${quantity} = ₹${itemTotal.toFixed(2)}\n`;
+                cartMessage += `  - Price: â‚¹${unitPrice} x ${quantity} = â‚¹${itemTotal.toFixed(2)}\n`;
             }
             
             cartMessage += '\n';
@@ -281,10 +281,10 @@ const viewCartonCart = async (tenantId, endUserPhone) => {
 
         cartMessage += `**Cart Summary:**\n`;
         if (totalSavings > 0) {
-            cartMessage += `Subtotal: ₹${(totalAmount + totalSavings).toFixed(2)}\n`;
-            cartMessage += `Bulk Savings: -₹${totalSavings.toFixed(2)}\n`;
+            cartMessage += `Subtotal: â‚¹${(totalAmount + totalSavings).toFixed(2)}\n`;
+            cartMessage += `Bulk Savings: -â‚¹${totalSavings.toFixed(2)}\n`;
         }
-        cartMessage += `**Total: ₹${totalAmount.toFixed(2)}**\n\n`;
+        cartMessage += `**Total: â‚¹${totalAmount.toFixed(2)}**\n\n`;
         cartMessage += `To checkout: /checkout`;
 
         return cartMessage;
@@ -312,7 +312,7 @@ const setupCartonPricing = async (tenantId, productName, cartonConfig) => {
         } = cartonConfig;
 
         // Find product
-        const { data: product } = await supabase
+        const { data: product } = await dbClient
             .from('products')
             .select('id, name')
             .eq('tenant_id', tenantId)
@@ -324,7 +324,7 @@ const setupCartonPricing = async (tenantId, productName, cartonConfig) => {
         }
 
         // Update product with carton info
-        await supabase
+        await dbClient
             .from('products')
             .update({
                 packaging_unit: 'carton',
@@ -337,7 +337,7 @@ const setupCartonPricing = async (tenantId, productName, cartonConfig) => {
                     // Add quantity breaks if provided
         if (quantityBreaks.length > 0) {
             // Delete existing breaks first
-            await supabase
+            await dbClient
                 .from('product_quantity_breaks')
                 .delete()
                 .eq('product_id', product.id);
@@ -351,14 +351,14 @@ const setupCartonPricing = async (tenantId, productName, cartonConfig) => {
                 break_type: 'carton'
             }));
 
-            await supabase
+            await dbClient
                 .from('product_quantity_breaks')
                 .insert(breaksToInsert);
         }
 
-        return `✅ Carton pricing setup for "${product.name}"\n` +
+        return `âœ… Carton pricing setup for "${product.name}"\n` +
                `Units per carton: ${unitsPerCarton}\n` +
-               `Carton price: ₹${cartonPrice}\n` +
+               `Carton price: â‚¹${cartonPrice}\n` +
                `Quantity breaks: ${quantityBreaks.length} configured`;
 
     } catch (error) {
@@ -375,7 +375,7 @@ const setupCartonPricing = async (tenantId, productName, cartonConfig) => {
  */
 const getCartonPricingInfo = async (tenantId, productName) => {
     try {
-        const { data: product } = await supabase
+        const { data: product } = await dbClient
             .from('products')
             .select(`
                 *,
@@ -389,8 +389,8 @@ const getCartonPricingInfo = async (tenantId, productName) => {
             return `Product "${productName}" not found.`;
         }
 
-        let message = `📦 **Carton Pricing Info: ${product.name}**\n\n`;
-        message += `Base price: ₹${product.price}/carton\n`;
+        let message = `ðŸ“¦ **Carton Pricing Info: ${product.name}**\n\n`;
+        message += `Base price: â‚¹${product.price}/carton\n`;
         message += `Units per carton: ${product.units_per_carton || 'Not set'}\n`;
         message += `Packaging: ${product.packaging_unit || 'piece'}\n`;
         message += `Min carton qty: ${product.min_carton_qty || 1}\n\n`;
@@ -402,7 +402,7 @@ const getCartonPricingInfo = async (tenantId, productName) => {
                 .forEach(qb => {
                     const savings = product.price - qb.unit_price;
                     const savingsPercent = ((savings / product.price) * 100).toFixed(1);
-                    message += `${qb.min_quantity}+ cartons: ₹${qb.unit_price}/carton (${savingsPercent}% off)\n`;
+                    message += `${qb.min_quantity}+ cartons: â‚¹${qb.unit_price}/carton (${savingsPercent}% off)\n`;
                 });
         } else {
             message += `No quantity breaks configured.`;
@@ -433,7 +433,7 @@ const bulkSetupNFFCartonPricing = async (tenantId, standardBreaks = null) => {
         ];
 
         // Get all NFF products
-        const { data: nffProducts } = await supabase
+        const { data: nffProducts } = await dbClient
             .from('products')
             .select('*')
             .eq('tenant_id', tenantId)
@@ -455,7 +455,7 @@ const bulkSetupNFFCartonPricing = async (tenantId, standardBreaks = null) => {
                     const unitsPerCarton = parseInt(unitsMatch[1]);
                     
                     // Update product with carton info
-                    await supabase
+                    await dbClient
                         .from('products')
                         .update({
                             packaging_unit: 'carton',
@@ -465,7 +465,7 @@ const bulkSetupNFFCartonPricing = async (tenantId, standardBreaks = null) => {
                         .eq('id', product.id);
 
                     // Delete existing breaks
-                    await supabase
+                    await dbClient
                         .from('product_quantity_breaks')
                         .delete()
                         .eq('product_id', product.id);
@@ -482,7 +482,7 @@ const bulkSetupNFFCartonPricing = async (tenantId, standardBreaks = null) => {
                         };
                     });
 
-                    await supabase
+                    await dbClient
                         .from('product_quantity_breaks')
                         .insert(breaksToInsert);
 
@@ -497,10 +497,10 @@ const bulkSetupNFFCartonPricing = async (tenantId, standardBreaks = null) => {
             }
         }
 
-        let message = `🚀 **Bulk NFF Setup Complete!**\n\n`;
-        message += `✅ Successfully configured: ${setupCount} products\n`;
+        let message = `ðŸš€ **Bulk NFF Setup Complete!**\n\n`;
+        message += `âœ… Successfully configured: ${setupCount} products\n`;
         if (errorCount > 0) {
-            message += `⚠️ Errors: ${errorCount} products\n`;
+            message += `âš ï¸ Errors: ${errorCount} products\n`;
         }
         message += `\n**Standard quantity breaks applied:**\n`;
         defaultBreaks.forEach(qb => {
@@ -525,7 +525,7 @@ const bulkSetupNFFCartonPricing = async (tenantId, standardBreaks = null) => {
 const testCartonPricing = async (tenantId, productName, quantity = 1) => {
     try {
         // Find product
-        const { data: product } = await supabase
+        const { data: product } = await dbClient
             .from('products')
             .select('id, name')
             .eq('tenant_id', tenantId)
@@ -539,17 +539,17 @@ const testCartonPricing = async (tenantId, productName, quantity = 1) => {
         // Calculate pricing
         const pricing = await calculateCartonPricing(product.id, quantity);
         
-        let message = `🧪 **Carton Pricing Test**\n\n`;
+        let message = `ðŸ§ª **Carton Pricing Test**\n\n`;
         message += `Product: ${pricing.product.name}\n`;
         message += `Requested: ${quantity} cartons\n`;
         message += `Total pieces: ${pricing.pieceQuantity}\n`;
-        message += `Base price: ₹${pricing.baseUnitPrice}/carton\n`;
-        message += `Final price: ₹${pricing.finalUnitPrice}/carton\n`;
-        message += `Total: ₹${pricing.totalPrice.toFixed(2)}\n`;
+        message += `Base price: â‚¹${pricing.baseUnitPrice}/carton\n`;
+        message += `Final price: â‚¹${pricing.finalUnitPrice}/carton\n`;
+        message += `Total: â‚¹${pricing.totalPrice.toFixed(2)}\n`;
         
         if (pricing.discountAmount > 0) {
-            message += `\n💰 **Savings Applied:**\n`;
-            message += `Discount: ₹${pricing.discountAmount.toFixed(2)} (${pricing.discountPercentage.toFixed(1)}%)\n`;
+            message += `\nðŸ’° **Savings Applied:**\n`;
+            message += `Discount: â‚¹${pricing.discountAmount.toFixed(2)} (${pricing.discountPercentage.toFixed(1)}%)\n`;
             message += `Break applied: ${pricing.applicableBreak.min_quantity}+ cartons\n`;
         } else {
             message += `\nNo quantity breaks applied.`;
@@ -573,7 +573,7 @@ const testCartonPricing = async (tenantId, productName, quantity = 1) => {
 const addQuantityBreaks = async (tenantId, productName, breaks) => {
     try {
         // Find product
-        const { data: product } = await supabase
+        const { data: product } = await dbClient
             .from('products')
             .select('id, name, price')
             .eq('tenant_id', tenantId)
@@ -585,7 +585,7 @@ const addQuantityBreaks = async (tenantId, productName, breaks) => {
         }
 
         // Delete existing breaks
-        await supabase
+        await dbClient
             .from('product_quantity_breaks')
             .delete()
             .eq('product_id', product.id);
@@ -600,15 +600,15 @@ const addQuantityBreaks = async (tenantId, productName, breaks) => {
             break_type: 'carton'
         }));
 
-        await supabase
+        await dbClient
             .from('product_quantity_breaks')
             .insert(breaksToInsert);
 
-        let message = `✅ **Quantity breaks updated for "${product.name}":**\n\n`;
+        let message = `âœ… **Quantity breaks updated for "${product.name}":**\n\n`;
         breaks.forEach(qb => {
             const savings = product.price - qb.unitPrice;
             const savingsPercent = ((savings / product.price) * 100).toFixed(1);
-            message += `${qb.minQuantity}+ cartons: ₹${qb.unitPrice}/carton (Save ₹${savings.toFixed(2)} or ${savingsPercent}%)\n`;
+            message += `${qb.minQuantity}+ cartons: â‚¹${qb.unitPrice}/carton (Save â‚¹${savings.toFixed(2)} or ${savingsPercent}%)\n`;
         });
 
         return message;

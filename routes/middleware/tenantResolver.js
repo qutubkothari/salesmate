@@ -1,5 +1,5 @@
-// routes/middleware/tenantResolver.js
-const { supabase } = require('../../services/config');
+﻿// routes/middleware/tenantResolver.js
+const { dbClient } = require('../../services/config');
 const { findOrCreateTenant } = require('../../services/tenantService');
 const debug = require('../../services/debug');
 
@@ -21,7 +21,7 @@ const tenantResolver = async (req, res, next) => {
   try {
     debug.trace(rid, 'tenant.lookup.start', { bot: to });
 
-    let { data: botOwner, error } = await supabase
+    let { data: botOwner, error } = await dbClient
       .from('tenants')
       .select('*')
       .eq('bot_phone_number', to)
@@ -46,7 +46,7 @@ const tenantResolver = async (req, res, next) => {
           console.log('[TENANT] Auto-provisioned', created.id, 'for', to);
           
           // Re-query to get the full tenant object
-          const recheck = await supabase
+          const recheck = await dbClient
             .from('tenants')
             .select('*')
             .eq('bot_phone_number', to)

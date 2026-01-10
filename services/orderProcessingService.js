@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Calculate pricing breakdown with GST
  * @param {number} priceBeforeTax - Unit price BEFORE tax (as stored in products table)
  * @param {number} quantity - Quantity ordered
@@ -25,7 +25,7 @@ function calculatePricingBreakdown(priceBeforeTax, quantity) {
 /**
  * Create order_items with pricing breakdown
  */
-async function createOrderItemsWithPricing(orderId, cartItems, supabase) {
+async function createOrderItemsWithPricing(orderId, cartItems, dbClient) {
     const orderItemsData = cartItems.map(item => {
         const pricing = calculatePricingBreakdown(
             item.product.price,
@@ -39,7 +39,7 @@ async function createOrderItemsWithPricing(orderId, cartItems, supabase) {
             zoho_item_id: null // Will be filled by Zoho sync later
         };
     });
-    const { data, error } = await supabase
+    const { data, error } = await dbClient
         .from('order_items')
         .insert(orderItemsData)
         .select();
@@ -50,7 +50,7 @@ async function createOrderItemsWithPricing(orderId, cartItems, supabase) {
     return data;
 }
 // services/orderProcessingService.js - FIXED VERSION with Working Multi-Product Support
-const { supabase } = require('./config');
+const { dbClient } = require('./config');
 const { findProductByNameOrCode } = require('./enhancedProductService');
 
 // Utility: Strip greeting/polite prefixes so regex matches cleanly
@@ -244,7 +244,7 @@ const processOrderRequestEnhanced = async (tenantId, from, orderDetails) => {
             const conversationId = await getConversationId(tenantId, from);
             
             if (conversationId) {
-                const { data: existingCart } = await supabase
+                const { data: existingCart } = await dbClient
                     .from('carts')
                     .select('id')
                     .eq('conversation_id', conversationId)
@@ -252,7 +252,7 @@ const processOrderRequestEnhanced = async (tenantId, from, orderDetails) => {
                 
                 if (existingCart) {
                     // Delete all existing cart items
-                    const { error: deleteError } = await supabase
+                    const { error: deleteError } = await dbClient
                         .from('cart_items')
                         .delete()
                         .eq('cart_id', existingCart.id);
@@ -328,7 +328,7 @@ const processMultipleOrderRequest = async (tenantId, from, orderDetails) => {
 
         // CRITICAL FIX: Clear cart before adding new order to prevent accumulation
         console.log('[MULTI_PROCESS_FIXED] Clearing existing cart before adding new order...');
-        const { data: existingCart } = await supabase
+        const { data: existingCart } = await dbClient
             .from('carts')
             .select('id')
             .eq('conversation_id', conversationId)
@@ -336,7 +336,7 @@ const processMultipleOrderRequest = async (tenantId, from, orderDetails) => {
         
         if (existingCart) {
             // Delete all existing cart items
-            const { error: deleteError } = await supabase
+            const { error: deleteError } = await dbClient
                 .from('cart_items')
                 .delete()
                 .eq('cart_id', existingCart.id);
@@ -353,7 +353,7 @@ const processMultipleOrderRequest = async (tenantId, from, orderDetails) => {
         const { addCartonProductToCart } = require('./cartonPricingService');
         let allResults = [];
         let productCount = 0;
-        let responseMessage = '✅ **Added to Cart** (multi-product)\n\n';
+        let responseMessage = 'âœ… **Added to Cart** (multi-product)\n\n';
 
         for (let i = 0; i < orderDetails.products.length; i++) {
             const order = orderDetails.products[i];
@@ -378,7 +378,7 @@ const processMultipleOrderRequest = async (tenantId, from, orderDetails) => {
         }
 
         // Update cart timestamp once
-        await supabase
+        await dbClient
             .from('carts')
             .update({ updated_at: new Date().toISOString() })
             .eq('conversation_id', conversationId);
@@ -411,7 +411,7 @@ const addOrUpdateCartItem = async (cartId, productId, quantity) => {
         console.log('[CART_ITEM] Adding/updating cart item:', { cartId, productId, quantity });
         
         // Try to find existing item
-        const { data: existing, error: findError } = await supabase
+        const { data: existing, error: findError } = await dbClient
             .from('cart_items')
             .select('id, quantity')
             .eq('cart_id', cartId)
@@ -425,7 +425,7 @@ const addOrUpdateCartItem = async (cartId, productId, quantity) => {
         if (existing && existing.id) {
             // Update existing item
             const newQty = Number(existing.quantity) + Number(quantity);
-            const { error: updateError } = await supabase
+            const { error: updateError } = await dbClient
                 .from('cart_items')
                 .update({ quantity: newQty })
                 .eq('id', existing.id);
@@ -439,7 +439,7 @@ const addOrUpdateCartItem = async (cartId, productId, quantity) => {
             return { success: true, itemId: existing.id, quantity: newQty };
         } else {
             // Insert new item
-            const { data: inserted, error: insertError } = await supabase
+            const { data: inserted, error: insertError } = await dbClient
                 .from('cart_items')
                 .insert({ 
                     cart_id: cartId, 

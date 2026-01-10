@@ -1,5 +1,5 @@
-// services/zohoTenantAuthService.js - Complete Tenant-Based Zoho Authorization
-const { supabase } = require('./config');
+﻿// services/zohoTenantAuthService.js - Complete Tenant-Based Zoho Authorization
+const { dbClient } = require('./config');
 const fetch = require('node-fetch');
 
 /**
@@ -106,7 +106,7 @@ class ZohoTenantAuthService {
             }
 
             // Save credentials to tenant record
-            const { error: updateError } = await supabase
+            const { error: updateError } = await dbClient
                 .from('tenants')
                 .update({
                     zoho_access_token: tokenData.access_token,
@@ -191,7 +191,7 @@ class ZohoTenantAuthService {
             console.log('[ZOHO_AUTH] Refreshing access token for tenant:', tenantId);
             
             // Get tenant credentials
-            const { data: tenant, error } = await supabase
+            const { data: tenant, error } = await dbClient
                 .from('tenants')
                 .select('zoho_refresh_token, zoho_client_id, zoho_client_secret')
                 .eq('id', tenantId)
@@ -223,7 +223,7 @@ class ZohoTenantAuthService {
             }
 
             // Update tenant record
-            const { error: updateError } = await supabase
+            const { error: updateError } = await dbClient
                 .from('tenants')
                 .update({
                     zoho_access_token: data.access_token,
@@ -250,7 +250,7 @@ class ZohoTenantAuthService {
      */
     async getValidAccessToken(tenantId) {
         try {
-            const { data: tenant, error } = await supabase
+            const { data: tenant, error } = await dbClient
                 .from('tenants')
                 .select('zoho_access_token, zoho_token_expires_at, zoho_organization_id')
                 .eq('id', tenantId)
@@ -340,7 +340,7 @@ class ZohoTenantAuthService {
      */
     async getAuthorizationStatus(tenantId) {
         try {
-            const { data: tenant, error } = await supabase
+            const { data: tenant, error } = await dbClient
                 .from('tenants')
                 .select(`
                     zoho_access_token,
@@ -399,7 +399,7 @@ class ZohoTenantAuthService {
             console.log('[ZOHO_AUTH] Revoking authorization for tenant:', tenantId);
             
             // Clear Zoho credentials from tenant record
-            const { error } = await supabase
+            const { error } = await dbClient
                 .from('tenants')
                 .update({
                     zoho_access_token: null,

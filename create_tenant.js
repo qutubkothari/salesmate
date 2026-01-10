@@ -1,4 +1,4 @@
-const { supabase } = require('./services/config');
+﻿const { dbClient } = require('./services/config');
 
 async function createTenant() {
     const tenantData = {
@@ -11,7 +11,7 @@ async function createTenant() {
     
     console.log('Creating tenant:', tenantData);
     
-    const { data, error } = await supabase
+    const { data, error } = await dbClient
         .from('tenants')
         .insert(tenantData)
         .select();
@@ -21,8 +21,9 @@ async function createTenant() {
         process.exit(1);
     }
     
-    console.log('✅ Tenant created successfully:', data);
+    console.log('âœ… Tenant created successfully:', data);
     process.exit(0);
 }
 
 createTenant();
+

@@ -59,6 +59,23 @@ const initMaytapiAdapter = () => {
   // Single "truth" send that uses maytapiService if available
   const sendViaMaytapi = async (to, payloadOrText) => {
     const body = __toMaytapiTextBody(to, payloadOrText);
+
+    // Global opt-out enforcement (best-effort)
+    try {
+      const { isUnsubscribed, toDigits } = require('../../services/unsubscribeService');
+      const { isBypassNumber } = require('../../services/outboundPolicy');
+      const digits = toDigits(body.to_number);
+      if (digits) {
+        const bypass = await isBypassNumber(digits);
+        if (!bypass && (await isUnsubscribed(digits))) {
+          console.warn('[MAYTAPI ADAPTER] skipped: unsubscribed', { to: digits });
+          return { ok: false, skipped: true, reason: 'unsubscribed' };
+        }
+      }
+    } catch (e) {
+      // Fail-open if policy lookup fails
+    }
+
     if (!may || typeof may.sendMessage !== 'function') {
       console.warn('[MAYTAPI ADAPTER] maytapiService not available; skipping send');
       return { ok: false, skipped: true };

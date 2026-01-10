@@ -1,8 +1,9 @@
-// services/followUpSchedulerService.js
-const { supabase } = require('./config');
+﻿// services/followUpSchedulerService.js
+const { dbClient } = require('./config');
 const { sendMessage } = require('./whatsappService');
 const { sendWebMessage, getClientStatus } = require('./whatsappWebService');
 const { logMessage } = require('./historyService');
+const { isUnsubscribed } = require('./unsubscribeService');
 
 const toDigits = (value) => String(value || '').replace(/\D/g, '');
 
@@ -11,6 +12,11 @@ const toDigits = (value) => String(value || '').replace(/\D/g, '');
  * Prefers WhatsApp Web (desktop agent / QR) when ready, falls back to Maytapi.
  */
 async function sendFollowUpSmart(tenantId, phoneNumber, messageText) {
+    // Enforce opt-out list (no automated outbound to unsubscribed customers)
+    if (await isUnsubscribed(phoneNumber)) {
+        return { method: 'skipped', messageId: null, skipped: true, reason: 'User unsubscribed' };
+    }
+
     const waWebStatus = getClientStatus(tenantId);
     if (waWebStatus?.status === 'ready' && waWebStatus?.hasClient) {
         const res = await sendWebMessage(tenantId, phoneNumber, messageText);
@@ -234,7 +240,7 @@ const scheduleFollowUp = async (tenantId, endUserPhone, followUpData, conversati
     try {
         console.log('[FOLLOWUP_SCHEDULE] Creating follow-up:', followUpData);
         
-        const { data: followUp, error } = await supabase
+        const { data: followUp, error } = await dbClient
             .from('scheduled_followups')
             .insert({
                 tenant_id: tenantId,
@@ -281,15 +287,15 @@ const generateFollowUpConfirmation = (followUpData, userLanguage = 'english') =>
     });
     
     if (userLanguage === 'hinglish') {
-        return `✅ **Follow-up scheduled!**\n\n` +
+        return `âœ… **Follow-up scheduled!**\n\n` +
                `Main aapko **${scheduledDate}** ko **${scheduledTimeStr}** par contact karunga.\n\n` +
                `${description}\n\n` +
-               `Agar aapko koi urgent help chahiye toh message kar sakte hain. Thank you! 🙏`;
+               `Agar aapko koi urgent help chahiye toh message kar sakte hain. Thank you! ðŸ™`;
     } else {
-        return `✅ **Follow-up scheduled!**\n\n` +
+        return `âœ… **Follow-up scheduled!**\n\n` +
                `I'll contact you on **${scheduledDate}** at **${scheduledTimeStr}**.\n\n` +
                `${description}\n\n` +
-               `If you need any urgent help before then, feel free to message anytime. Thank you! 🙏`;
+               `If you need any urgent help before then, feel free to message anytime. Thank you! ðŸ™`;
     }
 };
 
@@ -328,7 +334,7 @@ const handleFollowUpRequest = async (tenantId, endUserPhone, userQuery, userLang
         
         // Fetch recent conversation data for context
         try {
-            const { data: conversation } = await supabase
+            const { data: conversation } = await dbClient
                 .from('conversations')
                 .select('last_quoted_products, last_product_discussed, state, metadata')
                 .eq('tenant_id', tenantId)
@@ -375,7 +381,7 @@ const handleFollowUpRequest = async (tenantId, endUserPhone, userQuery, userLang
             }
             
             // Fetch cart items if any
-            const { data: cart } = await supabase
+            const { data: cart } = await dbClient
                 .from('carts')
                 .select(`
                     id,
@@ -452,7 +458,7 @@ const processScheduledFollowUps = async () => {
         console.log('[FOLLOWUP_PROCESSOR] Checking for follow-ups due before:', fiveMinutesFromNow.toISOString());
         
         // Get follow-ups that are due
-        const { data: dueFollowUps, error } = await supabase
+        const { data: dueFollowUps, error } = await dbClient
             .from('scheduled_followups')
             .select('*')
             .eq('status', 'scheduled')
@@ -494,7 +500,7 @@ const processIndividualFollowUp = async (followUp, options = {}) => {
         console.log('[FOLLOWUP_PROCESS_INDIVIDUAL] Processing:', followUp.id);
         
         // Generate context-aware follow-up message
-        let followUpMessage = `👋 Hi! This is your scheduled follow-up.\n\n`;
+        let followUpMessage = `ðŸ‘‹ Hi! This is your scheduled follow-up.\n\n`;
         
         // Parse conversation context
         const context = followUp.conversation_context || {};
@@ -515,9 +521,9 @@ const processIndividualFollowUp = async (followUp, options = {}) => {
                 if (price) {
                     const unitsPerCarton = product.unitsPerCarton || product.units_per_carton || 1;
                     const pricePerPiece = (price / unitsPerCarton).toFixed(2);
-                    followUpMessage += `• ${productCode} - ${quantity} carton${quantity > 1 ? 's' : ''} @ ₹${pricePerPiece}/pc\n`;
+                    followUpMessage += `â€¢ ${productCode} - ${quantity} carton${quantity > 1 ? 's' : ''} @ â‚¹${pricePerPiece}/pc\n`;
                 } else {
-                    followUpMessage += `• ${productCode || productName}\n`;
+                    followUpMessage += `â€¢ ${productCode || productName}\n`;
                 }
             }
             
@@ -534,7 +540,7 @@ const processIndividualFollowUp = async (followUp, options = {}) => {
             followUpMessage += `Following up on your cart:\n\n`;
             
             for (const item of items) {
-                followUpMessage += `• ${item.product_code} - ${item.quantity} carton${item.quantity > 1 ? 's' : ''}\n`;
+                followUpMessage += `â€¢ ${item.product_code} - ${item.quantity} carton${item.quantity > 1 ? 's' : ''}\n`;
             }
             
             if (context.cart_items.length > 3) {
@@ -545,7 +551,7 @@ const processIndividualFollowUp = async (followUp, options = {}) => {
         
         // Add discount context
         if (context.approved_discount) {
-            followUpMessage += `Reminder: You have ${context.approved_discount}% discount approved! ✅\n\n`;
+            followUpMessage += `Reminder: You have ${context.approved_discount}% discount approved! âœ…\n\n`;
             hasContext = true;
         }
         
@@ -560,7 +566,7 @@ const processIndividualFollowUp = async (followUp, options = {}) => {
         
         // Generic ending
         if (hasContext) {
-            followUpMessage += `Would you like to proceed? Let me know how I can help! 😊`;
+            followUpMessage += `Would you like to proceed? Let me know how I can help! ðŸ˜Š`;
         } else {
             // Fallback for no context
             followUpMessage += `${followUp.description}\n\nHow can I help you today?`;
@@ -568,18 +574,34 @@ const processIndividualFollowUp = async (followUp, options = {}) => {
         
         // Send the follow-up message (smart transport)
         const sendResult = await sendFollowUpSmart(followUp.tenant_id, followUp.end_user_phone, followUpMessage);
-        
-        // Log the follow-up message
+
+        if (sendResult?.skipped) {
+            await dbClient
+                .from('scheduled_followups')
+                .update({
+                    status: 'skipped',
+                    delivery_method: sendResult?.method || null,
+                    whatsapp_message_id: null,
+                    error_message: sendResult?.reason || 'User unsubscribed',
+                    completed_at: new Date().toISOString()
+                })
+                .eq('id', followUp.id);
+
+            console.log('[FOLLOWUP_PROCESS_INDIVIDUAL] Skipped follow-up (unsubscribed):', followUp.id);
+            return;
+        }
+
+        // Log the follow-up message only when actually sent
         await logMessage(
-            followUp.tenant_id, 
-            followUp.end_user_phone, 
-            'bot', 
-            followUpMessage, 
+            followUp.tenant_id,
+            followUp.end_user_phone,
+            'bot',
+            followUpMessage,
             'scheduled_followup'
         );
-        
+
         // Update follow-up status
-        await supabase
+        await dbClient
             .from('scheduled_followups')
             .update({
                 status: 'completed',
@@ -595,7 +617,7 @@ const processIndividualFollowUp = async (followUp, options = {}) => {
         console.error('[FOLLOWUP_PROCESS_INDIVIDUAL] Error processing follow-up:', followUp.id, error.message);
         
         // Mark as failed
-        await supabase
+        await dbClient
             .from('scheduled_followups')
             .update({
                 status: 'failed',
@@ -658,14 +680,14 @@ async function parseAndScheduleFollowUp(text, from, tenantId, opts = {}) {
       meta: { parsed: { amount, rawUnit, unit, minutes } }
     };
 
-    const { data, error } = await supabase
+    const { data, error } = await dbClient
       .from('scheduled_followups')
       .insert(payload)
       .select('*')
       .limit(1);
 
     if (error) {
-      console.warn('[FOLLOWUP_HANDLER] supabase insert failed:', error?.message || error);
+      console.warn('[FOLLOWUP_HANDLER] dbClient insert failed:', error?.message || error);
       return { ok: false, error: String(error?.message || error) };
     }
 
@@ -691,7 +713,7 @@ if (!followResult.ok) {
 } else {
   const row = Array.isArray(followResult.data) ? followResult.data[0] : (followResult.data && followResult.data[0]) ;
   const due = row?.due_at || (followResult.data && followResult.data.due_at) || 'the scheduled time';
-  await sendMessage(from, `Okay — I'll remind you at ${due}.`);
+  await sendMessage(from, `Okay â€” I'll remind you at ${due}.`);
 }
 */
 

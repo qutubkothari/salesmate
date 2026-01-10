@@ -1,10 +1,10 @@
-/**
+﻿/**
  * @title Maytapi Status Webhook
  * @description This webhook receives delivery status updates from Maytapi for sent messages
  * and updates the corresponding record in the database.
  */
 const express = require('express');
-const { supabase } = require('../services/config');
+const { dbClient } = require('../services/config');
 const router = express.Router();
 
 // This is the endpoint Maytapi will call to update the status of a message.
@@ -25,7 +25,7 @@ router.post('/update', async (req, res) => {
     const newStatus = statusUpdate.status; // e.g., 'sent', 'delivered', 'read', 'failed'
 
     try {
-        const { data, error } = await supabase
+        const { data, error } = await dbClient
             .from('bulk_schedules')
             .update({ delivery_status: newStatus })
             .eq('message_id', messageId)
@@ -55,3 +55,4 @@ router.post('/update', async (req, res) => {
 });
 
 module.exports = router;
+

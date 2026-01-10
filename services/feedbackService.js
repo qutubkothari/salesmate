@@ -1,8 +1,8 @@
-/**
+﻿/**
  * @title Customer Feedback Service
  * @description Manages the multi-step logic for collecting customer feedback and generating reports.
  */
-const { supabase } = require('./config');
+const { dbClient } = require('./config');
 const { sendMessage } = require('./whatsappService');
 const { logMessage, getConversationId } = require('./historyService');
 
@@ -27,12 +27,12 @@ const handleFeedbackForm = async (tenant, conversation, userMessage) => {
                 return; // Wait for a valid rating
             }
 
-            await supabase
+            await dbClient
                 .from('feedback_submissions')
                 .update({ rating: rating })
                 .eq('conversation_id', conversation.id);
 
-            await supabase
+            await dbClient
                 .from('conversations')
                 .update({ state: 'awaiting_feedback_comment' })
                 .eq('id', conversation.id);
@@ -44,13 +44,13 @@ const handleFeedbackForm = async (tenant, conversation, userMessage) => {
 
         case 'awaiting_feedback_comment':
             // 2. Save the comment, clear the state, and notify the tenant.
-            await supabase
+            await dbClient
                 .from('feedback_submissions')
                 .update({ comment: userMessage })
                 .eq('conversation_id', conversation.id);
 
             // Clear the state to end the feedback flow.
-            await supabase
+            await dbClient
                 .from('conversations')
                 .update({ state: null })
                 .eq('id', conversation.id);
@@ -60,7 +60,7 @@ const handleFeedbackForm = async (tenant, conversation, userMessage) => {
             await logMessage(tenantId, endUserPhone, 'bot', confirmationMessage);
 
             // Notify the tenant of the new feedback.
-            const tenantNotification = `⭐ *New Customer Feedback Received!*\n\nA customer (${endUserPhone}) has left new feedback. View the full conversation using the /history command.`;
+            const tenantNotification = `â­ *New Customer Feedback Received!*\n\nA customer (${endUserPhone}) has left new feedback. View the full conversation using the /history command.`;
             await sendMessage(tenant.phone_number, tenantNotification);
             break;
     }
@@ -79,7 +79,7 @@ const startFeedbackForm = async (tenantId, endUserPhone) => {
     }
 
     // Create a new submission record
-    await supabase
+    await dbClient
         .from('feedback_submissions')
         .insert({
             tenant_id: tenantId,
@@ -87,7 +87,7 @@ const startFeedbackForm = async (tenantId, endUserPhone) => {
         });
 
     // Set the initial state for the conversation
-    await supabase
+    await dbClient
         .from('conversations')
         .update({ state: 'awaiting_feedback_rating' })
         .eq('id', conversationId);
@@ -104,7 +104,7 @@ const startFeedbackForm = async (tenantId, endUserPhone) => {
  */
 const getFeedbackReport = async (tenantId) => {
     try {
-        const { data, error } = await supabase
+        const { data, error } = await dbClient
             .from('feedback_submissions')
             .select('rating, comment, created_at')
             .eq('tenant_id', tenantId)
@@ -120,7 +120,7 @@ const getFeedbackReport = async (tenantId) => {
         const totalSubmissions = data.length;
         const averageRating = data.reduce((sum, item) => sum + item.rating, 0) / totalSubmissions;
 
-        let report = `📝 *Customer Feedback Report*\n\n`;
+        let report = `ðŸ“ *Customer Feedback Report*\n\n`;
         report += `*Total Submissions:* ${totalSubmissions}\n`;
         report += `*Average Rating:* ${averageRating.toFixed(2)} / 5.00\n\n`;
         report += `*Recent Comments:*\n`;
@@ -129,7 +129,7 @@ const getFeedbackReport = async (tenantId) => {
         data.slice(0, 5).forEach(item => {
             if (item.comment) {
                 const date = new Date(item.created_at).toLocaleDateString();
-                report += `\n- *[${date}] Rating: ${item.rating}⭐*\n  _"${item.comment}"_\n`;
+                report += `\n- *[${date}] Rating: ${item.rating}â­*\n  _"${item.comment}"_\n`;
             }
         });
 
@@ -146,4 +146,5 @@ module.exports = {
     startFeedbackForm,
     getFeedbackReport, // Export the new function
 };
+
 

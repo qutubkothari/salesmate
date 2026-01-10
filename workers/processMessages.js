@@ -1,5 +1,5 @@
-// workers/processMessages.js
-const { supabase } = require('../services/config'); // adjust path
+﻿// workers/processMessages.js
+const { dbClient } = require('../services/config'); // adjust path
 const logger = console;
 const BATCH_SIZE = Number(process.env.MSG_BATCH_SIZE || 10);
 const POLL_INTERVAL_MS = Number(process.env.MSG_POLL_INTERVAL_MS || 5000);
@@ -24,7 +24,7 @@ async function fallbackProcessMessage(message) {
 
 async function processMessageOnce(message) {
   // Protect with idempotency: check if an order already exists with message_id
-  const { data: existingOrder } = await supabase
+  const { data: existingOrder } = await dbClient
     .from('orders')
     .select('id')
     .eq('message_id', message.id)
@@ -34,7 +34,7 @@ async function processMessageOnce(message) {
   if (existingOrder && existingOrder.id) {
     logger.info('message already processed into order', existingOrder.id);
     // mark message processed if not already
-    await supabase.from('messages').update({ processed: true, processed_at: new Date().toISOString(), processing_result: { note: 'order_already_exists', order_id: existingOrder.id } }).eq('id', message.id);
+    await dbClient.from('messages').update({ processed: true, processed_at: new Date().toISOString(), processing_result: { note: 'order_already_exists', order_id: existingOrder.id } }).eq('id', message.id);
     return { ok: true, orderId: existingOrder.id };
   }
 
@@ -59,7 +59,7 @@ async function workerLoop() {
   while (true) {
     try {
       // fetch some unprocessed messages
-      const { data: messages, error } = await supabase
+      const { data: messages, error } = await dbClient
         .from('messages')
         .select('*')
         .eq('processed', false)
@@ -80,13 +80,13 @@ async function workerLoop() {
       for (const msg of messages) {
         try {
           // increment attempts (optimistic)
-          await supabase.from('messages').update({ processing_attempts: msg.processing_attempts + 1 }).eq('id', msg.id);
+          await dbClient.from('messages').update({ processing_attempts: msg.processing_attempts + 1 }).eq('id', msg.id);
 
           // process
           const result = await processMessageOnce(msg);
 
           // on success: set processed true and store result
-          await supabase.from('messages').update({
+          await dbClient.from('messages').update({
             processed: true,
             processed_at: new Date().toISOString(),
             processing_result: result ? result : { ok: true }
@@ -96,7 +96,7 @@ async function workerLoop() {
         } catch (procErr) {
           logger.error('processing failed for message', msg.id, procErr);
           // record failure
-          await supabase.from('message_processing_failures').insert([{
+          await dbClient.from('message_processing_failures').insert([{
             message_id: msg.id,
             attempt: msg.processing_attempts + 1,
             error_text: String(procErr.message || procErr),
@@ -121,3 +121,4 @@ function sleep(ms) {
   logger.info('Message worker started');
   await workerLoop();
 })();
+

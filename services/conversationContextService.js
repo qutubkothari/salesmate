@@ -1,5 +1,5 @@
-// services/conversationContextService.js - FIXED for schema compatibility
-const { supabase } = require('./config');
+﻿// services/conversationContextService.js - FIXED for schema compatibility
+const { dbClient } = require('./config');
 
 /**
  * FIXED: Track conversation context for human-like responses
@@ -8,7 +8,7 @@ const { supabase } = require('./config');
 const saveConversationContext = async (tenantId, phoneNumber, context) => {
     try {
         // FIXED: Only update columns that exist in your schema
-        await supabase
+        await dbClient
             .from('conversations')
             .upsert({
                 tenant_id: tenantId,
@@ -53,7 +53,7 @@ const handleContextualPriceQuery = async (userQuery, conversation, tenantId) => 
         
         try {
             // Get the specific product they just discussed
-            const { data: product } = await supabase
+            const { data: product } = await dbClient
                 .from('products')
                 .select('*')
                 .eq('tenant_id', tenantId)
@@ -69,10 +69,10 @@ const handleContextualPriceQuery = async (userQuery, conversation, tenantId) => 
                 
                 // Human-like response
                 const responses = [
-                    `${product.name} is ₹${pricePerPiece} per piece. How many pieces do you need?`,
-                    `Per piece rate for ${product.name} is ₹${pricePerPiece}. What quantity are you looking at?`,
-                    `₹${pricePerPiece} per piece for ${product.name}. Shall I calculate for your required quantity?`,
-                    `${product.name} comes at ₹${pricePerPiece} per piece. Tell me your quantity and I'll give you the total.`
+                    `${product.name} is â‚¹${pricePerPiece} per piece. How many pieces do you need?`,
+                    `Per piece rate for ${product.name} is â‚¹${pricePerPiece}. What quantity are you looking at?`,
+                    `â‚¹${pricePerPiece} per piece for ${product.name}. Shall I calculate for your required quantity?`,
+                    `${product.name} comes at â‚¹${pricePerPiece} per piece. Tell me your quantity and I'll give you the total.`
                 ];
                 
                 // Pick random response for naturalness
@@ -109,7 +109,7 @@ const handleQuantityQueries = async (userQuery, conversation, tenantId) => {
         const productName = conversation.last_product_discussed;
         
         try {
-            const { data: product } = await supabase
+            const { data: product } = await dbClient
                 .from('products')
                 .select('*')
                 .eq('tenant_id', tenantId)
@@ -145,10 +145,10 @@ const handleQuantityQueries = async (userQuery, conversation, tenantId) => {
                 
                 // Human-like calculation responses
                 const responses = [
-                    `${description} of ${product.name} will cost ₹${totalPrice}. Should I add this to your order?`,
-                    `For ${quantity} ${unit}, ${product.name} total comes to ₹${totalPrice}. Want to proceed?`,
-                    `${product.name} - ${description} = ₹${totalPrice}. Shall I prepare the quote?`,
-                    `Total for ${quantity} ${unit} of ${product.name}: ₹${totalPrice}. Ready to place order?`
+                    `${description} of ${product.name} will cost â‚¹${totalPrice}. Should I add this to your order?`,
+                    `For ${quantity} ${unit}, ${product.name} total comes to â‚¹${totalPrice}. Want to proceed?`,
+                    `${product.name} - ${description} = â‚¹${totalPrice}. Shall I prepare the quote?`,
+                    `Total for ${quantity} ${unit} of ${product.name}: â‚¹${totalPrice}. Ready to place order?`
                 ];
                 
                 const response = responses[Math.floor(Math.random() * responses.length)];

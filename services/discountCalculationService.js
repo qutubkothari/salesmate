@@ -1,10 +1,10 @@
-/**
+﻿/**
  * @title Discount Calculation Service
  * @description Core service for calculating and applying discounts to orders
  * Supports volume, customer, product, category, coupon, time-based, and other discount types
  */
 
-const { supabase } = require('./config');
+const { dbClient } = require('./config');
 
 class DiscountCalculationService {
     /**
@@ -25,7 +25,7 @@ class DiscountCalculationService {
             });
 
             // Get all active discount rules for the tenant
-            const { data: rules, error } = await supabase
+            const { data: rules, error } = await dbClient
                 .from('discount_rules')
                 .select('*')
                 .eq('tenant_id', tenantId)
@@ -188,7 +188,7 @@ class DiscountCalculationService {
         }
 
         try {
-            const { count } = await supabase
+            const { count } = await dbClient
                 .from('orders')
                 .select('*', { count: 'exact', head: true })
                 .eq('customer_profile_id', customerProfile.id)
@@ -340,7 +340,7 @@ class DiscountCalculationService {
             const { orderId, customerPhone, customerProfileId, orderValueBefore, orderValueAfter, quantity } = orderInfo;
 
             // Log to discount_applications table
-            await supabase
+            await dbClient
                 .from('discount_applications')
                 .insert({
                     tenant_id: tenantId,
@@ -359,12 +359,12 @@ class DiscountCalculationService {
                 });
 
             // Update discount rule statistics
-            await supabase
+            await dbClient
                 .from('discount_rules')
                 .update({
-                    times_applied: supabase.raw('times_applied + 1'),
-                    total_discount_given: supabase.raw(`total_discount_given + ${discountAmount}`),
-                    coupon_used_count: discountRule.coupon_code ? supabase.raw('coupon_used_count + 1') : undefined
+                    times_applied: dbClient.raw('times_applied + 1'),
+                    total_discount_given: dbClient.raw(`total_discount_given + ${discountAmount}`),
+                    coupon_used_count: discountRule.coupon_code ? dbClient.raw('coupon_used_count + 1') : undefined
                 })
                 .eq('id', discountRule.id);
 
@@ -390,7 +390,7 @@ class DiscountCalculationService {
         try {
             console.log('[DISCOUNT_CALC] Validating coupon:', couponCode);
 
-            const { data: rule, error } = await supabase
+            const { data: rule, error } = await dbClient
                 .from('discount_rules')
                 .select('*')
                 .eq('tenant_id', tenantId)
@@ -416,7 +416,7 @@ class DiscountCalculationService {
                 if (rule.min_order_value && orderData.totalAmount < rule.min_order_value) {
                     return {
                         valid: false,
-                        message: `Minimum order value of ₹${rule.min_order_value} required`
+                        message: `Minimum order value of â‚¹${rule.min_order_value} required`
                     };
                 }
                 if (rule.coupon_usage_limit && rule.coupon_used_count >= rule.coupon_usage_limit) {
@@ -442,7 +442,7 @@ class DiscountCalculationService {
 
             return {
                 valid: true,
-                message: `Coupon applied! You saved ₹${discountAmount}`,
+                message: `Coupon applied! You saved â‚¹${discountAmount}`,
                 discount: rule,
                 discountAmount
             };
@@ -492,3 +492,4 @@ class DiscountCalculationService {
 }
 
 module.exports = new DiscountCalculationService();
+

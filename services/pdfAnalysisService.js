@@ -1,6 +1,6 @@
-// services/pdfAnalysisService.js
+﻿// services/pdfAnalysisService.js
 const { openai } = require('./config');
-const { supabase } = require('./config');
+const { dbClient } = require('./config');
 const fetch = require('node-fetch');
 
 /**
@@ -191,7 +191,7 @@ const searchProductsInPDF = async (tenantId, extractedText) => {
             `name.ilike.%${term}%,description.ilike.%${term}%,sku.ilike.%${term}%`
         ).join(',');
 
-        const { data: products, error } = await supabase
+        const { data: products, error } = await dbClient
             .from('products')
             .select('*')
             .eq('tenant_id', tenantId)

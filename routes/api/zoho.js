@@ -1,4 +1,4 @@
-const express = require('express');
+﻿const express = require('express');
 const router = express.Router();
 const zohoTenantAuth = require('../../services/zohoTenantAuthService');
 const zohoInvoiceSync = require('../../services/zohoInvoiceSyncService');
@@ -14,7 +14,7 @@ router.post('/auth/initialize', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Tenant ID is required' });
     }
     // Verify tenant exists
-    const { data: tenant, error } = await supabase
+    const { data: tenant, error } = await dbClient
       .from('tenants')
       .select('id, business_name')
       .eq('id', tenantId)
@@ -98,7 +98,7 @@ router.get('/auth/callback', async (req, res) => {
             </style>
           </head>
           <body>
-            <h1 class="success">✅ Zoho Authorization Successful!</h1>
+            <h1 class="success">âœ… Zoho Authorization Successful!</h1>
             <div class="info">
               <h3>Authorization Details:</h3>
               <p><strong>Organization:</strong> ${result.organizationName}</p>
@@ -179,7 +179,7 @@ router.get('/auth/whatsapp-command/:tenantId', async (req, res) => {
   try {
     const { tenantId } = req.params;
     // Verify tenant exists
-    const { data: tenant, error } = await supabase
+    const { data: tenant, error } = await dbClient
       .from('tenants')
       .select('id, business_name, admin_phone')
       .eq('id', tenantId)
@@ -189,7 +189,7 @@ router.get('/auth/whatsapp-command/:tenantId', async (req, res) => {
     }
     const redirectUri = `${req.protocol}://${req.get('host')}/api/zoho/auth/callback`;
     const authResult = zohoTenantAuth.generateAuthorizationURL(tenantId, redirectUri);
-    const whatsappMessage = `🔐 *Zoho Books Authorization Required*\n\nHi ${tenant.business_name}! To enable invoice generation and sales order management, please authorize your Zoho Books account.\n\n*Click this link to authorize:*\n${authResult.authUrl}\n\n*What this enables:*\n✅ Automatic invoice generation\n✅ Sales order creation\n✅ Customer sync with Zoho Books\n✅ Product price synchronization\n✅ PDF delivery to customers\n\n*Security Note:*\n- This link is secure and specific to your account\n- It only grants necessary permissions for order processing\n- You can revoke access anytime from your Zoho account\n\nAfter authorization, your WhatsApp sales bot will be fully integrated with Zoho Books!`;
+    const whatsappMessage = `ðŸ” *Zoho Books Authorization Required*\n\nHi ${tenant.business_name}! To enable invoice generation and sales order management, please authorize your Zoho Books account.\n\n*Click this link to authorize:*\n${authResult.authUrl}\n\n*What this enables:*\nâœ… Automatic invoice generation\nâœ… Sales order creation\nâœ… Customer sync with Zoho Books\nâœ… Product price synchronization\nâœ… PDF delivery to customers\n\n*Security Note:*\n- This link is secure and specific to your account\n- It only grants necessary permissions for order processing\n- You can revoke access anytime from your Zoho account\n\nAfter authorization, your WhatsApp sales bot will be fully integrated with Zoho Books!`;
     res.json({ success: true, message: whatsappMessage, authUrl: authResult.authUrl, tenantId: tenantId, adminPhone: tenant.admin_phone });
   } catch (error) {
     console.error('[ZOHO_WHATSAPP_CMD] Error:', error);
@@ -199,7 +199,7 @@ router.get('/auth/whatsapp-command/:tenantId', async (req, res) => {
 // routes/api/zoho.js
 const zohoMatching = require('../../services/zohoCustomerMatchingService');
 const zohoIntegration = require('../../services/zohoIntegrationService');
-const { supabase } = require('../../services/config');
+const { dbClient } = require('../../services/config');
 
 /**
  * GET /api/admin/zoho/pending-syncs
@@ -217,7 +217,7 @@ router.get('/zoho/pending-syncs', async (req, res) => {
     }
 
     // Get customers who have GST but no Zoho ID (need manual approval)
-    const { data: pendingSyncs, error } = await supabase
+    const { data: pendingSyncs, error } = await dbClient
       .from('customer_profiles')
       .select('id, phone, company, first_name, last_name, gst_number, business_address, created_at')
       .eq('tenant_id', tenantId)
@@ -272,7 +272,7 @@ router.post('/zoho/approve-sync/:syncId', async (req, res) => {
     const tenantId = req.body?.tenant_id || req.query?.tenant_id || process.env.TENANT_ID;
 
     // fetch profile
-    const { data: profile, error: fetchError } = await supabase
+    const { data: profile, error: fetchError } = await dbClient
       .from('customer_profiles')
       .select('*')
       .eq('id', syncId)
@@ -328,7 +328,7 @@ router.post('/zoho/approve-sync/:syncId', async (req, res) => {
 
     // update DB with zoho id (best-effort)
     if (result.customerId) {
-      const { error: updateError } = await supabase
+      const { error: updateError } = await dbClient
         .from('customer_profiles')
         .update({ zoho_customer_id: result.customerId, updated_at: new Date().toISOString() })
         .eq('id', syncId);
@@ -448,7 +448,7 @@ router.get('/zoho/stats', async (req, res) => {
     const tenantId = req.query.tenant_id || process.env.TENANT_ID;
 
     // Pending syncs (have GST but no Zoho ID)
-    const { count: pendingCount } = await supabase
+    const { count: pendingCount } = await dbClient
       .from('customer_profiles')
       .select('id', { count: 'exact', head: true })
       .eq('tenant_id', tenantId)
@@ -456,7 +456,7 @@ router.get('/zoho/stats', async (req, res) => {
       .not('gst_number', 'is', null);
 
     // Auto-matched (have Zoho ID)
-    const { count: matchedCount } = await supabase
+    const { count: matchedCount } = await dbClient
       .from('customer_profiles')
       .select('id', { count: 'exact', head: true })
       .eq('tenant_id', tenantId)
@@ -466,7 +466,7 @@ router.get('/zoho/stats', async (req, res) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
-    const { count: approvedTodayCount } = await supabase
+    const { count: approvedTodayCount } = await dbClient
       .from('customer_profiles')
       .select('id', { count: 'exact', head: true })
       .eq('tenant_id', tenantId)
@@ -546,7 +546,7 @@ router.get('/zoho/sync-stats', async (req, res) => {
     const tenantId = req.query.tenant_id || process.env.TENANT_ID;
     if (!tenantId) return res.status(400).json({ success: false, error: 'Tenant ID is required' });
 
-    const { data, error } = await supabase
+    const { data, error } = await dbClient
       .from('orders')
       .select('zoho_sync_status, count:id', { count: 'exact', head: false })
       .eq('tenant_id', tenantId)
@@ -572,7 +572,7 @@ router.post('/zoho/retry-failed-syncs', async (req, res) => {
     const tenantId = req.body?.tenant_id || req.query?.tenant_id || process.env.TENANT_ID;
     if (!tenantId) return res.status(400).json({ success: false, error: 'Tenant ID is required' });
 
-    const { data: failed, error } = await supabase
+    const { data: failed, error } = await dbClient
       .from('orders')
       .select('id')
       .eq('tenant_id', tenantId)
@@ -603,7 +603,7 @@ router.post('/zoho/retry-failed-syncs', async (req, res) => {
 router.get('/zoho/order-status/:orderId', async (req, res) => {
   try {
     const { orderId } = req.params;
-    const { data, error } = await supabase
+    const { data, error } = await dbClient
       .from('orders')
       .select('id, zoho_sales_order_id, zoho_sync_status, zoho_synced_at, zoho_sync_error')
       .eq('id', orderId)

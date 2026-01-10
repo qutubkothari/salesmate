@@ -1,8 +1,8 @@
-/**
+﻿/**
  * @title Customer Snapshot Service
  * @description Manages the logic for generating a comprehensive summary of a single customer for a tenant.
  */
-const { supabase } = require('./config');
+const { dbClient } = require('./config');
 const { getConversationId } = require('./historyService');
 
 /**
@@ -25,10 +25,10 @@ const getCustomerSnapshot = async (tenantId, endUserPhone) => {
             { data: tags, error: tagsError },
             { data: segments, error: segError }
         ] = await Promise.all([
-            supabase.from('conversations').select('lead_score, requires_human_attention').eq('id', conversationId).single(),
-            supabase.from('orders').select('id, status, total_amount, created_at').eq('conversation_id', conversationId).order('created_at', { ascending: false }).limit(1).single(),
-            supabase.from('conversation_tags').select('tag:tags (tag_name)').eq('conversation_id', conversationId),
-            supabase.from('conversation_segments').select('segment:customer_segments (segment_name)').eq('conversation_id', conversationId)
+            dbClient.from('conversations').select('lead_score, requires_human_attention').eq('id', conversationId).single(),
+            dbClient.from('orders').select('id, status, total_amount, created_at').eq('conversation_id', conversationId).order('created_at', { ascending: false }).limit(1).single(),
+            dbClient.from('conversation_tags').select('tag:tags (tag_name)').eq('conversation_id', conversationId),
+            dbClient.from('conversation_segments').select('segment:customer_segments (segment_name)').eq('conversation_id', conversationId)
         ]);
 
         if (convError && convError.code !== 'PGRST116') throw convError;
@@ -37,7 +37,7 @@ const getCustomerSnapshot = async (tenantId, endUserPhone) => {
         if (segError) throw segError;
 
         // 2. Format the report
-        let report = `👤 *Customer Snapshot for ${endUserPhone}*\n\n`;
+        let report = `ðŸ‘¤ *Customer Snapshot for ${endUserPhone}*\n\n`;
 
         // Lead & Handover Status
         report += `*Lead Status:*\n`;
@@ -83,3 +83,4 @@ const getCustomerSnapshot = async (tenantId, endUserPhone) => {
 module.exports = {
     getCustomerSnapshot,
 };
+

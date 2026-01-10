@@ -1,10 +1,10 @@
-/**
+﻿/**
  * Website Embedding Service
  * Handles text chunking and embedding generation for crawled content
  * Now using FREE embeddings!
  */
 
-const { supabase } = require('./config');
+const { dbClient } = require('./config');
 const { 
     generateFreeEmbedding, 
     generateFreeEmbeddingsBatch,
@@ -204,7 +204,7 @@ async function processWebsiteContent(crawledData, tenantId) {
         }));
 
         // Store in database
-        const { data, error } = await supabase
+        const { data, error } = await dbClient
             .from('website_embeddings')
             .insert(records)
             .select();
@@ -282,7 +282,7 @@ function extractKeywords(text, maxKeywords = 10) {
 async function updateWebsiteEmbeddings(url, tenantId, newCrawledData) {
     try {
         // Delete old embeddings for this URL
-        const { error: deleteError } = await supabase
+        const { error: deleteError } = await dbClient
             .from('website_embeddings')
             .delete()
             .eq('tenant_id', tenantId)
@@ -304,7 +304,7 @@ async function updateWebsiteEmbeddings(url, tenantId, newCrawledData) {
  */
 async function deleteWebsiteEmbeddings(url, tenantId) {
     try {
-        const { data, error } = await supabase
+        const { data, error } = await dbClient
             .from('website_embeddings')
             .delete()
             .eq('tenant_id', tenantId)
@@ -331,3 +331,4 @@ module.exports = {
     deleteWebsiteEmbeddings,
     extractKeywords
 };
+

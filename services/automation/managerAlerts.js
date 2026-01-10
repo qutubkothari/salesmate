@@ -1,5 +1,5 @@
-// services/automation/managerAlerts.js
-const { supabase } = require('../config');
+﻿// services/automation/managerAlerts.js
+const { dbClient } = require('../config');
 const { sendMessage } = require('../whatsappService');
 
 /**
@@ -13,7 +13,7 @@ class ManagerAlerts {
     async sendAlert(tenantId, alertData) {
         try {
             // Get manager phone from tenant
-            const { data: tenant } = await supabase
+            const { data: tenant } = await dbClient
                 .from('tenants')
                 .select('admin_phone, business_name')
                 .eq('id', tenantId)
@@ -25,18 +25,18 @@ class ManagerAlerts {
             }
             
             // Format message
-            let message = `🔔 *Sales Alert*\n\n`;
+            let message = `ðŸ”” *Sales Alert*\n\n`;
             message += `*${alertData.title}*\n\n`;
             message += alertData.message;
             
             if (alertData.action) {
-                message += `\n\n📋 *Action:* ${alertData.action}`;
+                message += `\n\nðŸ“‹ *Action:* ${alertData.action}`;
             }
             
             await sendMessage(tenant.admin_phone, message);
             
             // Log alert
-            await supabase
+            await dbClient
                 .from('manager_alerts')
                 .insert({
                     tenant_id: tenantId,
@@ -72,9 +72,9 @@ class ManagerAlerts {
                 customerPhone: customerData.phone,
                 title: `${customerData.name} Overdue`,
                 message: `Customer hasn't ordered in ${patternData.daysOverdue} days\n` +
-                    `• Usual interval: ${Math.round(patternData.avgInterval)} days\n` +
-                    `• Last order: ${new Date(patternData.lastOrderDate).toLocaleDateString()}\n` +
-                    `• Churn risk: ${Math.round(customerData.churnRisk * 100)}%`,
+                    `â€¢ Usual interval: ${Math.round(patternData.avgInterval)} days\n` +
+                    `â€¢ Last order: ${new Date(patternData.lastOrderDate).toLocaleDateString()}\n` +
+                    `â€¢ Churn risk: ${Math.round(customerData.churnRisk * 100)}%`,
                 action: 'Auto-message sent. Consider personal follow-up.',
                 details: patternData
             };
@@ -97,14 +97,14 @@ class ManagerAlerts {
             if (anomalies.missingProducts?.length > 0) {
                 message += `*Missing usual items:*\n`;
                 anomalies.missingProducts.forEach(p => {
-                    message += `• ${p.productName}\n`;
+                    message += `â€¢ ${p.productName}\n`;
                 });
             }
             
             if (anomalies.lowQuantities?.length > 0) {
                 message += `\n*Lower quantities:*\n`;
                 anomalies.lowQuantities.forEach(a => {
-                    message += `• ${a.reduction}% less than usual\n`;
+                    message += `â€¢ ${a.reduction}% less than usual\n`;
                 });
             }
             

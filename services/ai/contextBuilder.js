@@ -1,5 +1,5 @@
-
-const { supabase } = require('../../config/database');
+﻿
+const { dbClient } = require('../../config/database');
 
 /**
  * Build comprehensive context for AI responses
@@ -36,7 +36,7 @@ class ContextBuilder {
    */
   async getCustomerProfile(customerProfileId) {
     // Fetch customer profile
-    const { data: customer, error: customerError } = await supabase
+    const { data: customer, error: customerError } = await dbClient
       .from('customer_profiles')
       .select('id, first_name, business_type, customer_tier, created_at')
       .eq('id', customerProfileId)
@@ -46,7 +46,7 @@ class ContextBuilder {
     // Fetch orders for aggregation
     // First, get the email from the customer profile
     const email = customer?.customer_email || customerProfileId;
-    const { data: orders, error: ordersError } = await supabase
+    const { data: orders, error: ordersError } = await dbClient
       .from('orders')
       .select('total_amount, created_at')
       .eq('customer_email', email);
@@ -74,7 +74,7 @@ class ContextBuilder {
    * Get last N messages from conversation
    */
   async getConversationHistory(conversationId, limit = 10) {
-    const { data: memories, error } = await supabase
+    const { data: memories, error } = await dbClient
       .from('conversation_memories')
       .select('memory_type, content, created_at')
       .eq('conversation_id', conversationId)
@@ -93,7 +93,7 @@ class ContextBuilder {
    * Get customer purchase patterns
    */
   async getPurchasePatterns(customerProfileId) {
-    const { data: patterns, error } = await supabase
+    const { data: patterns, error } = await dbClient
       .from('customer_purchase_patterns')
       .select('avg_days_between_orders, last_order_date, confidence_score, days_overdue')
       .eq('customer_profile_id', customerProfileId)
@@ -106,7 +106,7 @@ class ContextBuilder {
    * Get customer product affinity (regular products)
    */
   async getProductAffinity(customerProfileId) {
-    const { data: affinity, error } = await supabase
+    const { data: affinity, error } = await dbClient
       .from('customer_product_affinity')
       .select('product_id, purchase_frequency, avg_quantity_per_order, last_purchase_date, days_since_last_purchase, is_regular_product')
       .eq('customer_profile_id', customerProfileId)
@@ -118,7 +118,7 @@ class ContextBuilder {
     for (const a of affinity || []) {
       let name = null, code = null;
       if (a.product_id) {
-        const { data: product, error: prodError } = await supabase
+        const { data: product, error: prodError } = await dbClient
           .from('products')
           .select('name, code')
           .eq('id', a.product_id)
@@ -141,7 +141,7 @@ class ContextBuilder {
    * Get recent orders (last 3)
    */
   async getRecentOrders(customerProfileId) {
-    const { data: orders, error } = await supabase
+    const { data: orders, error } = await dbClient
       .from('orders')
       .select('id, created_at, total_amount, status, order_items(quantity, price_at_time_of_purchase, unit_price_before_tax, product_id)')
       .eq('customer_email', customerProfileId)
@@ -154,7 +154,7 @@ class ContextBuilder {
       items: (o.order_items || []).map(async i => {
         let name = null, code = null;
         if (i.product_id) {
-          const { data: product, error: prodError } = await supabase
+          const { data: product, error: prodError } = await dbClient
             .from('products')
             .select('name, code')
             .eq('id', i.product_id)
@@ -209,14 +209,14 @@ class ContextBuilder {
     let formatted = `Customer Profile:\n`;
     formatted += `- Name: ${context.customer.name}\n`;
     formatted += `- Tier: ${context.customer.customer_tier}\n`;
-    formatted += `- Lifetime Value: ₹${context.customer.lifetime_value}\n`;
+    formatted += `- Lifetime Value: â‚¹${context.customer.lifetime_value}\n`;
     formatted += `- Total Orders: ${context.customer.total_orders}\n`;
     if (context.patterns) {
       formatted += `\nPurchase Pattern:\n`;
       formatted += `- Orders every ${context.patterns.avg_days_between_orders} days\n`;
       formatted += `- Last order: ${context.patterns.last_order_date}\n`;
       if (context.patterns.days_overdue > 0) {
-        formatted += `- ⚠️ Overdue by ${context.patterns.days_overdue} days\n`;
+        formatted += `- âš ï¸ Overdue by ${context.patterns.days_overdue} days\n`;
       }
     }
     if (context.affinity && context.affinity.length > 0) {

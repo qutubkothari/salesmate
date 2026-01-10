@@ -1,10 +1,10 @@
-/**
+﻿/**
  * @title Product Management Service
  * @description Handles product creation, Excel uploads, AI embeddings, and product retrieval.
  */
 const xlsx = require('xlsx');
 const fetch = require('node-fetch');
-const { supabase, openai } = require('./config');
+const { dbClient, openai } = require('./config');
 const { sendMessage } = require('./whatsappService');
 
 /**
@@ -27,7 +27,7 @@ const generateEmbedding = async (text) => {
 };
 
 /**
- * 🔧 MISSING FUNCTION - This is what the bot needs!
+ * ðŸ”§ MISSING FUNCTION - This is what the bot needs!
  * Retrieves all products for a specific tenant from the database.
  * @param {string} tenantId The UUID of the tenant whose products to retrieve.
  * @returns {Array} Array of product objects or empty array if none found.
@@ -41,7 +41,7 @@ const getAllProducts = async (tenantId) => {
 
         console.log(`[PRODUCT] Fetching all products for tenant: ${tenantId}`);
         
-        const { data, error } = await supabase
+        const { data, error } = await dbClient
             .from('products')
             .select('*')
             .eq('tenant_id', tenantId)
@@ -62,7 +62,7 @@ const getAllProducts = async (tenantId) => {
 };
 
 /**
- * 🎯 NEW FUNCTION - Search products using vector similarity
+ * ðŸŽ¯ NEW FUNCTION - Search products using vector similarity
  * Finds products similar to the user's query using AI embeddings.
  * @param {string} tenantId The UUID of the tenant whose products to search.
  * @param {string} query The user's search query.
@@ -84,7 +84,7 @@ const searchProducts = async (tenantId, query, limit = 5) => {
             console.warn('[PRODUCT] Could not generate embedding for search query, falling back to text search');
             
             // Fallback to basic text search if embedding fails
-            const { data, error } = await supabase
+            const { data, error } = await dbClient
                 .from('products')
                 .select('*')
                 .eq('tenant_id', tenantId)
@@ -99,8 +99,8 @@ const searchProducts = async (tenantId, query, limit = 5) => {
             return data || [];
         }
 
-        // Use vector similarity search (requires pgvector extension in Supabase)
-        const { data, error } = await supabase
+        // Use vector similarity search (requires pgvector extension in dbClient)
+        const { data, error } = await dbClient
             .rpc('match_products', {
                 query_embedding: queryEmbedding,
                 match_tenant_id: tenantId,
@@ -112,7 +112,7 @@ const searchProducts = async (tenantId, query, limit = 5) => {
             console.warn('[PRODUCT] Vector search failed, falling back to text search:', error.message);
             
             // Fallback to text search
-            const { data: fallbackData, error: fallbackError } = await supabase
+            const { data: fallbackData, error: fallbackError } = await dbClient
                 .from('products')
                 .select('*')
                 .eq('tenant_id', tenantId)
@@ -137,7 +137,7 @@ const searchProducts = async (tenantId, query, limit = 5) => {
 };
 
 /**
- * 📊 NEW FUNCTION - Get product statistics for a tenant
+ * ðŸ“Š NEW FUNCTION - Get product statistics for a tenant
  * Returns useful stats about the tenant's product catalog.
  * @param {string} tenantId The UUID of the tenant.
  * @returns {Object} Statistics about the product catalog.
@@ -148,7 +148,7 @@ const getProductStats = async (tenantId) => {
             return { total: 0, withPrices: 0, avgPrice: 0, categories: [] };
         }
 
-        const { data, error } = await supabase
+        const { data, error } = await dbClient
             .from('products')
             .select('price, technical_details')
             .eq('tenant_id', tenantId);
@@ -239,7 +239,7 @@ const processProductUpload = async (fileBuffer, tenantId) => {
         }
 
         // Bulk insert all processed products into the database.
-        const { error } = await supabase.from('products').insert(productsToInsert);
+        const { error } = await dbClient.from('products').insert(productsToInsert);
 
         if (error) {
             throw error;
@@ -429,17 +429,17 @@ const sendProductWithImage = async (to, product) => {
         if (product.image_url) {
             const imageMessage = {
                 image: { url: product.image_url },
-                caption: `${product.name}\nPrice: ₹${product.price}\n${product.description}`
+                caption: `${product.name}\nPrice: â‚¹${product.price}\n${product.description}`
             };
             await sendMessage(to, imageMessage);
         } else {
             // Fallback to text-only
-            await sendMessage(to, `${product.name}\nPrice: ₹${product.price}`);
+            await sendMessage(to, `${product.name}\nPrice: â‚¹${product.price}`);
         }
     } catch (error) {
         console.error('[PRODUCT] Error sending product with image:', error.message);
         // Fallback to text-only on error
-        await sendMessage(to, `${product.name}\nPrice: ₹${product.price}`);
+        await sendMessage(to, `${product.name}\nPrice: â‚¹${product.price}`);
     }
 };
 
@@ -447,10 +447,10 @@ module.exports = {
     processProductUpload,
     generateEmbedding,
     processProductSheet,
-    getAllProducts,        // 🔧 FIXED: Now exported - this is what the bot needs!
-    searchProducts,        // 🎯 NEW: Smart product search
-    getProductStats,       // 📊 NEW: Product catalog statistics
-    calculateTieredPrice,  // 💰 NEW: Tiered pricing with bulk discounts
-    extractOrderWithVariants, // 🔄 NEW: Extract orders with variant support
-    sendProductWithImage   // 🖼️ NEW: Send products with image support
+    getAllProducts,        // ðŸ”§ FIXED: Now exported - this is what the bot needs!
+    searchProducts,        // ðŸŽ¯ NEW: Smart product search
+    getProductStats,       // ðŸ“Š NEW: Product catalog statistics
+    calculateTieredPrice,  // ðŸ’° NEW: Tiered pricing with bulk discounts
+    extractOrderWithVariants, // ðŸ”„ NEW: Extract orders with variant support
+    sendProductWithImage   // ðŸ–¼ï¸ NEW: Send products with image support
 };

@@ -1,6 +1,6 @@
-const express = require('express');
+﻿const express = require('express');
 const router = express.Router();
-const { supabase } = require('../../services/config');
+const { dbClient } = require('../../services/config');
 const {
     initializeClient,
     getQRCode,
@@ -95,7 +95,7 @@ router.get('/status/:tenantId', async (req, res) => {
 
         // Also get from database with timeout
         const { data: dbConnection, error: dbError } = await Promise.race([
-            supabase
+            dbClient
                 .from('whatsapp_connections')
                 .select('*')
                 .eq('tenant_id', tenantId)
@@ -164,7 +164,7 @@ router.get('/connections', async (req, res) => {
         const connections = getAllConnections();
 
         // Get database connections
-        const { data: dbConnections } = await supabase
+        const { data: dbConnections } = await dbClient
             .from('whatsapp_connections')
             .select('*')
             .order('updated_at', { ascending: false });
@@ -185,3 +185,4 @@ router.get('/connections', async (req, res) => {
 });
 
 module.exports = router;
+

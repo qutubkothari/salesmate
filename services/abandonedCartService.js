@@ -1,8 +1,8 @@
-/**
+﻿/**
  * @title Abandoned Cart Service
  * @description Manages the logic for detecting and sending recovery messages for abandoned shopping carts.
  */
-const { supabase } = require('./config');
+const { dbClient } = require('./config');
 const { sendMessage } = require('./whatsappService');
 const { logMessage } = require('./historyService');
 
@@ -13,7 +13,7 @@ const { logMessage } = require('./historyService');
 const processAbandonedCarts = async () => {
     try {
         // 1. Get all tenants to check their custom settings.
-        const { data: tenants, error: tenantsError } = await supabase
+        const { data: tenants, error: tenantsError } = await dbClient
             .from('tenants')
             .select('id, phone_number, abandoned_cart_delay_hours, abandoned_cart_message');
 
@@ -35,7 +35,7 @@ const processAbandonedCarts = async () => {
             const newerThan = new Date(now.getTime() - (48 * 60 * 60 * 1000)).toISOString();
 
             // 2. Find carts that were updated within the abandoned window and haven't had a reminder sent.
-            const { data: abandonedCarts, error: cartsError } = await supabase
+            const { data: abandonedCarts, error: cartsError } = await dbClient
                 .from('carts')
                 .select(`
                     id,
@@ -64,7 +64,7 @@ const processAbandonedCarts = async () => {
                         await logMessage(tenant.id, endUserPhone, 'bot', reminderMessage, 'abandoned_cart_reminder');
 
                         // 4. Mark the cart as having a reminder sent to prevent re-sending.
-                        await supabase
+                        await dbClient
                             .from('carts')
                             .update({ reminder_sent: true })
                             .eq('id', cart.id);
@@ -80,4 +80,5 @@ const processAbandonedCarts = async () => {
 module.exports = {
     processAbandonedCarts,
 };
+
 

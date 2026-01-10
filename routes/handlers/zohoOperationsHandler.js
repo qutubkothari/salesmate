@@ -1,8 +1,8 @@
-// routes/handlers/zohoOperationsHandler.js
+﻿// routes/handlers/zohoOperationsHandler.js
 // Extracted from customerHandler.js (lines 1-147)
 // Handles all Zoho Books operations: status checks, invoices, sales orders
 
-const { supabase } = require('../../services/config');
+const { dbClient } = require('../../services/config');
 const { convertSalesOrderToInvoice, generateInvoicePDF } = require('../../services/zohoInvoiceService');
 const { sendMessage } = require('../../services/whatsappService');
 const { logMessage } = require('../../services/historyService');
@@ -47,12 +47,12 @@ const handleZohoStatusCommand = async (tenantId, from) => {
         
         if (status.authorized) {
             if (status.tokenExpired) {
-                message = `⚠️ **Zoho Status: Token Expired**\n\nOrganization: ${status.organizationName}\n\nThe token has expired but will auto-refresh on next use.`;
+                message = `âš ï¸ **Zoho Status: Token Expired**\n\nOrganization: ${status.organizationName}\n\nThe token has expired but will auto-refresh on next use.`;
             } else {
-                message = `✅ **Zoho Status: Active**\n\nOrganization: ${status.organizationName}\n\nInvoice generation is working properly.`;
+                message = `âœ… **Zoho Status: Active**\n\nOrganization: ${status.organizationName}\n\nInvoice generation is working properly.`;
             }
         } else {
-            message = `❌ **Zoho Status: Not Authorized**\n\nZoho Books integration is not set up. Please authorize Zoho access first.\n\nContact admin for authorization setup.`;
+            message = `âŒ **Zoho Status: Not Authorized**\n\nZoho Books integration is not set up. Please authorize Zoho access first.\n\nContact admin for authorization setup.`;
         }
         
         return {
@@ -86,8 +86,8 @@ const handleInvoiceRequest = async (tenant, from, conversation, userQuery) => {
         }
         // Log all conversations for this phone
 
-        // --- Enhanced: Add error logging for all Supabase queries ---
-        const { data: allConvs, error: allConvsError } = await supabase
+        // --- Enhanced: Add error logging for all dbClient queries ---
+        const { data: allConvs, error: allConvsError } = await dbClient
             .from('conversations')
             .select('id, end_user_phone')
             .eq('end_user_phone', from);
@@ -96,7 +96,7 @@ const handleInvoiceRequest = async (tenant, from, conversation, userQuery) => {
         }
         console.log('[INVOICE_REQUEST][DEBUG] All conversations for phone:', from, allConvs);
 
-        const { data: allRecentOrders, error: allRecentOrdersError } = await supabase
+        const { data: allRecentOrders, error: allRecentOrdersError } = await dbClient
             .from('orders')
             .select('*')
             .eq('tenant_id', tenant.id)
@@ -107,7 +107,7 @@ const handleInvoiceRequest = async (tenant, from, conversation, userQuery) => {
         }
         console.log('[INVOICE_REQUEST][DEBUG] All recent orders for tenant:', tenant.id, allRecentOrders);
 
-        let { data: recentOrders, error: recentOrdersError } = await supabase
+        let { data: recentOrders, error: recentOrdersError } = await dbClient
             .from('orders')
             .select('*')
             .eq('tenant_id', tenant.id)
@@ -121,7 +121,7 @@ const handleInvoiceRequest = async (tenant, from, conversation, userQuery) => {
         // Fallback: If no orders found, try searching by phone (end_user_phone in conversations)
         if (!recentOrders || recentOrders.length === 0) {
             console.log('[INVOICE_REQUEST][DEBUG] No recent orders for conversationId, trying phone fallback:', from);
-            const { data: conversations, error: conversationsError } = await supabase
+            const { data: conversations, error: conversationsError } = await dbClient
                 .from('conversations')
                 .select('id')
                 .eq('end_user_phone', from);
@@ -130,7 +130,7 @@ const handleInvoiceRequest = async (tenant, from, conversation, userQuery) => {
             }
             if (conversations && conversations.length > 0) {
                 const conversationIds = conversations.map(c => c.id);
-                const { data: phoneOrders, error: phoneOrdersError } = await supabase
+                const { data: phoneOrders, error: phoneOrdersError } = await dbClient
                     .from('orders')
                     .select('*')
                     .eq('tenant_id', tenant.id)
@@ -148,7 +148,7 @@ const handleInvoiceRequest = async (tenant, from, conversation, userQuery) => {
         if (!recentOrders || recentOrders.length === 0) {
             console.log('[INVOICE_REQUEST][DEBUG] No recent orders after phone fallback, retrying after 1s...');
             await new Promise(res => setTimeout(res, 1000));
-            const { data: retryOrders, error: retryOrdersError } = await supabase
+            const { data: retryOrders, error: retryOrdersError } = await dbClient
                 .from('orders')
                 .select('*')
                 .eq('tenant_id', tenant.id)
@@ -169,12 +169,12 @@ const handleInvoiceRequest = async (tenant, from, conversation, userQuery) => {
                 if (latestOrder.pdf_delivery_url) {
                     await sendAndLogMessage(
                         from,
-                        `🔗 *Download your invoice PDF here:*
+                        `ðŸ”— *Download your invoice PDF here:*
 ${latestOrder.pdf_delivery_url}`,
                         tenant.id,
                         'invoice_link_sent_fallback'
                     );
-                    await sendAndLogMessage(from, "✅ Invoice previously generated and sent! Check the download link above.", tenant.id, 'invoice_sent_existing_fallback');
+                    await sendAndLogMessage(from, "âœ… Invoice previously generated and sent! Check the download link above.", tenant.id, 'invoice_sent_existing_fallback');
                     return { handled: true, success: true, type: 'invoice_link_existing_fallback' };
                 }
             }
@@ -193,11 +193,11 @@ ${latestOrder.pdf_delivery_url}`,
                 console.log('[INVOICE_REQUEST][DEBUG] Found existing pdf_delivery_url:', latestOrder.pdf_delivery_url);
                 await sendAndLogMessage(
                     from,
-                    `🔗 *Download your invoice PDF here:*\n${latestOrder.pdf_delivery_url}`,
+                    `ðŸ”— *Download your invoice PDF here:*\n${latestOrder.pdf_delivery_url}`,
                     tenant.id,
                     'invoice_link_sent_existing'
                 );
-                await sendAndLogMessage(from, "✅ Invoice previously generated and sent! Check the download link above.", tenant.id, 'invoice_sent_existing');
+                await sendAndLogMessage(from, "âœ… Invoice previously generated and sent! Check the download link above.", tenant.id, 'invoice_sent_existing');
                 return { handled: true, success: true, type: 'invoice_link_existing' };
             }
 
@@ -214,7 +214,7 @@ ${latestOrder.pdf_delivery_url}`,
             console.log('[INVOICE_REQUEST][DEBUG] invoiceResult:', invoiceResult);
 
             if (invoiceResult.success) {
-                await sendAndLogMessage(from, `✅ Converting your sales order to invoice...\n\nInvoice ID: ${invoiceResult.invoiceId}\nGenerating PDF...`, tenant.id, 'invoice_converting');
+                await sendAndLogMessage(from, `âœ… Converting your sales order to invoice...\n\nInvoice ID: ${invoiceResult.invoiceId}\nGenerating PDF...`, tenant.id, 'invoice_converting');
 
                 // Generate and send PDF
                 const pdfResult = await generateInvoicePDF(tenant.id, invoiceResult.invoiceId);
@@ -225,7 +225,7 @@ ${latestOrder.pdf_delivery_url}`,
                         from,
                         pdfResult.pdfBuffer,
                         pdfResult.filename,
-                        `📄 Your invoice - Order #${latestOrder.id.substring(0, 8)}`
+                        `ðŸ“„ Your invoice - Order #${latestOrder.id.substring(0, 8)}`
                     );
                     console.log('[INVOICE_REQUEST][DEBUG] pdfSendResult:', pdfSendResult);
 
@@ -233,13 +233,13 @@ ${latestOrder.pdf_delivery_url}`,
                     if (pdfSendResult && pdfSendResult.url) {
                         await sendAndLogMessage(
                             from,
-                            `🔗 *Download your invoice PDF here:*\n${pdfSendResult.url}`,
+                            `ðŸ”— *Download your invoice PDF here:*\n${pdfSendResult.url}`,
                             tenant.id,
                             'invoice_link_sent'
                         );
                     }
 
-                    await sendAndLogMessage(from, "✅ Invoice generated and sent! Check the download link above.", tenant.id, 'invoice_sent');
+                    await sendAndLogMessage(from, "âœ… Invoice generated and sent! Check the download link above.", tenant.id, 'invoice_sent');
                 } else {
                     await sendAndLogMessage(from, "Invoice created but PDF generation failed. Please contact support.", tenant.id, 'pdf_failed');
                 }
@@ -250,13 +250,13 @@ ${latestOrder.pdf_delivery_url}`,
         // Handle "my orders" or "order status"
         else {
             console.log('[INVOICE_REQUEST] No invoice trigger match for query:', userQuery);
-            let statusMessage = "📋 **Your Recent Orders**\n\n";
+            let statusMessage = "ðŸ“‹ **Your Recent Orders**\n\n";
             
             recentOrders.forEach((order, index) => {
                 const orderDate = new Date(order.created_at).toLocaleDateString();
                 statusMessage += `${index + 1}. Order #${order.id.substring(0, 8)}\n`;
                 statusMessage += `   Date: ${orderDate}\n`;
-                statusMessage += `   Total: ₹${order.total_amount}\n`;
+                statusMessage += `   Total: â‚¹${order.total_amount}\n`;
                 statusMessage += `   Status: ${order.zoho_sync_status === 'synced' ? 'Processed' : 'Processing'}\n`;
                 if (order.zoho_sales_order_id) {
                     statusMessage += `   Zoho ID: ${order.zoho_sales_order_id.substring(0, 8)}\n`;
@@ -282,11 +282,11 @@ const handleOrderApproval = async (tenant, from, conversation) => {
                         if (latestOrder.pdf_delivery_url) {
                             await sendAndLogMessage(
                                 from,
-                                `🔗 *Download your invoice PDF here:*\n${latestOrder.pdf_delivery_url}`,
+                                `ðŸ”— *Download your invoice PDF here:*\n${latestOrder.pdf_delivery_url}`,
                                 tenant.id,
                                 'invoice_link_sent_existing'
                             );
-                            await sendAndLogMessage(from, "✅ Invoice previously generated and sent! Check the download link above.", tenant.id, 'invoice_sent_existing');
+                            await sendAndLogMessage(from, "âœ… Invoice previously generated and sent! Check the download link above.", tenant.id, 'invoice_sent_existing');
                             return { handled: true, success: true, type: 'invoice_link_existing' };
                         }
     try {
@@ -299,7 +299,7 @@ const handleOrderApproval = async (tenant, from, conversation) => {
         );
         
         if (invoiceResult.success) {
-            const approvalMsg = `✅ *Order Approved!*\n\nYour sales order has been converted to invoice.\n📋 Invoice ID: ${invoiceResult.invoiceId}\n\n📄 Your invoice PDF is being generated...`;
+            const approvalMsg = `âœ… *Order Approved!*\n\nYour sales order has been converted to invoice.\nðŸ“‹ Invoice ID: ${invoiceResult.invoiceId}\n\nðŸ“„ Your invoice PDF is being generated...`;
             await sendAndLogMessage(from, approvalMsg, tenant.id, 'order_approved');
             
             // Generate and send invoice PDF
@@ -311,12 +311,12 @@ const handleOrderApproval = async (tenant, from, conversation) => {
                     from,
                     pdfResult.pdfBuffer,
                     pdfResult.filename,
-                    `📄 Your invoice - Order approved and ready for dispatch!`
+                    `ðŸ“„ Your invoice - Order approved and ready for dispatch!`
                 );
             }
             
             // Update conversation state
-            await supabase
+            await dbClient
                 .from('conversations')
                 .update({
                     state: 'order_approved',

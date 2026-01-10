@@ -1,17 +1,17 @@
 {
-  "name": "whatsapp-saas-bot",
+  "name": "salesmate-ai",
   "version": "1.0.0",
-  "description": "A multi-tenant WhatsApp sales assistant.",
+  "description": "Salesmate AI (multi-tenant WhatsApp sales assistant).",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
+    "backup-db": "node scripts/backup-db.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
     "@google-cloud/storage": "^7.11.0",
-    "@supabase/supabase-js": "^2.43.4",
     "axios": "^1.12.2",
     "better-sqlite3": "^12.5.0",
     "cheerio": "^1.0.0-rc.12",

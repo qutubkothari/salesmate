@@ -1,21 +1,21 @@
-// services/templateResponseService.js
+﻿// services/templateResponseService.js
 // Module 2: Template Responses & Database-First Lookups
 // SAFE TO EXTRACT - Handles common queries without AI
 
-const { supabase } = require('./config');
+const { dbClient } = require('./config');
 
 class TemplateResponseService {
     constructor() {
         this.responseTemplates = {
-            gst: (profile) => `*Your GST Details:*\n\n📋 *GST Number:* ${profile.gst_number}\n🏢 *Company:* ${profile.company || 'Not provided'}\n👤 *Name:* ${profile.first_name || ''} ${profile.last_name || ''}`.trim(),
+            gst: (profile) => `*Your GST Details:*\n\nðŸ“‹ *GST Number:* ${profile.gst_number}\nðŸ¢ *Company:* ${profile.company || 'Not provided'}\nðŸ‘¤ *Name:* ${profile.first_name || ''} ${profile.last_name || ''}`.trim(),
             
-            price: (product) => `*${product.name}*\n💰 *Price:* ₹${product.price}\n📦 *Units per carton:* ${product.units_per_carton || 'N/A'}\n\nWould you like to place an order?`,
+            price: (product) => `*${product.name}*\nðŸ’° *Price:* â‚¹${product.price}\nðŸ“¦ *Units per carton:* ${product.units_per_carton || 'N/A'}\n\nWould you like to place an order?`,
             
             greeting: (name, company) => `Hello ${name}${company ? ` from ${company}` : ''}! How can I help you today?`,
             
             order_status: () => "Your recent orders are being processed. You'll receive updates via WhatsApp.\n\nFor specific order details, please contact our team directly.",
             
-            help: () => `I can help you with:\n\n📋 GST details and company information\n💰 Product prices and specifications\n🛒 Placing orders\n📦 Order status updates\n\nWhat would you like to know?`,
+            help: () => `I can help you with:\n\nðŸ“‹ GST details and company information\nðŸ’° Product prices and specifications\nðŸ›’ Placing orders\nðŸ“¦ Order status updates\n\nWhat would you like to know?`,
             
             product_unavailable: (searchTerm) => `Sorry, I couldn't find "${searchTerm}" in our catalog.\n\nPlease contact us for more product information.`,
             
@@ -55,7 +55,7 @@ class TemplateResponseService {
         try {
             console.log('[GST_LOOKUP] Attempting database lookup for phone:', phone);
             
-            const { data: profile, error } = await supabase
+            const { data: profile, error } = await dbClient
                 .from('customer_profiles')
                 .select('gst_number, company, first_name, last_name')
                 .eq('tenant_id', tenantId)
@@ -130,7 +130,7 @@ class TemplateResponseService {
 
         try {
             // Prioritize NFF products with valid prices
-            const { data: products } = await supabase
+            const { data: products } = await dbClient
                 .from('products')
                 .select('name, price, units_per_carton')
                 .eq('tenant_id', tenantId)
@@ -204,7 +204,7 @@ class TemplateResponseService {
      */
     async getCustomerProfileForTemplate(tenantId, phone) {
         try {
-            const { data: profile } = await supabase
+            const { data: profile } = await dbClient
                 .from('customer_profiles')
                 .select('gst_number, company, first_name, last_name, business_address, email')
                 .eq('tenant_id', tenantId)

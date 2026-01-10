@@ -1,8 +1,8 @@
-/**
+﻿/**
  * @title Web Authentication Service
  * @description Manages the logic for generating and validating "magic link" tokens for web dashboard login.
  */
-const { supabase } = require('./config');
+const { dbClient } = require('./config');
 const crypto = require('crypto');
 
 const WEB_DASHBOARD_URL = process.env.WEB_DASHBOARD_URL || 'http://13.62.57.240:8080/dashboard.html'; // EC2 deployment
@@ -26,7 +26,7 @@ const generateLoginLink = async (tenantId) => {
         const expiresAt = new Date(new Date().getTime() + 15 * 60 * 1000); // Token is valid for 15 minutes
 
         // Save the token and its expiration date to the tenant's record.
-        const { error } = await supabase
+        const { error } = await dbClient
             .from('tenants')
             .update({
                 web_auth_token: token,
@@ -46,13 +46,13 @@ const generateLoginLink = async (tenantId) => {
 
         // Styled WhatsApp message with emoji and instructions
         let responseMessage =
-            '🛡️ *Admin Dashboard Access*\n' +
+            'ðŸ›¡ï¸ *Admin Dashboard Access*\n' +
             '\n' +
             'Your secure login link:\n' +
             `${magicLink}\n` +
             '\n' +
-            '⏰ *Expires in 30 minutes*\n' +
-            '🔒 *For security, this link can only be used once*\n' +
+            'â° *Expires in 30 minutes*\n' +
+            'ðŸ”’ *For security, this link can only be used once*\n' +
             '\n' +
             'Click the link to access your admin dashboard.';
 
@@ -66,3 +66,4 @@ const generateLoginLink = async (tenantId) => {
 module.exports = {
     generateLoginLink,
 };
+

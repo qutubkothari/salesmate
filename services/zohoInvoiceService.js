@@ -1,5 +1,5 @@
-// services/zohoInvoiceService.js - Updated for Tenant-Based Authentication
-const { supabase } = require('./config');
+﻿// services/zohoInvoiceService.js - Updated for Tenant-Based Authentication
+const { dbClient } = require('./config');
 const zohoTenantAuth = require('./zohoTenantAuthService');
 const fetch = require('node-fetch');
 

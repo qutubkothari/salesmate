@@ -1,8 +1,8 @@
-/**
+﻿/**
  * @title Automated Onboarding Service
  * @description Manages the logic for sending automated onboarding messages to new tenants.
  */
-const { supabase } = require('./config');
+const { dbClient } = require('./config');
 const { sendMessage } = require('./whatsappService');
 
 /**
@@ -12,7 +12,7 @@ const { sendMessage } = require('./whatsappService');
 const sendDueOnboardingMessages = async () => {
     try {
         // 1. Get all available onboarding messages from the database.
-        const { data: onboardingMessages, error: messagesError } = await supabase
+        const { data: onboardingMessages, error: messagesError } = await dbClient
             .from('onboarding_messages')
             .select('*')
             .order('delay_hours', { ascending: true });
@@ -24,7 +24,7 @@ const sendDueOnboardingMessages = async () => {
         }
 
         // 2. Get all tenants to check against.
-        const { data: tenants, error: tenantsError } = await supabase
+        const { data: tenants, error: tenantsError } = await dbClient
             .from('tenants')
             .select('id, phone_number, created_at');
 
@@ -34,7 +34,7 @@ const sendDueOnboardingMessages = async () => {
         }
 
         // 3. Get a list of all messages that have already been sent.
-        const { data: sentMessages, error: sentMessagesError } = await supabase
+        const { data: sentMessages, error: sentMessagesError } = await dbClient
             .from('sent_onboarding_messages')
             .select('tenant_id, onboarding_message_id');
 
@@ -62,7 +62,7 @@ const sendDueOnboardingMessages = async () => {
                 if (now >= dueDate && !sentMessagesSet.has(lookupKey)) {
                     messagesToSend.push({
                         to: tenant.phone_number,
-                        text: `🚀 *Pro Tip:*\n\n${message.message_body}`,
+                        text: `ðŸš€ *Pro Tip:*\n\n${message.message_body}`,
                         tenant_id: tenant.id,
                         onboarding_message_id: message.id,
                     });
@@ -84,7 +84,7 @@ const sendDueOnboardingMessages = async () => {
             }
 
             // Log all sent messages in a single batch operation.
-            await supabase.from('sent_onboarding_messages').insert(sentLogs);
+            await dbClient.from('sent_onboarding_messages').insert(sentLogs);
             console.log('Onboarding messages sent and logged successfully.');
         } else {
             console.log('No new onboarding messages to send at this time.');
@@ -98,3 +98,4 @@ const sendDueOnboardingMessages = async () => {
 module.exports = {
     sendDueOnboardingMessages,
 };
+

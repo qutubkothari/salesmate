@@ -1,6 +1,6 @@
-// routes/handlers/businessInfoHandler.js
+﻿// routes/handlers/businessInfoHandler.js
 const BusinessInfoCaptureService = require('../../services/businessInfoCaptureService');
-const { supabase } = require('../../services/config');
+const { dbClient } = require('../../services/config');
 const { toWhatsAppFormat } = require('../../utils/phoneUtils');
 
 /**
@@ -8,7 +8,7 @@ const { toWhatsAppFormat } = require('../../utils/phoneUtils');
  */
 async function checkExistingGST(tenantId, gstNumber, phoneNumber) {
     try {
-        const { data: existingProfile, error } = await supabase
+        const { data: existingProfile, error } = await dbClient
             .from('customer_profiles')
             .select('gst_number, company, phone')
             .eq('tenant_id', tenantId)
@@ -94,7 +94,7 @@ async function handleBusinessInfo(tenantId, phoneNumber, message) {
     try {
         console.log(`[BusinessInfo] Processing ${message.message_type} for phone: ${phoneNumber}`);
         console.log('[BusinessInfo] Incoming message object:', JSON.stringify(message).slice(0,1000));
-        // 🔧 CRITICAL FIX: Keep phone in WhatsApp format to match database
+        // ðŸ”§ CRITICAL FIX: Keep phone in WhatsApp format to match database
         const formattedPhone = toWhatsAppFormat(phoneNumber);
         console.log('[BusinessInfo] Formatted phone number:', formattedPhone);
         // Call the business info capture service depending on message type
@@ -148,9 +148,9 @@ async function handleBusinessInfo(tenantId, phoneNumber, message) {
                     console.log(`[BusinessInfo] Duplicate GST detected:`, existingCheck.message);
                     
                     if (existingCheck.isSameGST) {
-                        duplicateMessage = `\n\n📝 Note: This GST number is already registered in your profile.`;
+                        duplicateMessage = `\n\nðŸ“ Note: This GST number is already registered in your profile.`;
                     } else {
-                        duplicateMessage = `\n\n⚠️ Note: You have a different GST number on file (${existingCheck.existingData.gst_number}). This new GST has been added as an alternate registration.`;
+                        duplicateMessage = `\n\nâš ï¸ Note: You have a different GST number on file (${existingCheck.existingData.gst_number}). This new GST has been added as an alternate registration.`;
                     }
                 }
             }
@@ -167,31 +167,31 @@ async function handleBusinessInfo(tenantId, phoneNumber, message) {
                 
                 if (isDuplicate) {
                     // Different response for duplicates
-                    responseText = `✅ GST Certificate Received!\n\n` +
-                                 `📋 Business Details:\n` +
-                                 `• Legal Name: ${extractedData.legal_name}\n` +
+                    responseText = `âœ… GST Certificate Received!\n\n` +
+                                 `ðŸ“‹ Business Details:\n` +
+                                 `â€¢ Legal Name: ${extractedData.legal_name}\n` +
                                  (extractedData.trade_name && extractedData.trade_name !== extractedData.legal_name ? 
-                                    `• Trade Name: ${extractedData.trade_name}\n` : '') +
-                                 `• GST Number: ${extractedData.gst_number}\n` +
-                                 (extractedData.business_state ? `• State: ${extractedData.business_state}\n` : '') +
+                                    `â€¢ Trade Name: ${extractedData.trade_name}\n` : '') +
+                                 `â€¢ GST Number: ${extractedData.gst_number}\n` +
+                                 (extractedData.business_state ? `â€¢ State: ${extractedData.business_state}\n` : '') +
                                  duplicateMessage;
                 } else {
                     // New GST registration
-                    responseText = `✅ GST Certificate Verified!\n\n` +
-                                 `📋 Business Details:\n` +
-                                 `• Legal Name: ${extractedData.legal_name}\n` +
+                    responseText = `âœ… GST Certificate Verified!\n\n` +
+                                 `ðŸ“‹ Business Details:\n` +
+                                 `â€¢ Legal Name: ${extractedData.legal_name}\n` +
                                  (extractedData.trade_name && extractedData.trade_name !== extractedData.legal_name ? 
-                                    `• Trade Name: ${extractedData.trade_name}\n` : '') +
-                                 `• GST Number: ${extractedData.gst_number}\n` +
-                                 (extractedData.business_state ? `• State: ${extractedData.business_state}\n` : '') +
-                                 (extractedData.business_address ? `• Address: ${extractedData.business_address}\n` : '') +
-                                 `\n✨ Your business information has been saved successfully!\n` +
+                                    `â€¢ Trade Name: ${extractedData.trade_name}\n` : '') +
+                                 `â€¢ GST Number: ${extractedData.gst_number}\n` +
+                                 (extractedData.business_state ? `â€¢ State: ${extractedData.business_state}\n` : '') +
+                                 (extractedData.business_address ? `â€¢ Address: ${extractedData.business_address}\n` : '') +
+                                 `\nâœ¨ Your business information has been saved successfully!\n` +
                                  `You're now eligible for business rates and GST billing.`;
                 }
             } else if (extractedData.company_name) {
                 // General business info
                 responseText = `Thank you! I've recorded your business information:\n\n` +
-                             `• Company: ${extractedData.company_name}\n\n` +
+                             `â€¢ Company: ${extractedData.company_name}\n\n` +
                              `Our team will verify this information and update your profile.`;
             } else {
                 // Fallback
@@ -204,7 +204,7 @@ async function handleBusinessInfo(tenantId, phoneNumber, message) {
             if (extractedData.gst_number) {
                 try {
                     // Look up the conversation state
-                    const { data: conversation } = await supabase
+                    const { data: conversation } = await dbClient
                         .from('conversations')
                         .select('id, state, context_data')
                         .eq('tenant_id', tenantId)
@@ -222,7 +222,7 @@ async function handleBusinessInfo(tenantId, phoneNumber, message) {
 
                         if (contextData.pendingCheckout) {
                             // Move to discount approved so checkoutWithDiscounts will run
-                            await supabase
+                            await dbClient
                                 .from('conversations')
                                 .update({
                                     state: 'discount_approved',
@@ -232,7 +232,7 @@ async function handleBusinessInfo(tenantId, phoneNumber, message) {
 
                             // Notify customer and proceed with checkout
                             const { sendMessage } = require('../../services/whatsappService');
-                            await sendMessage(phoneNumber, (result.response || '') + "\n\n✅ Processing your order now...");
+                            await sendMessage(phoneNumber, (result.response || '') + "\n\nâœ… Processing your order now...");
 
                             const { checkoutWithDiscounts } = require('../../services/cartService');
                             try {
@@ -243,7 +243,7 @@ async function handleBusinessInfo(tenantId, phoneNumber, message) {
                             }
                         } else {
                             // No pending checkout - clear the state
-                            await supabase
+                            await dbClient
                                 .from('conversations')
                                 .update({ state: null, context_data: null })
                                 .eq('id', conversation.id);
@@ -251,7 +251,7 @@ async function handleBusinessInfo(tenantId, phoneNumber, message) {
                     } else {
                         // Reset state as a safe default
                         if (conversation && conversation.id) {
-                            await supabase
+                            await dbClient
                                 .from('conversations')
                                 .update({ state: null, context_data: null })
                                 .eq('id', conversation.id);

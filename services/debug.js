@@ -9,7 +9,6 @@ function envSummary() {
     console.log('[ENV] OPENAI_API_KEY =', mask(process.env.OPENAI_API_KEY || ''));
     console.log('[ENV] AI_MODEL_FAST  =', process.env.AI_MODEL_FAST || '(unset)');
     console.log('[ENV] AI_MODEL_SMART =', process.env.AI_MODEL_SMART || '(unset)');
-    console.log('[ENV] SUPABASE_URL   =', process.env.SUPABASE_URL || '(unset)');
     console.log('[ENV] GCS_BUCKET     =', process.env.GCS_BUCKET_NAME || process.env.GCS_BUCKET || process.env.GOOGLE_CLOUD_STORAGE_BUCKET || '(unset)');
   } catch (e) { console.error('[ENV] summary error', e?.message || e); }
 }

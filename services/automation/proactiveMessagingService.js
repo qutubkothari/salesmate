@@ -1,6 +1,7 @@
-const { supabase } = require('../../config/database');
+﻿const { dbClient } = require('../../config/database');
 const { analyzePurchaseFrequency } = require('../analytics/purchaseFrequency');
 const { analyzeProductAffinity } = require('../analytics/productAffinity');
+const { isUnsubscribed } = require('../unsubscribeService');
 
 /**
  * PROACTIVE MESSAGING SYSTEM
@@ -22,7 +23,7 @@ async function scheduleProactiveMessages(tenantId) {
     };
 
     // Get all active customers for this tenant
-    const { data: customers, error } = await supabase
+    const { data: customers, error } = await dbClient
       .from('customer_profiles')
       .select('id, first_name, last_name, phone, zoho_customer_id, last_order_date')
       .eq('tenant_id', tenantId)
@@ -112,8 +113,13 @@ async function scheduleProactiveMessages(tenantId) {
  */
 async function shouldSendProactiveMessage(customer) {
   try {
+    // Global opt-out enforcement
+    if (await isUnsubscribed(customer?.phone)) {
+      return { send: false, reason: 'User unsubscribed' };
+    }
+
     // Get customer preferences
-    const { data: prefs } = await supabase
+    const { data: prefs } = await dbClient
       .from('customer_messaging_preferences')
       .select('*')
       .eq('customer_profile_id', customer.id)
@@ -121,7 +127,7 @@ async function shouldSendProactiveMessage(customer) {
 
     // Create default preferences if they don't exist
     if (!prefs) {
-      await supabase
+      await dbClient
         .from('customer_messaging_preferences')
         .insert({
           customer_profile_id: customer.id,
@@ -156,7 +162,7 @@ async function shouldSendProactiveMessage(customer) {
       if (statusColumnExists === null) {
         // Probe once whether 'status' column exists; cache the result
         try {
-          await supabase.from('proactive_messages').select('status').limit(1).maybeSingle();
+          await dbClient.from('proactive_messages').select('status').limit(1).maybeSingle();
           statusColumnExists = true;
         } catch (probeErr) {
           statusColumnExists = false;
@@ -165,7 +171,7 @@ async function shouldSendProactiveMessage(customer) {
       }
 
       if (statusColumnExists) {
-        const q = await supabase
+        const q = await dbClient
           .from('proactive_messages')
           .select('id')
           .eq('customer_profile_id', customer.id)
@@ -173,7 +179,7 @@ async function shouldSendProactiveMessage(customer) {
           .gte('scheduled_for', new Date().toISOString());
         pendingMessages = q.data;
       } else {
-        const q2 = await supabase
+        const q2 = await dbClient
           .from('proactive_messages')
           .select('id')
           .eq('customer_profile_id', customer.id)
@@ -212,9 +218,9 @@ function createReorderMessage(customer, frequency, regularProducts) {
 
   // Natural, friendly message
   const messages = [
-    `Hi ${firstName}! It's been ${daysSince} days since your last order. Need ${topProducts}? Let me know! 😊`,
+    `Hi ${firstName}! It's been ${daysSince} days since your last order. Need ${topProducts}? Let me know! ðŸ˜Š`,
     `Hey ${firstName}! Time for a reorder? You usually get ${topProducts}. Want to place an order?`,
-    `${firstName}, just checking in! Need your usual ${topProducts}? It's been ${daysSince} days. 📦`,
+    `${firstName}, just checking in! Need your usual ${topProducts}? It's been ${daysSince} days. ðŸ“¦`,
   ];
 
   // Randomly pick a message style (or use logic based on customer tier)
@@ -233,7 +239,7 @@ async function scheduleMessage(tenantId, customerProfileId, messageType, message
 
     // Try to insert with `status` column; fallback if column missing in schema
     try {
-      const { data, error } = await supabase
+      const { data, error } = await dbClient
         .from('proactive_messages')
         .insert({
           tenant_id: tenantId,
@@ -260,7 +266,7 @@ async function scheduleMessage(tenantId, customerProfileId, messageType, message
     } catch (err) {
       console.warn('[PROACTIVE] Fallback scheduleMessage (no status column):', err?.message);
       try {
-        const { data: data2, error: err2 } = await supabase
+        const { data: data2, error: err2 } = await dbClient
           .from('proactive_messages')
           .insert({
             tenant_id: tenantId,
@@ -295,7 +301,7 @@ let _proactiveStatusColumnExists = null;
 async function _hasProactiveStatusColumn() {
   if (_proactiveStatusColumnExists !== null) return _proactiveStatusColumnExists;
   try {
-    await supabase.from('proactive_messages').select('status').limit(1).maybeSingle();
+    await dbClient.from('proactive_messages').select('status').limit(1).maybeSingle();
     _proactiveStatusColumnExists = true;
   } catch (e) {
     _proactiveStatusColumnExists = false;
@@ -316,7 +322,7 @@ async function sendPendingMessages(tenantId) {
     try {
       const hasStatus = await _hasProactiveStatusColumn();
       if (hasStatus) {
-        messagesResult = await supabase
+        messagesResult = await dbClient
           .from('proactive_messages')
           .select(`
             *,
@@ -327,7 +333,7 @@ async function sendPendingMessages(tenantId) {
           .lte('scheduled_for', new Date().toISOString())
           .limit(50);
       } else {
-        messagesResult = await supabase
+        messagesResult = await dbClient
           .from('proactive_messages')
           .select(`
             *,
@@ -366,6 +372,30 @@ async function sendPendingMessages(tenantId) {
 async function sendProactiveMessage(message) {
   try {
     const phone = message.customer_profiles.phone;
+
+    // Enforce opt-out list
+    if (await isUnsubscribed(phone)) {
+      try {
+        await dbClient
+          .from('proactive_messages')
+          .update({
+            status: 'skipped',
+            error_message: 'User unsubscribed',
+            sent_at: new Date().toISOString()
+          })
+          .eq('id', message.id);
+      } catch (err) {
+        // Fallback: schema without status/error_message
+        console.warn('[PROACTIVE] Fallback update skipped (limited schema):', err?.message);
+        await dbClient
+          .from('proactive_messages')
+          .update({ sent_at: new Date().toISOString() })
+          .eq('id', message.id);
+      }
+
+      console.log('[PROACTIVE] Skipped message (unsubscribed):', phone);
+      return;
+    }
     
     // TODO: Integrate with your WhatsApp sending function
     // For now, just mark as sent
@@ -373,7 +403,7 @@ async function sendProactiveMessage(message) {
 
     // Update message status
     try {
-      await supabase
+      await dbClient
         .from('proactive_messages')
         .update({
           status: 'sent',
@@ -383,7 +413,7 @@ async function sendProactiveMessage(message) {
     } catch (err) {
       // Fallback: try updating without status column
       console.warn('[PROACTIVE] Fallback update message status (no status column):', err?.message);
-      await supabase
+      await dbClient
         .from('proactive_messages')
         .update({
           sent_at: new Date().toISOString()
@@ -392,11 +422,11 @@ async function sendProactiveMessage(message) {
     }
 
     // Update customer preferences
-    await supabase
+    await dbClient
       .from('customer_messaging_preferences')
       .update({
         last_message_sent_at: new Date().toISOString(),
-        messages_sent_this_week: supabase.rpc('increment', { x: 1 })
+        messages_sent_this_week: dbClient.rpc('increment', { x: 1 })
       })
       .eq('customer_profile_id', message.customer_profile_id);
 
@@ -407,13 +437,13 @@ async function sendProactiveMessage(message) {
     
     // Mark as failed
     try {
-      await supabase
+      await dbClient
         .from('proactive_messages')
         .update({ status: 'failed' })
         .eq('id', message.id);
     } catch (err) {
       console.warn('[PROACTIVE] Fallback mark failed (no status column):', err?.message);
-      await supabase
+      await dbClient
         .from('proactive_messages')
         .update({})
         .eq('id', message.id);
@@ -428,7 +458,7 @@ async function updateDailyAnalytics(tenantId, stats) {
   try {
     const today = new Date().toISOString().split('T')[0];
 
-    await supabase
+    await dbClient
       .from('proactive_messaging_analytics')
       .upsert({
         tenant_id: tenantId,
@@ -450,7 +480,7 @@ async function updateDailyAnalytics(tenantId, stats) {
 async function markMessageAsResponded(customerProfileId, orderId = null) {
   try {
     // Find the most recent sent message
-    const { data: message } = await supabase
+    const { data: message } = await dbClient
       .from('proactive_messages')
       .select('id')
       .eq('customer_profile_id', customerProfileId)
@@ -462,7 +492,7 @@ async function markMessageAsResponded(customerProfileId, orderId = null) {
     if (!message) return;
 
     // Update the message
-    await supabase
+    await dbClient
       .from('proactive_messages')
       .update({
         customer_responded: true,

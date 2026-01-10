@@ -1,4 +1,4 @@
-const { supabase } = require('./services/config');
+﻿const { dbClient } = require('./services/config');
 
 async function addSampleProducts() {
     const tenantId = '45bebb5d-cbab-4338-a3eb-a5b0c4aeea4e';
@@ -58,7 +58,7 @@ async function addSampleProducts() {
     
     console.log(`Adding ${products.length} sample products...`);
     
-    const { data, error } = await supabase
+    const { data, error } = await dbClient
         .from('products')
         .insert(products)
         .select();
@@ -68,9 +68,10 @@ async function addSampleProducts() {
         process.exit(1);
     }
     
-    console.log('✅ Sample products added successfully:');
-    data.forEach(p => console.log(`  - ${p.name} (₹${p.price})`));
+    console.log('âœ… Sample products added successfully:');
+    data.forEach(p => console.log(`  - ${p.name} (â‚¹${p.price})`));
     process.exit(0);
 }
 
 addSampleProducts();
+

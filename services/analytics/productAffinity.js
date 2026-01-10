@@ -1,15 +1,15 @@
-const { supabase } = require('../../config/database');
+﻿const { dbClient } = require('../../config/database');
 
 /**
  * Analyzes product purchasing patterns for a customer
- * Uses: customer_profiles.zoho_customer_id → orders.zoho_customer_id → order_items.order_id → products.name
+ * Uses: customer_profiles.zoho_customer_id â†’ orders.zoho_customer_id â†’ order_items.order_id â†’ products.name
  */
 async function analyzeProductAffinity(customerProfileId) {
   try {
     console.log('[AFFINITY] Analyzing for customer:', customerProfileId);
 
     // STEP 1: Get customer's zoho_customer_id
-    const { data: customer, error: customerError } = await supabase
+    const { data: customer, error: customerError } = await dbClient
       .from('customer_profiles')
       .select('zoho_customer_id, first_name')
       .eq('id', customerProfileId)
@@ -25,7 +25,7 @@ async function analyzeProductAffinity(customerProfileId) {
     // STEP 2: Get all order items for this customer via zoho_customer_id
     // Join with products table to get product names
     // Include delivered and pending_payment orders
-    const { data: orderItems, error } = await supabase
+    const { data: orderItems, error } = await dbClient
       .from('order_items')
       .select(`
         order_id,

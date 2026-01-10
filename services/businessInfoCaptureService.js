@@ -1,6 +1,6 @@
-const gstVerificationService = require('./gstVerificationService');
+﻿const gstVerificationService = require('./gstVerificationService');
 // services/businessInfoCaptureService.js
-const { supabase } = require('./config');
+const { dbClient } = require('./config');
 const { aiService } = require('./aiService');
 const { ocrService } = require('./ocrService');
 const { imageUploadService } = require('./imageUploadService');
@@ -75,7 +75,7 @@ class BusinessInfoCaptureService {
 
             // Get or create customer
             if (!customerId) {
-                const { data: conversation } = await supabase
+                const { data: conversation } = await dbClient
                     .from('conversations')
                     .select('end_user_phone')
                     .eq('id', conversationId)
@@ -305,14 +305,14 @@ class BusinessInfoCaptureService {
                     console.warn('[BusinessInfo] GST verification failed:', gstVerification?.error);
                     return {
                         success: false,
-                        error: `❌ Invalid GST Number\n\nThe GST number ${cleanGST} could not be verified in government records.\n\nPlease check and provide a valid GST number, or reply "No GST" if you don't have GST registration.`
+                        error: `âŒ Invalid GST Number\n\nThe GST number ${cleanGST} could not be verified in government records.\n\nPlease check and provide a valid GST number, or reply "No GST" if you don't have GST registration.`
                     };
                 }
             } catch (vErr) {
                 console.warn('[BusinessInfo] GST verification check failed:', vErr?.message || vErr);
                 return {
                     success: false,
-                    error: `❌ GST Verification Failed\n\nUnable to verify GST number ${cleanGST}. Please ensure:\n• The GST number is correct (15 characters)\n• Your GST registration is active\n\nOr reply "No GST" to proceed without GST billing.`
+                    error: `âŒ GST Verification Failed\n\nUnable to verify GST number ${cleanGST}. Please ensure:\nâ€¢ The GST number is correct (15 characters)\nâ€¢ Your GST registration is active\n\nOr reply "No GST" to proceed without GST billing.`
                 };
             }
 
@@ -594,12 +594,12 @@ class BusinessInfoCaptureService {
                         console.log('[DEBUG_PHONE]   extractedFields:', extractedFields);
                         
                         let customerPhone = documentData.sender || documentData.from || null;
-                        console.log('🔍 [PHONE_DEBUG] Extracted customerPhone:', customerPhone);
+                        console.log('ðŸ” [PHONE_DEBUG] Extracted customerPhone:', customerPhone);
                         
                         await this.updateCustomerProfile(customerId, extractedFields, customerPhone);
-                        console.log('[PROFILE_UPDATE] ✅ Customer profile updated successfully');
+                        console.log('[PROFILE_UPDATE] âœ… Customer profile updated successfully');
                     } else {
-                        console.warn('[PROFILE_UPDATE] ❌ Skipping profile update:', {
+                        console.warn('[PROFILE_UPDATE] âŒ Skipping profile update:', {
                             hasCustomerId: !!customerId,
                             hasGST: !!extractedFields.gst_number,
                             hasUpdateFunction: typeof this.updateCustomerProfile === 'function'
@@ -632,7 +632,7 @@ class BusinessInfoCaptureService {
                             console.log('[Zoho] Customer synced successfully:', zohoResult.customerId);
                             
                             // Save Zoho customer ID to database
-                            await supabase
+                            await dbClient
                                 .from('customer_profiles')
                                 .update({ zoho_customer_id: zohoResult.customerId })
                                 .eq('id', customerId);
@@ -650,7 +650,7 @@ class BusinessInfoCaptureService {
                 // Return consistent structured result (no undefined)
                 return {
                     success: true,
-                    extracted_fields: extractedFields, // ✅ Add this
+                    extracted_fields: extractedFields, // âœ… Add this
                     confidence_score: gstDetails.confidence_score || gstFlowResult.detection?.confidence || 0,
                     customer_id: customerId,
                     dbRecord: savedRecord,
@@ -836,7 +836,7 @@ class BusinessInfoCaptureService {
      */
     async saveExtractionResults(tenantId, customerId, extractionResult) {
         // Save to business_info_extractions table
-        const { data: extraction, error: extractionError } = await supabase
+        const { data: extraction, error: extractionError } = await dbClient
             .from('business_info_extractions')
             .insert({
                 customer_id: customerId || null, // explicit null
@@ -852,7 +852,7 @@ class BusinessInfoCaptureService {
 
         // Save document if file was uploaded
         if (extractionResult.file_url) {
-            await supabase
+            await dbClient
                 .from('customer_business_documents')
                 .insert({
                     customer_id: customerId || null, // explicit null
@@ -871,25 +871,25 @@ class BusinessInfoCaptureService {
      * Update customer profile with extracted information
      */
     async updateCustomerProfile(customerId, extractedFields, phoneNumber = null) {
-        console.log('🔍 [PHONE_DEBUG_3] updateCustomerProfile received:');
-        console.log('🔍 [PHONE_DEBUG_3] customerId:', customerId);
-        console.log('🔍 [PHONE_DEBUG_3] phoneNumber param:', phoneNumber);
-        console.log('🔍 [PHONE_DEBUG_3] typeof phoneNumber:', typeof phoneNumber);
+        console.log('ðŸ” [PHONE_DEBUG_3] updateCustomerProfile received:');
+        console.log('ðŸ” [PHONE_DEBUG_3] customerId:', customerId);
+        console.log('ðŸ” [PHONE_DEBUG_3] phoneNumber param:', phoneNumber);
+        console.log('ðŸ” [PHONE_DEBUG_3] typeof phoneNumber:', typeof phoneNumber);
         const updateData = {};
         // ADD THIS DEBUG BEFORE THE IF:
-        console.log('🔍 [PHONE_DEBUG_3] Checking phoneNumber...');
-        console.log('🔍 [PHONE_DEBUG_3] phoneNumber truthy?:', !!phoneNumber);
-        console.log('🔍 [PHONE_DEBUG_3] phoneNumber === null?:', phoneNumber === null);
-        console.log('🔍 [PHONE_DEBUG_3] phoneNumber === undefined?:', phoneNumber === undefined);
+        console.log('ðŸ” [PHONE_DEBUG_3] Checking phoneNumber...');
+        console.log('ðŸ” [PHONE_DEBUG_3] phoneNumber truthy?:', !!phoneNumber);
+        console.log('ðŸ” [PHONE_DEBUG_3] phoneNumber === null?:', phoneNumber === null);
+        console.log('ðŸ” [PHONE_DEBUG_3] phoneNumber === undefined?:', phoneNumber === undefined);
         if (phoneNumber) {
             const normalizedPhone = phoneNumber.replace('@c.us', '').replace(/\D/g, '');
-            console.log('🔍 [PHONE_DEBUG_3] Normalized to:', normalizedPhone);
+            console.log('ðŸ” [PHONE_DEBUG_3] Normalized to:', normalizedPhone);
             if (normalizedPhone) {
                 updateData.phone = normalizedPhone;
-                console.log('🔍 [PHONE_DEBUG_3] ✅ Set updateData.phone =', normalizedPhone);
+                console.log('ðŸ” [PHONE_DEBUG_3] âœ… Set updateData.phone =', normalizedPhone);
             }
         } else {
-            console.log('🔍 [PHONE_DEBUG_3] ❌ phoneNumber is falsy!');
+            console.log('ðŸ” [PHONE_DEBUG_3] âŒ phoneNumber is falsy!');
         }
         // Company/Business information
         if (extractedFields.company_name) {
@@ -967,7 +967,7 @@ class BusinessInfoCaptureService {
             let updateQuery;
             if (isUUID) {
                 // If it's a UUID, query by ID or phone
-                updateQuery = supabase
+                updateQuery = dbClient
                     .from('customer_profiles')
                     .update(updateData)
                     .or(`id.eq.${customerId},phone.eq.${updateData.phone || customerId}`)
@@ -975,7 +975,7 @@ class BusinessInfoCaptureService {
             } else {
                 // If it's a phone number (e.g., "96567709452@c.us"), query with full format as stored in DB
                 console.log('[DEBUG_PHONE_UPDATE] Querying by phone (full format):', customerId);
-                updateQuery = supabase
+                updateQuery = dbClient
                     .from('customer_profiles')
                     .update(updateData)
                     .eq('phone', customerId)  // Use customerId directly - it already has @c.us format
@@ -984,9 +984,9 @@ class BusinessInfoCaptureService {
             
             const { data, error } = await updateQuery;
             if (error) {
-                console.error('[DEBUG_PHONE_UPDATE] ❌ Update failed:', error);
+                console.error('[DEBUG_PHONE_UPDATE] âŒ Update failed:', error);
             } else {
-                console.log('[DEBUG_PHONE_UPDATE] ✅ Update succeeded');
+                console.log('[DEBUG_PHONE_UPDATE] âœ… Update succeeded');
                 console.log('[DEBUG_PHONE_UPDATE] Updated record:', data);
             }
         }
@@ -1004,7 +1004,7 @@ class BusinessInfoCaptureService {
                 return null;
             }
 
-            // 🔧 CRITICAL FIX: Use toWhatsAppFormat to ensure @c.us suffix matches database
+            // ðŸ”§ CRITICAL FIX: Use toWhatsAppFormat to ensure @c.us suffix matches database
             const { toWhatsAppFormat } = require('../utils/phoneUtils');
             const formattedPhone = toWhatsAppFormat(phoneNumber);
 
@@ -1014,7 +1014,7 @@ class BusinessInfoCaptureService {
             }
             console.log('[BusinessInfo] Looking for customer with phone:', formattedPhone);
             // Method 1: Find by phone number
-            const findByPhone = await supabase
+            const findByPhone = await dbClient
                 .from('customer_profiles')
                 .select('id, phone, gst_number')
                 .eq('tenant_id', tenantId)
@@ -1029,7 +1029,7 @@ class BusinessInfoCaptureService {
             // This handles the case where old record has phone='unknown'
             if (gstNumber) {
                 console.log('[BusinessInfo] Phone lookup failed, trying GST:', gstNumber);
-                const findByGST = await supabase
+                const findByGST = await dbClient
                     .from('customer_profiles')
                     .select('id, phone, gst_number')
                     .eq('tenant_id', tenantId)
@@ -1041,7 +1041,7 @@ class BusinessInfoCaptureService {
                     // UPDATE the phone number on this record if it was 'unknown'
                     if (findByGST.data.phone === 'unknown' || !findByGST.data.phone) {
                         console.log('[BusinessInfo] Updating phone from "unknown" to', formattedPhone);
-                        await supabase
+                        await dbClient
                             .from('customer_profiles')
                             .update({ phone: formattedPhone, updated_at: new Date().toISOString() })
                             .eq('id', findByGST.data.id);
@@ -1051,7 +1051,7 @@ class BusinessInfoCaptureService {
             }
             // Method 3: Create new customer
             console.log('[BusinessInfo] Creating new customer with phone:', formattedPhone);
-            const insertResp = await supabase
+            const insertResp = await dbClient
                 .from('customer_profiles')
                 .insert({
                     tenant_id: tenantId,
@@ -1064,7 +1064,7 @@ class BusinessInfoCaptureService {
                 .limit(1)
                 .maybeSingle();
             if (insertResp && insertResp.error) {
-                console.warn('[BusinessInfo] supabase create customer error:', insertResp.error.message);
+                console.warn('[BusinessInfo] dbClient create customer error:', insertResp.error.message);
                 return null;
             }
             if (insertResp && insertResp.data && insertResp.data.id) {
@@ -1098,7 +1098,7 @@ class BusinessInfoCaptureService {
      */
     async verifyBusinessInfo(tenantId, customerId, extractionId, verifiedData, verifiedBy) {
         // Update extraction record
-        await supabase
+        await dbClient
             .from('business_info_extractions')
             .update({
                 extracted_fields: verifiedData,
@@ -1111,7 +1111,7 @@ class BusinessInfoCaptureService {
         await this.updateCustomerProfile(customerId, verifiedData);
 
         // Mark documents as verified
-        await supabase
+        await dbClient
             .from('customer_business_documents')
             .update({
                 verification_status: 'verified',
@@ -1128,7 +1128,7 @@ class BusinessInfoCaptureService {
      */
     async createPendingZohoSync(customerId, extractedFields, phoneNumber) {
         try {
-            const { data, error } = await supabase
+            const { data, error } = await dbClient
                 .from('pending_zoho_syncs')
                 .insert({
                     customer_id: customerId,
@@ -1167,7 +1167,7 @@ class BusinessInfoCaptureService {
     async approvePendingZohoSync(pendingId, adminId) {
         try {
             // Get pending sync
-            const { data: pending } = await supabase
+            const { data: pending } = await dbClient
                 .from('pending_zoho_syncs')
                 .select('*')
                 .eq('id', pendingId)
@@ -1180,12 +1180,12 @@ class BusinessInfoCaptureService {
             const zohoResult = await zoho.syncCustomer(pending.sync_data);
             if (zohoResult.success) {
                 // Update customer with Zoho ID
-                await supabase
+                await dbClient
                     .from('customer_profiles')
                     .update({ zoho_customer_id: zohoResult.customerId })
                     .eq('id', pending.customer_id);
                 // Mark as approved
-                await supabase
+                await dbClient
                     .from('pending_zoho_syncs')
                     .update({
                         status: 'approved',
@@ -1215,7 +1215,7 @@ class BusinessInfoCaptureService {
         // Send WhatsApp message to admin
         const adminPhone = process.env.ADMIN_PHONE;
         if (!adminPhone) return;
-        const message = `🔔 New Zoho Sync Approval Required\n\n` +
+        const message = `ðŸ”” New Zoho Sync Approval Required\n\n` +
             `Customer: ${pendingSync.sync_data.company_name}\n` +
             `GST: ${pendingSync.sync_data.gst_no}\n` +
             `Phone: ${pendingSync.sync_data.phone}\n\n` +

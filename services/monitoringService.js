@@ -1,4 +1,4 @@
-// Add to services/monitoringService.js
+﻿// Add to services/monitoringService.js
 const monitoringService = {
   // Track broadcast success rates
   trackBroadcastMetrics: async (campaignId, batchSize, successCount, failureCount) => {
@@ -11,7 +11,7 @@ const monitoringService = {
       timestamp: new Date()
     };
     
-    await supabase.from('broadcast_metrics').insert(metrics);
+    await dbClient.from('broadcast_metrics').insert(metrics);
     
     // Alert if success rate drops below 95%
     if (metrics.success_rate < 95) {

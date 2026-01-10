@@ -1,9 +1,9 @@
-/**
+﻿/**
  * @title Complete Fixed Web API Routes
  * @description All API endpoints for the web-based tenant dashboard
  */
 const express = require('express');
-const { supabase } = require('../services/config');
+const { dbClient } = require('../services/config');
 const dashboardRoutes = require('./api/dashboard');
 
 const router = express.Router();
@@ -23,7 +23,7 @@ router.post('/verify-token', async (req, res) => {
         const now = new Date();
 
         // Find a tenant with a matching, non-expired token
-        const { data: tenant, error } = await supabase
+        const { data: tenant, error } = await dbClient
             .from('tenants')
             .select('id, business_name, web_auth_token_expires_at')
             .eq('web_auth_token', token)
@@ -39,7 +39,7 @@ router.post('/verify-token', async (req, res) => {
         }
 
         // Invalidate the token so it cannot be used again
-        await supabase
+        await dbClient
             .from('tenants')
             .update({ web_auth_token: null, web_auth_token_expires_at: null })
             .eq('id', tenant.id);
@@ -76,7 +76,7 @@ router.post('/verify-magic-token', async (req, res) => {
     try {
         const now = new Date();
 
-        const { data: tenant, error } = await supabase
+        const { data: tenant, error } = await dbClient
             .from('tenants')
             .select('id, business_name, web_auth_token_expires_at')
             .eq('web_auth_token', token)
@@ -87,7 +87,7 @@ router.post('/verify-magic-token', async (req, res) => {
             return res.status(401).json({ error: 'Invalid or expired login link.' });
         }
 
-        await supabase
+        await dbClient
             .from('tenants')
             .update({ web_auth_token: null, web_auth_token_expires_at: null })
             .eq('id', tenant.id);
@@ -126,3 +126,4 @@ router.get('/test', (req, res) => {
 });
 
 module.exports = router;
+

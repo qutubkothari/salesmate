@@ -1,8 +1,8 @@
-// routes/handlers/modules/discountHandler.js
+﻿// routes/handlers/modules/discountHandler.js
 // Handles discount negotiation logic extracted from customerHandler.js
 
 const { handleDiscountNegotiation } = require('../../../services/discountNegotiationService');
-const { supabase } = require('../../../services/config');
+const { dbClient } = require('../../../services/config');
 
 async function handleDiscountRequests(req, res, tenant, from, userQuery, intentResult, conversation) {
     console.log('[DISCOUNT_HANDLER] Processing discount request');
@@ -19,7 +19,7 @@ async function handleDiscountRequests(req, res, tenant, from, userQuery, intentR
     console.log('[DISCOUNT_HANDLER] Discount intent detected, fetching fresh conversation');
 
     // Re-fetch conversation to get latest quoted products
-    const { data: freshConv, error: convError } = await supabase
+    const { data: freshConv, error: convError } = await dbClient
         .from('conversations')
         .select('*')
         .eq('tenant_id', tenant.id)
@@ -48,7 +48,7 @@ async function handleDiscountRequests(req, res, tenant, from, userQuery, intentR
             if (!customerProfileId) {
                 console.warn('[DISCOUNT_HANDLER] No customer_profile_id in conversation, assuming NEW');
             } else {
-                const { count, error: ordersError } = await supabase
+                const { count, error: ordersError } = await dbClient
                     .from('orders')
                     .select('*', { count: 'exact', head: true })
                     .eq('tenant_id', tenant.id)
@@ -66,12 +66,12 @@ async function handleDiscountRequests(req, res, tenant, from, userQuery, intentR
             console.warn('[DISCOUNT_HANDLER] Error checking customer type:', error.message);
         }
 
-        // STEP 2: RETURNING customers → Route to human agent
+        // STEP 2: RETURNING customers â†’ Route to human agent
         if (isReturningCustomer) {
-            console.log('[DISCOUNT_HANDLER] 🚨 RETURNING customer discount request - needs human agent');
+            console.log('[DISCOUNT_HANDLER] ðŸš¨ RETURNING customer discount request - needs human agent');
             
             // Flag for human agent follow-up
-            await supabase
+            await dbClient
                 .from('conversations')
                 .update({
                     context_data: {
@@ -85,11 +85,11 @@ async function handleDiscountRequests(req, res, tenant, from, userQuery, intentR
 
             return {
                 status: 'success',
-                response: `Thank you for your continued business! 🙏 I've forwarded your discount request to our team. One of our representatives will get back to you shortly with a special offer. We truly value your loyalty! 💙`
+                response: `Thank you for your continued business! ðŸ™ I've forwarded your discount request to our team. One of our representatives will get back to you shortly with a special offer. We truly value your loyalty! ðŸ’™`
             };
         }
 
-        // STEP 3: NEW customers → Apply dashboard discount rules automatically
+        // STEP 3: NEW customers â†’ Apply dashboard discount rules automatically
         console.log('[DISCOUNT_HANDLER] NEW customer - applying dashboard discount rules');
 
         // Build context for negotiation
@@ -119,7 +119,7 @@ async function handleDiscountRequests(req, res, tenant, from, userQuery, intentR
             console.log('[DISCOUNT_HANDLER] No quoted products, checking cart...');
 
             // Get cart items via conversation_id (not end_user_phone - carts table doesn't have that field)
-            const { data: cart } = await supabase
+            const { data: cart } = await dbClient
                 .from('carts')
                 .select('id, cart_items(*, products(*))')
                 .eq('conversation_id', conversation.id)
@@ -194,9 +194,9 @@ async function handleDiscountRequests(req, res, tenant, from, userQuery, intentR
 
             // Save discount to conversation if offered
             if (discountPercent > 0) {
-                console.log('[DISCOUNT_HANDLER] 💾 Saving', discountPercent + '% to context');
+                console.log('[DISCOUNT_HANDLER] ðŸ’¾ Saving', discountPercent + '% to context');
 
-                await supabase
+                await dbClient
                     .from('conversations')
                     .update({
                         context_data: {
@@ -210,7 +210,7 @@ async function handleDiscountRequests(req, res, tenant, from, userQuery, intentR
 
             // Handle adding to cart if needed
             // Check if cart already has products to avoid duplication
-                const { data: cart } = await supabase.from('cart_items')
+                const { data: cart } = await dbClient.from('cart_items')
                     .select('id').eq('tenant_id', tenant.id)
                     .eq('end_user_phone', from).limit(1);
 

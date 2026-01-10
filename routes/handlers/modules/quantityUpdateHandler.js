@@ -1,8 +1,8 @@
-// routes/handlers/modules/quantityUpdateHandler.js
+﻿// routes/handlers/modules/quantityUpdateHandler.js
 // AI-Powered Quantity Update Handler - NO REGEX, PURE INTELLIGENCE
 // Handles quantity updates in ANY language, ANY format
 
-const { supabase } = require('../../../services/config');
+const { dbClient } = require('../../../services/config');
 const { getConversationId } = require('../../../services/historyService');
 const { viewCartWithDiscounts } = require('../../../services/cartService');
 const { getAIResponse } = require('../../../services/ai/openaiConfig');
@@ -89,7 +89,7 @@ async function handleQuantityUpdate(req, res, tenant, from, userQuery, conversat
             return null;
         }
         
-        const { data: cart } = await supabase
+        const { data: cart } = await dbClient
             .from('carts')
             .select(`
                 id,
@@ -142,7 +142,7 @@ async function handleQuantityUpdate(req, res, tenant, from, userQuery, conversat
         }
         
         // Update the quantity
-        const { error: updateError } = await supabase
+        const { error: updateError } = await dbClient
             .from('cart_items')
             .update({ 
                 quantity: newQuantity,
@@ -164,7 +164,7 @@ async function handleQuantityUpdate(req, res, tenant, from, userQuery, conversat
         const cartMessage = await viewCartWithDiscounts(tenant.id, from);
         
         return {
-            response: `✅ Updated ${itemToUpdate.product.name} to ${newQuantity} cartons.\n\n${cartMessage}`,
+            response: `âœ… Updated ${itemToUpdate.product.name} to ${newQuantity} cartons.\n\n${cartMessage}`,
             source: 'quantity_update_success_ai'
         };
         
@@ -182,7 +182,7 @@ async function handleQuantityUpdate(req, res, tenant, from, userQuery, conversat
  */
 async function getConversationHistory(conversationId) {
     try {
-        const { data } = await supabase
+        const { data } = await dbClient
             .from('messages')
             .select('message_body, sender, created_at')
             .eq('conversation_id', conversationId)
@@ -201,3 +201,4 @@ module.exports = {
     handleQuantityUpdate,
     extractQuantityAndProduct
 };
+

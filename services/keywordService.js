@@ -1,8 +1,8 @@
-/**
+﻿/**
  * @title Keyword Response Service
  * @description Handles keyword-based automatic responses and routing.
  */
-const { supabase } = require('./config');
+const { dbClient } = require('./config');
 
 /**
  * Adds a new keyword-response pair for a tenant.
@@ -13,7 +13,7 @@ const { supabase } = require('./config');
  */
 const addKeyword = async (tenantId, keyword, response) => {
     try {
-        const { error } = await supabase.from('keywords').insert({
+        const { error } = await dbClient.from('keywords').insert({
             tenant_id: tenantId,
             keyword: keyword.toLowerCase(),
             response: response
@@ -41,7 +41,7 @@ const addKeyword = async (tenantId, keyword, response) => {
  */
 const deleteKeyword = async (tenantId, keyword) => {
     try {
-        const { data, error } = await supabase
+        const { data, error } = await dbClient
             .from('keywords')
             .delete()
             .eq('tenant_id', tenantId)
@@ -82,7 +82,7 @@ const listKeywords = async (tenantIdOrOptions) => {
             tenantId = tenantIdOrOptions;
         }
         
-        const { data, error } = await supabase
+        const { data, error } = await dbClient
             .from('keywords')
             .select('keyword, response')
             .eq('tenant_id', tenantId)
@@ -104,7 +104,7 @@ const listKeywords = async (tenantIdOrOptions) => {
             // Return formatted string for direct calls
             let result = '*Your Keywords:*\n';
             data.forEach(item => {
-                result += `• "${item.keyword}" → "${item.response}"\n`;
+                result += `â€¢ "${item.keyword}" â†’ "${item.response}"\n`;
             });
             return result;
         }
@@ -130,7 +130,7 @@ const findKeywordResponse = async (tenantId, message) => {
         console.log(`[KEYWORD] Checking message for keywords: "${messageText}"`);
 
         // Get all keywords for this tenant
-        const { data: keywords, error } = await supabase
+        const { data: keywords, error } = await dbClient
             .from('keywords')
             .select('keyword, response')
             .eq('tenant_id', tenantId);

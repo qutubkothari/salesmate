@@ -1,6 +1,6 @@
-// services/customerPersonalizationService.js
+﻿// services/customerPersonalizationService.js
 
-const { supabase } = require('./config');
+const { dbClient } = require('./config');
 
 /**
  * Get customer name and business info for personalization
@@ -11,7 +11,7 @@ async function getCustomerInfo(tenantId, phoneNumber) {
         
 
         // Check customer_profiles table - use 'phone' column (not 'phone_number')
-        const { data: profile } = await supabase
+        const { data: profile } = await dbClient
             .from('customer_profiles')
             .select('id, first_name, last_name, company, gst_number, business_verified')
             .eq('tenant_id', tenantId)
@@ -60,7 +60,7 @@ async function extractNameFromBusinessInfo(tenantId, phoneNumber) {
         const cleanPhone = phoneNumber.replace('@c.us', '').replace(/\D/g, '');
         
         // Get recent business info extractions
-        const { data: extractions } = await supabase
+        const { data: extractions } = await dbClient
             .from('business_info_extractions')
             .select('extracted_fields')
             .eq('tenant_id', tenantId)

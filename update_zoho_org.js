@@ -1,4 +1,4 @@
-const { supabase } = require('./services/config');
+﻿const { dbClient } = require('./services/config');
 
 async function updateZohoOrgId() {
     const tenantId = '45bebb5d-cbab-4338-a3eb-a5b0c4aeea4e';
@@ -6,7 +6,7 @@ async function updateZohoOrgId() {
     
     console.log('Updating Zoho Organization ID...');
     
-    const { data, error } = await supabase
+    const { data, error } = await dbClient
         .from('tenants')
         .update({ 
             zoho_organization_id: organizationId 
@@ -19,7 +19,7 @@ async function updateZohoOrgId() {
         process.exit(1);
     }
     
-    console.log('✅ Organization ID updated successfully');
+    console.log('âœ… Organization ID updated successfully');
     console.log('Tenant:', data[0].business_name);
     console.log('Zoho Org ID:', data[0].zoho_organization_id);
     console.log('\nNext steps:');
@@ -32,3 +32,4 @@ async function updateZohoOrgId() {
 }
 
 updateZohoOrgId();
+

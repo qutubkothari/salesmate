@@ -1,8 +1,8 @@
-// services/salesTeamManagement.js
+﻿// services/salesTeamManagement.js
 const updateSalesTeam = async (tenantId, salesNumbers) => {
     const [primary, secondary, ...additional] = salesNumbers;
     
-    await supabase
+    await dbClient
         .from('tenants')
         .update({
             sales_phone_primary: primary || null,

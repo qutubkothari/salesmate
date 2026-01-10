@@ -1,5 +1,5 @@
-const { contextBuilder, responseGenerator, intentClassifier, memoryManager } = require('./ai');
-const { supabase } = require('../services/config');
+﻿const { contextBuilder, responseGenerator, intentClassifier, memoryManager } = require('./ai');
+const { dbClient } = require('../services/config');
 
 class AIIntegrationService {
   constructor() {
@@ -16,7 +16,7 @@ class AIIntegrationService {
       const customerProfile = await this.getCustomerProfile(phoneNumber, tenantId);
       const conversation = await this.getOrCreateConversation(customerProfile.id, tenantId, phoneNumber);
       if (!this.checkCostLimits()) {
-        console.warn('⚠️ AI cost limit reached, falling back to rules');
+        console.warn('âš ï¸ AI cost limit reached, falling back to rules');
         return { action: 'use_rules', intent: 'general_inquiry', useFallback: true };
       }
       const classification = await intentClassifier.hybridClassify(
@@ -24,7 +24,7 @@ class AIIntegrationService {
         { previousIntent: conversation.last_intent },
         { useAI: options.forceAI !== false } // Enable AI by default, disable only if explicitly set to false
       );
-      console.log(`🎯 Intent: ${classification.intent} (${(classification.confidence * 100).toFixed(0)}% confidence, method: ${classification.method})`);
+      console.log(`ðŸŽ¯ Intent: ${classification.intent} (${(classification.confidence * 100).toFixed(0)}% confidence, method: ${classification.method})`);
       await this.updateConversationIntent(conversation.id, classification.intent);
       const routing = intentClassifier.determineRouting(classification);
       if (routing.useHuman) {
@@ -56,10 +56,10 @@ class AIIntegrationService {
     try {
       const OpenAI = require('openai');
       const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-      const { supabase } = require('../services/config');
+      const { dbClient } = require('../services/config');
       // Fetch tenant if not in context
       if (!context.tenant) {
-        const { data: tenant } = await supabase
+        const { data: tenant } = await dbClient
           .from('tenants')
           .select('business_name, auto_reply_message')
           .eq('id', tenantId)
@@ -131,7 +131,7 @@ class AIIntegrationService {
   async getCustomerProfile(phoneNumber, tenantId) {
     try {
       console.log(`[AI] Fetching customer: ${phoneNumber}, tenant: ${tenantId}`);
-      const { data, error } = await supabase
+      const { data, error } = await dbClient
         .from('customer_profiles')
         .select('*')
         .eq('phone', phoneNumber) // customer_profiles uses 'phone'
@@ -194,7 +194,7 @@ class AIIntegrationService {
   async getOrCreateConversation(customerProfileId, tenantId, phoneNumber) {
     try {
       // First, try to find by customer_profile_id
-      const { data: existing } = await supabase
+      const { data: existing } = await dbClient
         .from('conversations')
         .select('*')
         .eq('customer_profile_id', customerProfileId)
@@ -207,7 +207,7 @@ class AIIntegrationService {
       }
       
       // Also check by phone number (in case profile was linked later)
-      const { data: existingByPhone } = await supabase
+      const { data: existingByPhone } = await dbClient
         .from('conversations')
         .select('*')
         .eq('end_user_phone', phoneNumber)
@@ -218,7 +218,7 @@ class AIIntegrationService {
       if (existingByPhone) {
         // Link customer profile if not already linked
         if (!existingByPhone.customer_profile_id && customerProfileId) {
-          await supabase
+          await dbClient
             .from('conversations')
             .update({ customer_profile_id: customerProfileId })
             .eq('id', existingByPhone.id);
@@ -228,7 +228,7 @@ class AIIntegrationService {
       }
       
       // Create new conversation
-      const { data: newConv, error: createError } = await supabase
+      const { data: newConv, error: createError } = await dbClient
         .from('conversations')
         .insert([{ 
           customer_profile_id: customerProfileId, 
@@ -245,7 +245,7 @@ class AIIntegrationService {
       if (createError) {
         // If duplicate key error, fetch the existing one
         if (createError.code === '23505') {
-          const { data: existing } = await supabase
+          const { data: existing } = await dbClient
             .from('conversations')
             .select('*')
             .eq('end_user_phone', phoneNumber)
@@ -285,7 +285,7 @@ class AIIntegrationService {
 
   async updateConversationIntent(conversationId, intent) {
     try {
-      await supabase
+      await dbClient
         .from('conversations')
         .update({ last_intent: intent, updated_at: new Date().toISOString() })
         .eq('id', conversationId);
@@ -295,7 +295,7 @@ class AIIntegrationService {
   }
 
   async getProductAffinity(customerProfileId) {
-    const { data, error } = await supabase
+    const { data, error } = await dbClient
       .from('customer_product_affinity')
       .select(`product_id, purchase_frequency, avg_quantity, last_purchase_date, days_since_last_purchase, is_regular_product, products:product_id (id, name, code)`)
       .eq('customer_profile_id', customerProfileId)
@@ -325,11 +325,11 @@ class AIIntegrationService {
     const maxDailyCalls = parseInt(process.env.MAX_DAILY_AI_CALLS || '1000');
     const maxDailyCost = parseFloat(process.env.MAX_AI_COST_PER_DAY || '10.00');
     if (this.costTracker.dailyCalls >= maxDailyCalls) {
-      console.warn(`⚠️ Daily AI call limit reached: ${this.costTracker.dailyCalls}`);
+      console.warn(`âš ï¸ Daily AI call limit reached: ${this.costTracker.dailyCalls}`);
       return false;
     }
     if (this.costTracker.dailyCost >= maxDailyCost) {
-      console.warn(`⚠️ Daily AI cost limit reached: $${this.costTracker.dailyCost.toFixed(2)}`);
+      console.warn(`âš ï¸ Daily AI cost limit reached: $${this.costTracker.dailyCost.toFixed(2)}`);
       return false;
     }
     return true;
@@ -338,7 +338,7 @@ class AIIntegrationService {
   trackCost(cost) {
     this.costTracker.dailyCalls++;
     this.costTracker.dailyCost += cost;
-    console.log(`💰 AI Cost: $${cost.toFixed(4)} | Daily: $${this.costTracker.dailyCost.toFixed(2)} (${this.costTracker.dailyCalls} calls)`);
+    console.log(`ðŸ’° AI Cost: $${cost.toFixed(4)} | Daily: $${this.costTracker.dailyCost.toFixed(2)} (${this.costTracker.dailyCalls} calls)`);
   }
 
   getDailyCostSummary() {

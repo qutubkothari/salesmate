@@ -1,8 +1,8 @@
-/**
+﻿/**
  * @title AI Follow-up Suggestion Service
  * @description Manages the logic for generating and retrieving AI-powered follow-up suggestions for tenants.
  */
-const { supabase, openai } = require('./config');
+const { dbClient, openai } = require('./config');
 const { getConversationId } = require('./historyService');
 const { normalizeConversationHistory, conversationHistoryToText, getConversationTextForAnalysis } = require('./followUpService');
 
@@ -18,7 +18,7 @@ const generateFollowUpSuggestion = async (tenantId, endUserPhone) => {
         if (!conversationId) return;
 
         // 1. Fetch the last 10 messages to provide context for the suggestion.
-        const { data: messages, error: messagesError } = await supabase
+        const { data: messages, error: messagesError } = await dbClient
             .from('messages')
             .select('sender, message_body')
             .eq('conversation_id', conversationId)
@@ -79,7 +79,7 @@ const generateFollowUpSuggestion = async (tenantId, endUserPhone) => {
 
         if (suggestion) {
             // 3. Save the new suggestion, replacing any old one for this conversation.
-            await supabase
+            await dbClient
                 .from('follow_up_suggestions')
                 .upsert({
                     conversation_id: conversationId,
@@ -107,7 +107,7 @@ const getFollowUpSuggestion = async (tenantId, endUserPhone) => {
         const conversationId = await getConversationId(tenantId, endUserPhone);
         if (!conversationId) return `No conversation history found for ${endUserPhone}.`;
 
-        const { data, error } = await supabase
+        const { data, error } = await dbClient
             .from('follow_up_suggestions')
             .select('suggestion_text')
             .eq('conversation_id', conversationId)
@@ -118,12 +118,12 @@ const getFollowUpSuggestion = async (tenantId, endUserPhone) => {
         }
 
         // Mark the suggestion as viewed after retrieving it.
-        await supabase
+        await dbClient
             .from('follow_up_suggestions')
             .update({ is_viewed: true })
             .eq('conversation_id', conversationId);
 
-        let response = `💡 *AI Follow-up Suggestion for ${endUserPhone}*\n\n`;
+        let response = `ðŸ’¡ *AI Follow-up Suggestion for ${endUserPhone}*\n\n`;
         response += `You could send this message to re-engage them:\n\n`;
         response += `_"${data.suggestion_text}"_`;
 
@@ -139,4 +139,5 @@ module.exports = {
     generateFollowUpSuggestion,
     getFollowUpSuggestion,
 };
+
 

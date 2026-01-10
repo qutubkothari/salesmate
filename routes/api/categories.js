@@ -1,6 +1,6 @@
-const express = require('express');
+﻿const express = require('express');
 const router = express.Router();
-const { supabase } = require('../../services/config');
+const { dbClient } = require('../../services/config');
 
 // GET /api/categories - fetch all categories for a tenant
 router.get('/', async (req, res) => {
@@ -10,7 +10,7 @@ router.get('/', async (req, res) => {
             return res.json({ success: false, error: 'Missing tenantId' });
         }
 
-        const { data, error } = await supabase
+        const { data, error } = await dbClient
             .from('categories')
             .select('id, name, description')
             .eq('tenant_id', tenantId)
@@ -36,7 +36,7 @@ router.post('/', async (req, res) => {
             return res.json({ success: false, error: 'Missing required fields' });
         }
 
-        const { data, error } = await supabase
+        const { data, error } = await dbClient
             .from('categories')
             .insert([{ tenant_id: tenantId, name, description }])
             .select();
@@ -63,7 +63,7 @@ router.delete('/:id', async (req, res) => {
             return res.json({ success: false, error: 'Missing tenantId' });
         }
 
-        const { error } = await supabase
+        const { error } = await dbClient
             .from('categories')
             .delete()
             .eq('id', id)
@@ -82,3 +82,4 @@ router.delete('/:id', async (req, res) => {
 });
 
 module.exports = router;
+

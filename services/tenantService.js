@@ -1,8 +1,8 @@
-/**
+﻿/**
  * @title Tenant Management Service
  * @description Handles the logic for finding and creating tenants in the database.
  */
-const { supabase } = require('./config');
+const { dbClient } = require('./config');
 const { generateReferralCode } = require('./referralService'); // Import the code generator
 
 /**
@@ -15,7 +15,7 @@ const { generateReferralCode } = require('./referralService'); // Import the cod
 const findOrCreateTenant = async (phoneNumber, botPhoneNumber) => {
     try {
         // 1. Check if the tenant already exists.
-        let { data: tenant, error: findError } = await supabase
+        let { data: tenant, error: findError } = await dbClient
             .from('tenants')
             .select('*')
             .eq('owner_whatsapp_number', phoneNumber)  // FIXED
@@ -36,7 +36,7 @@ const findOrCreateTenant = async (phoneNumber, botPhoneNumber) => {
 
         const newReferralCode = generateReferralCode();
 
-        const { data: newTenant, error: createError } = await supabase
+        const { data: newTenant, error: createError } = await dbClient
             .from('tenants')
             .insert({
                 owner_whatsapp_number: phoneNumber,  // FIXED
@@ -67,7 +67,7 @@ const findOrCreateTenant = async (phoneNumber, botPhoneNumber) => {
 // --- ADD: Auto-provision tenant by bot number ---
 async function ensureTenantByBot(botPhone) {
   // Try to find an existing row
-  const { data: existing, error: qErr } = await supabase
+  const { data: existing, error: qErr } = await dbClient
     .from('tenants')
     .select('id')
     .eq('bot_phone_number', botPhone)
@@ -85,7 +85,7 @@ async function ensureTenantByBot(botPhone) {
     status: 'active',
   };
 
-  const { data: created, error: iErr } = await supabase
+  const { data: created, error: iErr } = await dbClient
     .from('tenants')
     .insert(payload)
     .select('id')
@@ -102,7 +102,7 @@ async function ensureTenantByBot(botPhone) {
 const initializeTenantConfig = async (tenantId, options = {}) => {
     try {
         // Get existing tenant data
-        const { data: tenant } = await supabase
+        const { data: tenant } = await dbClient
             .from('tenants')
             .select('*')
             .eq('id', tenantId)
@@ -113,14 +113,14 @@ const initializeTenantConfig = async (tenantId, options = {}) => {
         // Set dynamic defaults based on existing data or options
         const config = {
             industry_type: options.industry_type || 'general',
-            currency_symbol: options.currency_symbol || '₹',
+            currency_symbol: options.currency_symbol || 'â‚¹',
             default_packaging_unit: options.default_packaging_unit || 'piece',
             order_confirmation_phrases: options.order_confirmation_phrases || ['yes go ahead', 'confirm', 'proceed'],
             bot_language: tenant.bot_language || options.bot_language || 'en'
         };
 
         // Update tenant with config
-        await supabase
+        await dbClient
             .from('tenants')
             .update(config)
             .eq('id', tenantId);
@@ -139,7 +139,7 @@ const initializeTenantConfig = async (tenantId, options = {}) => {
  */
 const getOrderConfirmationPatterns = async (tenantId) => {
     try {
-        const { data: tenant } = await supabase
+        const { data: tenant } = await dbClient
             .from('tenants')
             .select('order_confirmation_phrases, bot_language')
             .eq('id', tenantId)
@@ -175,7 +175,7 @@ const getOrderConfirmationPatterns = async (tenantId) => {
  */
 const getOrderConfirmationPatternsEnhanced = async (tenantId) => {
     try {
-        const { data: tenant, error } = await supabase
+        const { data: tenant, error } = await dbClient
             .from('tenants')
             .select('order_confirmation_phrases, bot_language, industry_type')
             .eq('id', tenantId)
@@ -297,7 +297,7 @@ const setupTenantOrderConfig = async (tenantId, config = {}) => {
         const {
             industry_type = 'general',
             bot_language = 'en',
-            currency_symbol = '₹',
+            currency_symbol = 'â‚¹',
             order_confirmation_phrases,
             default_packaging_unit = 'piece'
         } = config;
@@ -315,7 +315,7 @@ const setupTenantOrderConfig = async (tenantId, config = {}) => {
             updated_at: new Date().toISOString()
         };
 
-        const { error } = await supabase
+        const { error } = await dbClient
             .from('tenants')
             .update(updateData)
             .eq('id', tenantId);
@@ -336,7 +336,7 @@ const setupTenantOrderConfig = async (tenantId, config = {}) => {
  */
 const getTenantOrderConfig = async (tenantId) => {
     try {
-        const { data: tenant, error } = await supabase
+        const { data: tenant, error } = await dbClient
             .from('tenants')
             .select(`
                 id,
@@ -369,7 +369,7 @@ const getTenantOrderConfig = async (tenantId) => {
             error: error.message,
             config: {
                 bot_language: 'en',
-                currency_symbol: '₹',
+                currency_symbol: 'â‚¹',
                 industry_type: 'general',
                 order_patterns: getDefaultOrderPatterns()
             }
@@ -386,7 +386,7 @@ const updateOrderConfirmationPhrases = async (tenantId, newPhrases) => {
             return { success: false, message: 'Phrases must be a non-empty array' };
         }
 
-        const { error } = await supabase
+        const { error } = await dbClient
             .from('tenants')
             .update({ 
                 order_confirmation_phrases: newPhrases,
@@ -476,4 +476,5 @@ module.exports = {
     testOrderConfirmation,
     getDefaultOrderPatterns
 };
+
 

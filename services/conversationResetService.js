@@ -1,5 +1,5 @@
-// services/conversationResetService.js - Handle conversation lifecycle
-const { supabase } = require('./config');
+﻿// services/conversationResetService.js - Handle conversation lifecycle
+const { dbClient } = require('./config');
 
 /**
  * Handle conversation reset when session is stale
@@ -7,7 +7,7 @@ const { supabase } = require('./config');
 const handleConversationReset = async (tenantId, endUserPhone) => {
     try {
         // Check if conversation is stale (inactive for X hours)
-        const { data: conversation } = await supabase
+        const { data: conversation } = await dbClient
             .from('conversations')
             .select('*')
             .eq('tenant_id', tenantId)
@@ -24,13 +24,13 @@ const handleConversationReset = async (tenantId, endUserPhone) => {
                 console.log('[CART_RESET] Conversation stale, clearing cart');
                 
                 // Clear cart items
-                await supabase
+                await dbClient
                     .from('cart_items')
                     .delete()
                     .eq('cart_id', conversation.cart_id);
 
                 // Reset conversation state
-                await supabase
+                await dbClient
                     .from('conversations')
                     .update({
                         state: null,
@@ -65,7 +65,7 @@ const debugFollowUpCreation = async (tenantId, endUserPhone, minutes) => {
             minutesFromNow: minutes
         });
 
-        const { data: followUp, error } = await supabase
+        const { data: followUp, error } = await dbClient
             .from('follow_ups')
             .insert({
                 tenant_id: tenantId,
@@ -100,7 +100,7 @@ const debugFollowUpProcessing = async () => {
         console.log('[FOLLOWUP_DEBUG] Current time:', now.toISOString());
 
         // Check pending follow-ups
-        const { data: pending } = await supabase
+        const { data: pending } = await dbClient
             .from('follow_ups')
             .select('*')
             .eq('status', 'pending')
@@ -134,7 +134,7 @@ const enhancedFollowUpScheduler = async () => {
         console.log('[FOLLOWUP_CRON] Starting enhanced follow-up check...');
         
         const now = new Date();
-        const { data: followUps, error } = await supabase
+        const { data: followUps, error } = await dbClient
             .from('follow_ups')
             .select('*')
             .eq('status', 'pending')
@@ -157,7 +157,7 @@ const enhancedFollowUpScheduler = async () => {
                 await sendMessage(followUp.end_user_phone, followUp.message);
 
                 // Mark as sent
-                await supabase
+                await dbClient
                     .from('follow_ups')
                     .update({ 
                         status: 'sent', 
@@ -171,7 +171,7 @@ const enhancedFollowUpScheduler = async () => {
                 console.error('[FOLLOWUP_CRON] Failed to send follow-up:', followUp.id, sendError);
 
                 // Mark as failed
-                await supabase
+                await dbClient
                     .from('follow_ups')
                     .update({ 
                         status: 'failed', 
@@ -194,3 +194,4 @@ module.exports = {
     debugFollowUpProcessing,
     enhancedFollowUpScheduler
 };
+

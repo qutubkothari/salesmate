@@ -1,5 +1,5 @@
-// services/gstService.js
-const { supabase } = require('./config');
+﻿// services/gstService.js
+const { dbClient } = require('./config');
 
 /**
  * Calculate GST amounts based on subtotal and tenant configuration
@@ -123,19 +123,19 @@ const formatGSTDisplay = (gstCalc, detailed = false) => {
     }
 
     if (!detailed) {
-        return `GST (${gstCalc.gstRate}%): ₹${gstCalc.gstAmount}`;
+        return `GST (${gstCalc.gstRate}%): â‚¹${gstCalc.gstAmount}`;
     }
 
     let display = `GST Breakdown (${gstCalc.gstRate}%):\n`;
     
     if (gstCalc.isInterstate) {
-        display += `IGST: ₹${gstCalc.igstAmount}`;
+        display += `IGST: â‚¹${gstCalc.igstAmount}`;
     } else {
-        display += `CGST: ₹${gstCalc.cgstAmount}\n`;
-        display += `SGST: ₹${gstCalc.sgstAmount}`;
+        display += `CGST: â‚¹${gstCalc.cgstAmount}\n`;
+        display += `SGST: â‚¹${gstCalc.sgstAmount}`;
     }
     
-    display += `\nTotal GST: ₹${gstCalc.gstAmount}`;
+    display += `\nTotal GST: â‚¹${gstCalc.gstAmount}`;
     
     return display;
 };
@@ -155,7 +155,7 @@ const determineIfInterstate = async (tenantId, customerState = null) => {
         }
 
         // Get tenant's business state
-        const { data: tenant, error } = await supabase
+        const { data: tenant, error } = await dbClient
             .from('tenants')
             .select('business_state')
             .eq('id', tenantId)
@@ -201,7 +201,7 @@ const updateGSTConfig = async (tenantId, gstConfig) => {
         }
 
         // Update tenant's GST configuration
-        const { data: updated, error } = await supabase
+        const { data: updated, error } = await dbClient
             .from('tenants')
             .update({
                 gst_rate,
@@ -236,7 +236,7 @@ const updateGSTConfig = async (tenantId, gstConfig) => {
  */
 const getGSTConfig = async (tenantId) => {
     try {
-        const { data: tenant, error } = await supabase
+        const { data: tenant, error } = await dbClient
             .from('tenants')
             .select('gst_rate, business_state')
             .eq('id', tenantId)

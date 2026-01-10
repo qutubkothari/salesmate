@@ -1,5 +1,5 @@
-const { bucket } = require('./config');
-const { supabase } = require('./config');
+﻿const { bucket } = require('./config');
+const { dbClient } = require('./config');
 const fetch = require('node-fetch');
 const path = require('path');
 const crypto = require('crypto');
@@ -64,7 +64,7 @@ const uploadImageToGCS = async (imageUrl, tenantId, category = 'customer_uploads
  */
 const saveImageMetadata = async (tenantId, phoneNumber, originalUrl, gcsUrl, category, analysis) => {
     try {
-        const { data, error } = await supabase
+        const { data, error } = await dbClient
             .from('uploaded_images')
             .insert({
                 tenant_id: tenantId,
@@ -90,3 +90,4 @@ module.exports = {
     uploadImageToGCS,
     saveImageMetadata
 };
+

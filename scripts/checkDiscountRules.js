@@ -1,6 +1,6 @@
-// scripts/checkDiscountRules.js
+﻿// scripts/checkDiscountRules.js
 require('dotenv').config();
-const { supabase } = require('../services/config');
+const { dbClient } = require('../services/config');
 
 const TENANT_ID = 'a10aa26a-b5f9-4afe-87cc-70bfb4d1f6e6';
 
@@ -8,7 +8,7 @@ async function checkRules() {
     console.log('[Discount Rules] Checking rules for tenant:', TENANT_ID);
     
     // Get all discount rules
-    const { data: rules, error } = await supabase
+    const { data: rules, error } = await dbClient
         .from('discount_rules')
         .select('*')
         .eq('tenant_id', TENANT_ID)
@@ -73,3 +73,4 @@ async function checkRules() {
 }
 
 checkRules().catch(console.error);
+

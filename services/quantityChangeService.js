@@ -1,5 +1,5 @@
-// services/quantityChangeService.js
-const { supabase } = require('./config');
+﻿// services/quantityChangeService.js
+const { dbClient } = require('./config');
 const { getConversationId } = require('./historyService');
 
 const detectQuantityChange = (userQuery) => {
@@ -29,14 +29,14 @@ const updateCartQuantity = async (tenantId, endUserPhone, newQuantity, productNa
         const conversationId = await getConversationId(tenantId, endUserPhone);
         
         // Get the most recent cart item (last discussed product)
-        const { data: cartItems } = await supabase
+        const { data: cartItems } = await dbClient
             .from('cart_items')
             .select(`
                 id, product_id, quantity,
                 product:products (name, price)
             `)
             .eq('cart_id', (
-                await supabase
+                await dbClient
                     .from('carts')
                     .select('id')
                     .eq('conversation_id', conversationId)
@@ -57,7 +57,7 @@ const updateCartQuantity = async (tenantId, endUserPhone, newQuantity, productNa
         }
         
         // Update quantity
-        await supabase
+        await dbClient
             .from('cart_items')
             .update({ quantity: newQuantity })
             .eq('id', itemToUpdate.id);
@@ -70,9 +70,9 @@ const updateCartQuantity = async (tenantId, endUserPhone, newQuantity, productNa
         return {
             success: true,
             message: `Updated to ${newQuantity} cartons of ${itemToUpdate.product.name}
-Subtotal: ₹${subtotal.toFixed(2)}
-GST (18%): ₹${gstAmount.toFixed(2)}
-Total: ₹${total.toFixed(2)}`,
+Subtotal: â‚¹${subtotal.toFixed(2)}
+GST (18%): â‚¹${gstAmount.toFixed(2)}
+Total: â‚¹${total.toFixed(2)}`,
             product: itemToUpdate.product,
             newQuantity
         };

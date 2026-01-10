@@ -1,11 +1,12 @@
-// IMPORTANT: The only valid /api/dashboard/conversations/:tenantId endpoint is below.
+﻿// IMPORTANT: The only valid /api/dashboard/conversations/:tenantId endpoint is below.
 // It must only query the 'conversations' table and never construct objects from customer_profiles or merge in a way that overwrites the id.
 const express = require('express');
 const router = express.Router();
-const { supabase, USE_LOCAL_DB } = require('../../services/config');
+const { dbClient, USE_LOCAL_DB } = require('../../services/config');
 const { sendMessage } = require('../../services/whatsappService');
 const multer = require('multer');
 const DocumentIngestionService = require('../../services/documentIngestionService');
+const { writeAuditLog } = require('../../services/auditLogService');
 
 const upload = multer({
     storage: multer.memoryStorage(),
@@ -22,7 +23,7 @@ router.get('/verify-token', async (req, res) => {
 
         // TEMP: Allow demo access with special token "demo"
         if (token === 'demo') {
-            const { data: tenant } = await supabase
+            const { data: tenant } = await dbClient
                 .from('tenants')
                 .select('id, business_name, admin_phones')
                 .eq('business_name', 'sak solutions store')
@@ -49,7 +50,7 @@ router.get('/verify-token', async (req, res) => {
         }
 
         // Find tenant with this token
-        const { data: tenant, error } = await supabase
+        const { data: tenant, error } = await dbClient
             .from('tenants')
             .select('id, business_name, admin_phones, web_auth_token_expires_at')
             .eq('web_auth_token', token)
@@ -74,7 +75,7 @@ router.get('/verify-token', async (req, res) => {
         // }
 
         // TEMP: Token is NOT cleared (allows reuse for demo)
-        // await supabase
+        // await dbClient
         //     .from('tenants')
         //     .update({
         //         web_auth_token: null,
@@ -112,7 +113,7 @@ router.post('/verify-token', async (req, res) => {
 
         // TEMP: Allow demo access with special token "demo"
         if (token === 'demo') {
-            const { data: tenant } = await supabase
+            const { data: tenant } = await dbClient
                 .from('tenants')
                 .select('id, business_name, admin_phones')
                 .eq('business_name', 'sak solutions store')
@@ -139,7 +140,7 @@ router.post('/verify-token', async (req, res) => {
         }
 
         // Find tenant with this token
-        const { data: tenant, error } = await supabase
+        const { data: tenant, error } = await dbClient
             .from('tenants')
             .select('id, business_name, admin_phones, web_auth_token_expires_at')
             .eq('web_auth_token', token)
@@ -191,7 +192,7 @@ router.get('/documents/:tenantId', async (req, res) => {
     try {
         const { tenantId } = req.params;
 
-        const { data: documents, error } = await supabase
+        const { data: documents, error } = await dbClient
             .from('tenant_documents')
             .select('id, tenant_id, filename, original_name, mime_type, size_bytes, created_at')
             .eq('tenant_id', tenantId)
@@ -237,7 +238,7 @@ router.post('/documents/:tenantId/upload', upload.single('file'), async (req, re
             mimeType
         });
 
-        const { data: inserted, error } = await supabase
+        const { data: inserted, error } = await dbClient
             .from('tenant_documents')
             .insert({
                 tenant_id: tenantId,
@@ -273,7 +274,7 @@ router.delete('/documents/:tenantId/:documentId', async (req, res) => {
     try {
         const { tenantId, documentId } = req.params;
 
-        const { error } = await supabase
+        const { error } = await dbClient
             .from('tenant_documents')
             .delete()
             .eq('tenant_id', tenantId)
@@ -299,7 +300,7 @@ router.get('/tenant/:tenantId', async (req, res) => {
     try {
         const { tenantId } = req.params;
 
-        const { data: tenant, error } = await supabase
+        const { data: tenant, error } = await dbClient
             .from('tenants')
             .select('id, business_name, admin_phones, created_at')
             .eq('id', tenantId)
@@ -355,7 +356,7 @@ router.get('/customers/:tenantId', async (req, res) => {
     try {
         const { tenantId } = req.params;
 
-        const { data: customers, error } = await supabase
+        const { data: customers, error } = await dbClient
             .from('customer_profiles')
             .select('id, phone, first_name, last_name, company, total_spent, total_orders, updated_at')
             .eq('tenant_id', tenantId)
@@ -363,7 +364,7 @@ router.get('/customers/:tenantId', async (req, res) => {
             .limit(100);
 
         if (error) {
-            console.error('[DASHBOARD_API] Supabase error fetching customers:', error);
+            console.error('[DASHBOARD_API] dbClient error fetching customers:', error);
             throw error;
         }
 
@@ -399,7 +400,7 @@ router.get('/products/:tenantId', async (req, res) => {
     try {
         const { tenantId } = req.params;
 
-        const { data: products, error } = await supabase
+        const { data: products, error } = await dbClient
             .from('products')
             .select('id, name, description, price, stock_quantity, product_type, brand')
             .eq('tenant_id', tenantId)
@@ -407,7 +408,7 @@ router.get('/products/:tenantId', async (req, res) => {
             .limit(100);
 
         if (error) {
-            console.error('[DASHBOARD_API] Supabase error fetching products:', error);
+            console.error('[DASHBOARD_API] dbClient error fetching products:', error);
             throw error;
         }
 
@@ -472,7 +473,7 @@ function getStateMessage(state) {
  */
 router.get('/tenants', async (req, res) => {
     try {
-        const { data: tenants, error } = await supabase
+        const { data: tenants, error } = await dbClient
             .from('tenants')
             .select(`
                 id,
@@ -524,7 +525,7 @@ router.get('/customers/:tenantId/:customerId/business', async (req, res) => {
         const { tenantId, customerId } = req.params;
 
         // Get customer business profile
-        const { data: customer, error: customerError } = await supabase
+        const { data: customer, error: customerError } = await dbClient
             .from('customer_profiles')
             .select(`
                 id, phone, first_name, last_name, company, email,
@@ -541,7 +542,7 @@ router.get('/customers/:tenantId/:customerId/business', async (req, res) => {
         }
 
         // Get business documents
-        const { data: documents } = await supabase
+        const { data: documents } = await dbClient
             .from('customer_business_documents')
             .select('*')
             .eq('tenant_id', tenantId)
@@ -549,7 +550,7 @@ router.get('/customers/:tenantId/:customerId/business', async (req, res) => {
             .order('uploaded_at', { ascending: false });
 
         // Get extraction history
-        const { data: extractions } = await supabase
+        const { data: extractions } = await dbClient
             .from('business_info_extractions')
             .select('*')
             .eq('tenant_id', tenantId)
@@ -625,7 +626,7 @@ router.post('/customers/:tenantId/:customerId/business/verify', async (req, res)
         if (business_address) updateData.business_address = business_address;
         if (business_registration_number) updateData.business_registration_number = business_registration_number;
 
-        const { data: updatedCustomer, error: updateError } = await supabase
+        const { data: updatedCustomer, error: updateError } = await dbClient
             .from('customer_profiles')
             .update(updateData)
             .eq('tenant_id', tenantId)
@@ -638,7 +639,7 @@ router.post('/customers/:tenantId/:customerId/business/verify', async (req, res)
         }
 
         // Mark all documents as verified
-        await supabase
+        await dbClient
             .from('customer_business_documents')
             .update({
                 verification_status: 'verified',
@@ -648,7 +649,7 @@ router.post('/customers/:tenantId/:customerId/business/verify', async (req, res)
             .eq('customer_id', customerId);
 
         // Log the manual verification
-        await supabase
+        await dbClient
             .from('business_info_extractions')
             .insert({
                 customer_id: customerId,
@@ -684,7 +685,7 @@ router.get('/business-documents/:tenantId', async (req, res) => {
         const { tenantId } = req.params;
         const { status = 'pending' } = req.query;
 
-        const { data: documents, error } = await supabase
+        const { data: documents, error } = await dbClient
             .from('customer_business_documents')
             .select(`
                 *,
@@ -738,7 +739,7 @@ router.patch('/business-documents/:tenantId/:documentId', async (req, res) => {
             verified_by: verification_status !== 'pending' ? verified_by : null
         };
 
-        const { data: document, error } = await supabase
+        const { data: document, error } = await dbClient
             .from('customer_business_documents')
             .update(updateData)
             .eq('tenant_id', tenantId)
@@ -752,7 +753,7 @@ router.patch('/business-documents/:tenantId/:documentId', async (req, res) => {
 
         // If verified, update customer business_verified status
         if (verification_status === 'verified') {
-            await supabase
+            await dbClient
                 .from('customer_profiles')
                 .update({ business_verified: true })
                 .eq('id', document.customer_id);
@@ -788,18 +789,18 @@ router.get('/business-insights/:tenantId', async (req, res) => {
             { count: pendingDocuments },
             { count: totalDocuments }
         ] = await Promise.all([
-            supabase.from('customer_profiles').select('*', { count: 'exact', head: true })
+            dbClient.from('customer_profiles').select('*', { count: 'exact', head: true })
                 .eq('tenant_id', tenantId).not('company', 'is', null),
-            supabase.from('customer_profiles').select('*', { count: 'exact', head: true })
+            dbClient.from('customer_profiles').select('*', { count: 'exact', head: true })
                 .eq('tenant_id', tenantId).eq('business_verified', true),
-            supabase.from('customer_business_documents').select('*', { count: 'exact', head: true })
+            dbClient.from('customer_business_documents').select('*', { count: 'exact', head: true })
                 .eq('tenant_id', tenantId).eq('verification_status', 'pending'),
-            supabase.from('customer_business_documents').select('*', { count: 'exact', head: true })
+            dbClient.from('customer_business_documents').select('*', { count: 'exact', head: true })
                 .eq('tenant_id', tenantId)
         ]);
 
         // Get business customer tiers
-        const { data: tierDistribution } = await supabase
+        const { data: tierDistribution } = await dbClient
             .from('customer_profiles')
             .select('customer_tier')
             .eq('tenant_id', tenantId)
@@ -811,7 +812,7 @@ router.get('/business-insights/:tenantId', async (req, res) => {
         }, {}) || {};
 
         // Get top business customers by spending
-        const { data: topBusinessCustomers } = await supabase
+        const { data: topBusinessCustomers } = await dbClient
             .from('customer_profiles')
             .select('company, total_spent, total_orders, business_verified')
             .eq('tenant_id', tenantId)
@@ -868,7 +869,7 @@ router.get('/customers/:tenantId', async (req, res) => {
         }
 
         // Build dynamic query with filters
-        let query = supabase
+        let query = dbClient
             .from('customer_profiles')
             .select(`
                 *,
@@ -934,7 +935,7 @@ router.get('/customers/:tenantId', async (req, res) => {
 
         if (customerIds.length > 0) {
             // Get recent orders for these customers
-            const { data: recentOrders } = await supabase
+            const { data: recentOrders } = await dbClient
                 .from('orders')
                 .select('id, total_amount, created_at, order_status, conversation_id')
                 .eq('tenant_id', tenantId)
@@ -1000,7 +1001,7 @@ router.get('/customers/:tenantId/:customerId', async (req, res) => {
         const { tenantId, customerId } = req.params;
 
         // Get customer profile
-        const { data: customer, error: customerError } = await supabase
+        const { data: customer, error: customerError } = await dbClient
             .from('customer_profiles')
             .select('*')
             .eq('tenant_id', tenantId)
@@ -1012,7 +1013,7 @@ router.get('/customers/:tenantId/:customerId', async (req, res) => {
         }
 
         // Get all orders for this customer
-        const { data: orders, error: ordersError } = await supabase
+        const { data: orders, error: ordersError } = await dbClient
             .from('orders')
             .select(`
                 id,
@@ -1030,7 +1031,7 @@ router.get('/customers/:tenantId/:customerId', async (req, res) => {
             .order('created_at', { ascending: false });
 
         // Get customer notes
-        const { data: notes, error: notesError } = await supabase
+        const { data: notes, error: notesError } = await dbClient
             .from('customer_notes')
             .select('*')
             .eq('customer_id', customerId)
@@ -1105,7 +1106,7 @@ router.put('/customers/:tenantId/:customerId', async (req, res) => {
         if (payment_terms !== undefined) updateData.payment_terms = payment_terms;
         if (communication_preference !== undefined) updateData.communication_preference = communication_preference;
 
-        const { data: customer, error } = await supabase
+        const { data: customer, error } = await dbClient
             .from('customer_profiles')
             .update(updateData)
             .eq('tenant_id', tenantId)
@@ -1165,7 +1166,7 @@ router.post('/customers/:tenantId/:customerId/notes', async (req, res) => {
             noteData.follow_up_date = follow_up_date;
         }
 
-        const { data: note, error } = await supabase
+        const { data: note, error } = await dbClient
             .from('customer_notes')
             .insert(noteData)
             .select()
@@ -1205,7 +1206,7 @@ router.patch('/customers/:tenantId/notes/:noteId', async (req, res) => {
         if (note_text !== undefined) updateData.note_text = note_text;
         if (priority !== undefined) updateData.priority = priority;
 
-        const { data: note, error } = await supabase
+        const { data: note, error } = await dbClient
             .from('customer_notes')
             .update(updateData)
             .eq('tenant_id', tenantId)
@@ -1241,7 +1242,7 @@ router.get('/stats/:tenantId', async (req, res) => {
         const { tenantId } = req.params;
 
         // Basic tenant validation
-        const { data: tenant, error: tenantError } = await supabase
+        const { data: tenant, error: tenantError } = await dbClient
             .from('tenants')
             .select('id, business_name')
             .eq('id', tenantId)
@@ -1252,24 +1253,24 @@ router.get('/stats/:tenantId', async (req, res) => {
         }
 
         // Safe read-only queries - no impact on WhatsApp system
-        // NOTE: In local SQLite mode, the Supabase-like wrapper may not return `count` for `{ head: true }` queries.
+        // NOTE: In local SQLite mode, the dbClient-like wrapper may not return `count` for `{ head: true }` queries.
         // We compute robust counts with a fallback to `data.length`.
         const [ordersCountRes, conversationsData, productsCountRes, ordersData] = await Promise.all([
-            supabase.from('orders').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId),
-            supabase.from('conversations').select('id').eq('tenant_id', tenantId),
-            supabase.from('products').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId),
-            supabase.from('orders').select('total_amount').eq('tenant_id', tenantId)
+            dbClient.from('orders').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId),
+            dbClient.from('conversations').select('id').eq('tenant_id', tenantId),
+            dbClient.from('products').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId),
+            dbClient.from('orders').select('total_amount').eq('tenant_id', tenantId)
         ]);
 
         let totalOrders = ordersCountRes?.count;
         if (typeof totalOrders !== 'number') {
-            const ordersRowsRes = await supabase.from('orders').select('id').eq('tenant_id', tenantId);
+            const ordersRowsRes = await dbClient.from('orders').select('id').eq('tenant_id', tenantId);
             totalOrders = Array.isArray(ordersRowsRes?.data) ? ordersRowsRes.data.length : 0;
         }
 
         let totalProducts = productsCountRes?.count;
         if (typeof totalProducts !== 'number') {
-            const productsRowsRes = await supabase.from('products').select('id').eq('tenant_id', tenantId);
+            const productsRowsRes = await dbClient.from('products').select('id').eq('tenant_id', tenantId);
             totalProducts = Array.isArray(productsRowsRes?.data) ? productsRowsRes.data.length : 0;
         }
 
@@ -1280,14 +1281,14 @@ router.get('/stats/:tenantId', async (req, res) => {
         // Count messages for these conversations
         let totalMessages = 0;
         if (conversationIds.length > 0) {
-            const messagesCountRes = await supabase
+            const messagesCountRes = await dbClient
                 .from('messages')
                 .select('id', { count: 'exact', head: true })
                 .in('conversation_id', conversationIds);
 
             let messagesCount = messagesCountRes?.count;
             if (typeof messagesCount !== 'number') {
-                const messagesRowsRes = await supabase
+                const messagesRowsRes = await dbClient
                     .from('messages')
                     .select('id')
                     .in('conversation_id', conversationIds);
@@ -1320,6 +1321,118 @@ router.get('/stats/:tenantId', async (req, res) => {
 });
 
 /**
+ * READ-ONLY reports snapshot
+ * GET /api/dashboard/reports/:tenantId
+ * Notes:
+ * - Uses safe select + in-memory aggregation for SQLite wrapper compatibility.
+ */
+router.get('/reports/:tenantId', async (req, res) => {
+    try {
+        const { tenantId } = req.params;
+
+        const { data: tenant, error: tenantError } = await dbClient
+            .from('tenants')
+            .select('id')
+            .eq('id', tenantId)
+            .single();
+
+        if (tenantError || !tenant) {
+            return res.status(404).json({ success: false, error: 'Tenant not found' });
+        }
+
+        const now = new Date();
+        const todayPrefix = now.toISOString().slice(0, 10); // YYYY-MM-DD
+        const last24hMs = 24 * 60 * 60 * 1000;
+        const last24hCutoff = new Date(Date.now() - last24hMs).toISOString();
+
+        const [triageRes, stagesRes, itemsRes, bulkRes, auditRes] = await Promise.all([
+            dbClient.from('triage_queue').select('status, created_at, updated_at, closed_at').eq('tenant_id', tenantId),
+            dbClient.from('lead_pipeline_stages').select('id, name, position').eq('tenant_id', tenantId).order('position', { ascending: true }),
+            dbClient.from('lead_pipeline_items').select('stage_id, created_at, updated_at').eq('tenant_id', tenantId),
+            // Fetch a bounded set of recent bulk rows and filter in JS for "today" because timestamps may vary in format.
+            dbClient.from('bulk_schedules').select('status, delivery_status, created_at, delivered_at').eq('tenant_id', tenantId).order('created_at', { ascending: false }).limit(2000),
+            dbClient.from('audit_logs').select('created_at, action').eq('tenant_id', tenantId).order('created_at', { ascending: false }).limit(2000)
+        ]);
+
+        const triageRows = Array.isArray(triageRes?.data) ? triageRes.data : [];
+        const stageRows = Array.isArray(stagesRes?.data) ? stagesRes.data : [];
+        const itemRows = Array.isArray(itemsRes?.data) ? itemsRes.data : [];
+        const bulkRows = Array.isArray(bulkRes?.data) ? bulkRes.data : [];
+        const auditRows = Array.isArray(auditRes?.data) ? auditRes.data : [];
+
+        // --- Triage ---
+        const triageByStatus = triageRows.reduce((acc, r) => {
+            const key = String(r.status || 'UNKNOWN');
+            acc[key] = (acc[key] || 0) + 1;
+            return acc;
+        }, {});
+
+        // --- Leads Pipeline ---
+        const pipelineCountsByStageId = itemRows.reduce((acc, r) => {
+            const key = String(r.stage_id || '');
+            if (!key) return acc;
+            acc[key] = (acc[key] || 0) + 1;
+            return acc;
+        }, {});
+        const pipelineStages = stageRows.map((s) => ({
+            id: s.id,
+            name: s.name,
+            position: s.position,
+            count: pipelineCountsByStageId[String(s.id)] || 0
+        }));
+        const pipelineTotal = itemRows.length;
+
+        // --- Broadcasts (today) ---
+        const isSameDay = (ts) => {
+            if (!ts) return false;
+            const str = String(ts);
+            return str.startsWith(todayPrefix);
+        };
+
+        const todayBulk = bulkRows.filter((r) => isSameDay(r.delivered_at) || isSameDay(r.created_at));
+        const broadcastToday = todayBulk.reduce((acc, r) => {
+            const status = String(r.status || r.delivery_status || 'unknown').toLowerCase();
+            if (status.includes('sent') || status.includes('delivered')) acc.sent += 1;
+            else if (status.includes('fail')) acc.failed += 1;
+            else acc.pending += 1;
+            return acc;
+        }, { sent: 0, failed: 0, pending: 0, total: todayBulk.length });
+
+        // --- Audit (last 24h) ---
+        const auditLast24h = auditRows.filter((r) => {
+            const createdAt = r.created_at ? String(r.created_at) : '';
+            // Prefer ISO comparisons when possible; fall back to day prefix.
+            if (createdAt.includes('T')) return createdAt >= last24hCutoff;
+            return createdAt.startsWith(todayPrefix);
+        });
+
+        return res.json({
+            success: true,
+            reports: {
+                triage: {
+                    total: triageRows.length,
+                    byStatus: triageByStatus
+                },
+                leadsPipeline: {
+                    total: pipelineTotal,
+                    stages: pipelineStages
+                },
+                broadcasts: {
+                    today: broadcastToday
+                },
+                audit: {
+                    total: auditRows.length,
+                    last24h: auditLast24h.length
+                }
+            }
+        });
+    } catch (error) {
+        console.error('[DASHBOARD_REPORTS] Error building reports:', error);
+        return res.status(500).json({ success: false, error: error.message || String(error) });
+    }
+});
+
+/**
  * GET /api/dashboard/orders/:tenantId
  *
  * Returns enriched orders for dashboard listing. Includes customer fallback, GST/shipping fields,
@@ -1334,7 +1447,7 @@ router.get('/orders/:tenantId', async (req, res) => {
 
         // In local SQLite mode, schemas can vary; selecting missing columns (e.g. original_amount)
         // causes a hard failure at prepare-time. Use SELECT * to avoid column drift.
-        let query = supabase.from('orders');
+        let query = dbClient.from('orders');
         if (USE_LOCAL_DB) {
             query = query.select('*');
         } else {
@@ -1377,7 +1490,7 @@ router.get('/orders/:tenantId', async (req, res) => {
         let customerFilterPhones = [];
         if (customer) {
             // Try to find conversation ids with matching phone
-            const { data: convs, error: convErr } = await supabase
+            const { data: convs, error: convErr } = await dbClient
                 .from('conversations')
                 .select('id, end_user_phone')
                 .ilike('end_user_phone', `%${customer}%`);
@@ -1403,7 +1516,7 @@ router.get('/orders/:tenantId', async (req, res) => {
         let filteredOrderIds = null;
         if (product && orders && orders.length) {
             // Fetch order_items with matching product fields
-            const { data: orderItems, error: itemError } = await supabase
+            const { data: orderItems, error: itemError } = await dbClient
                 .from('order_items')
                 .select('order_id, products ( name, sku, model_number )')
                 .in('order_id', orders.map(o => o.id));
@@ -1434,7 +1547,7 @@ router.get('/orders/:tenantId', async (req, res) => {
         let convMap = {};
 
         if (convIds.length > 0) {
-            const { data: convs, error: convError } = await supabase
+            const { data: convs, error: convError } = await dbClient
                 .from('conversations')
                 .select('id, end_user_phone')
                 .in('id', convIds);
@@ -1448,7 +1561,7 @@ router.get('/orders/:tenantId', async (req, res) => {
         }
 
         // Attempt to fetch order_items joined with products (if schema exists).
-        // This is optional – if tables don't exist, we will degrade gracefully.
+        // This is optional â€“ if tables don't exist, we will degrade gracefully.
         const orderIds = enrichedOrders.map(o => o.id).filter(Boolean);
         let itemsMap = {};
 
@@ -1456,7 +1569,7 @@ router.get('/orders/:tenantId', async (req, res) => {
             try {
                 // Attempt relational select: order_items with products nested
                 // Adjust column names if your schema differs.
-                const { data: orderItems, error: itemError } = await supabase
+                const { data: orderItems, error: itemError } = await dbClient
                     .from('order_items')
                     .select(`
                         order_id,
@@ -1502,7 +1615,7 @@ router.get('/orders/:tenantId', async (req, res) => {
             // Try to get company by customer phone (from conversation)
             const customerPhones = enrichedOrders.map(o => convMap[o.conversation_id]?.end_user_phone).filter(Boolean);
             if (customerPhones.length > 0) {
-                const { data: profiles, error: profileErr } = await supabase
+                const { data: profiles, error: profileErr } = await dbClient
                     .from('customer_profiles')
                     .select('phone, company')
                     .in('phone', customerPhones);
@@ -1572,7 +1685,7 @@ router.get('/orders/:tenantId', async (req, res) => {
 
     } catch (error) {
         console.error('Orders API error:', error);
-        // Return underlying message where safe â€" this helps debug
+        // Return underlying message where safe Ã¢â‚¬" this helps debug
         res.status(500).json({ error: 'Failed to load orders', details: error?.message || String(error) });
     }
 });
@@ -1586,7 +1699,7 @@ router.get('/order/:orderId', async (req, res) => {
         const { orderId } = req.params;
         
         // Get order
-        const { data: order, error: orderError } = await supabase
+        const { data: order, error: orderError } = await dbClient
             .from('orders')
             .select('*')
             .eq('id', orderId)
@@ -1597,7 +1710,7 @@ router.get('/order/:orderId', async (req, res) => {
         }
         
         // Get order items with product details
-        const { data: items, error: itemsError } = await supabase
+        const { data: items, error: itemsError } = await dbClient
             .from('order_items')
             .select(`
                 *,
@@ -1617,7 +1730,7 @@ router.get('/order/:orderId', async (req, res) => {
         // Get conversation for phone
         let customer_phone = order.customer_phone;
         if (order.conversation_id && !customer_phone) {
-            const { data: conv } = await supabase
+            const { data: conv } = await dbClient
                 .from('conversations')
                 .select('end_user_phone')
                 .eq('id', order.conversation_id)
@@ -1666,7 +1779,7 @@ router.patch('/orders/:orderId/status', async (req, res) => {
             return res.status(400).json({ success: false, error: 'Invalid status' });
         }
 
-        const { data, error } = await supabase
+        const { data, error } = await dbClient
             .from('orders')
             .update({ status, order_status: status })
             .eq('id', orderId)
@@ -1695,7 +1808,7 @@ router.get('/conversations/:tenantId', async (req, res) => {
 
         console.log(`Fetching conversations for tenant: ${tenantId}`);
 
-        let convQuery = supabase.from('conversations');
+        let convQuery = dbClient.from('conversations');
         if (USE_LOCAL_DB) {
             // Local SQLite schemas can drift; select('*') avoids hard failures on missing columns.
             convQuery = convQuery.select('*');
@@ -1733,7 +1846,7 @@ router.get('/conversations/:tenantId', async (req, res) => {
             conversations.map(async (conv) => {
                 console.log('[CONV_DEBUG] Processing conversation:', conv.id, 'Phone:', conv.end_user_phone);
                 try {
-                    const { data: messages, error: msgError } = await supabase
+                    const { data: messages, error: msgError } = await dbClient
                         .from('messages')
                         .select('message_body, sender, created_at, message_type')
                         .eq('conversation_id', conv.id)
@@ -1767,7 +1880,7 @@ router.get('/conversations/:tenantId', async (req, res) => {
                     let initials = (conv.end_user_phone || 'U').substring(0, 1).toUpperCase();
                     
                     try {
-                        const { data: customerProfile } = await supabase
+                        const { data: customerProfile } = await dbClient
                             .from('customer_profiles')
                             .select('id, company, first_name, last_name')
                             .eq('phone', conv.end_user_phone)
@@ -1897,7 +2010,7 @@ router.get('/debug/messages/:tenantId', async (req, res) => {
     try {
         const { tenantId } = req.params;
 
-        const { data: sampleMessages, error } = await supabase
+        const { data: sampleMessages, error } = await dbClient
             .from('messages')
             .select('*')
             .eq('tenant_id', tenantId)
@@ -1937,7 +2050,7 @@ router.get('/products/:tenantId', async (req, res) => {
 
         if (!tenantId) return res.status(400).json({ error: 'tenantId required' });
 
-        const { data: products, error } = await supabase
+        const { data: products, error } = await dbClient
             .from('products')
             .select(`
                 id,
@@ -1955,7 +2068,7 @@ router.get('/products/:tenantId', async (req, res) => {
             .range(offset, offset + limit - 1);
 
         if (error) {
-            console.error('[Products API] supabase error:', error);
+            console.error('[Products API] dbClient error:', error);
             return res.status(500).json({ error: 'Failed to load products', details: error.message || error });
         }
 
@@ -1970,7 +2083,7 @@ router.get('/products/:tenantId', async (req, res) => {
  * Products performance route (placeholder until order_items aggregates are available)
  */
 async function fetchProductsForTenant(tenantId) {
-    const { data, error } = await supabase
+    const { data, error } = await dbClient
         .from('products')
         .select(`
             id,
@@ -2001,7 +2114,7 @@ router.get('/products/performance/:tenantId', async (req, res) => {
     try {
         // Support search filtering
         const search = (req.query.search || '').trim();
-        let query = supabase
+        let query = dbClient
             .from('products')
             .select(`
                 id,
@@ -2033,11 +2146,11 @@ router.get('/products/performance/:tenantId', async (req, res) => {
             throw productsError;
         }
 
-        // Get sales data (avoid PostgREST join syntax; works in both Supabase and local SQLite)
+        // Get sales data (avoid PostgREST join syntax; works in both dbClient and local SQLite)
         let salesData = null;
         let salesError = null;
 
-        const { data: tenantOrders, error: tenantOrdersError } = await supabase
+        const { data: tenantOrders, error: tenantOrdersError } = await dbClient
             .from('orders')
             .select('id')
             .eq('tenant_id', tenantId);
@@ -2049,7 +2162,7 @@ router.get('/products/performance/:tenantId', async (req, res) => {
             if (orderIds.length === 0) {
                 salesData = [];
             } else {
-                const resItems = await supabase
+                const resItems = await dbClient
                     .from('order_items')
                     .select('order_id, product_id, quantity, price_at_time_of_purchase')
                     .in('order_id', orderIds);
@@ -2083,7 +2196,7 @@ router.get('/products/performance/:tenantId', async (req, res) => {
 
                 salesByProduct[productId].totalQuantity += quantity;
                 salesByProduct[productId].totalRevenue += revenue;
-                // In local mode we only have order_id; in Supabase join mode we have item.orders.id
+                // In local mode we only have order_id; in dbClient join mode we have item.orders.id
                 const orderId = item.order_id || item?.orders?.id;
                 if (orderId) salesByProduct[productId].totalOrders.add(orderId);
             });
@@ -2134,7 +2247,7 @@ router.get('/products/performance/:tenantId', async (req, res) => {
 router.delete('/products/:tenantId/:productId', async (req, res) => {
     try {
         const { tenantId, productId } = req.params;
-        const { data, error } = await supabase
+        const { data, error } = await dbClient
             .from('products')
             .delete()
             .eq('tenant_id', tenantId)
@@ -2159,7 +2272,7 @@ router.delete('/products/:tenantId/:productId', async (req, res) => {
 router.delete('/products/:tenantId', async (req, res) => {
     try {
         const { tenantId } = req.params;
-        const { data, error } = await supabase
+        const { data, error } = await dbClient
             .from('products')
             .delete()
             .eq('tenant_id', tenantId)
@@ -2192,7 +2305,7 @@ router.get('/analytics/:tenantId', async (req, res) => {
         const startDate = new Date();
         startDate.setDate(startDate.getDate() - parseInt(period));
 
-        const { data: dailySales, error: salesError } = await supabase
+        const { data: dailySales, error: salesError } = await dbClient
             .from('orders')
             .select('total_amount, created_at')
             .eq('tenant_id', tenantId)
@@ -2207,7 +2320,7 @@ router.get('/analytics/:tenantId', async (req, res) => {
             salesByDate[date] = (salesByDate[date] || 0) + order.total_amount;
         });
 
-        const { data: customerActivity, error: activityError } = await supabase
+        const { data: customerActivity, error: activityError } = await dbClient
             .from('messages')
             .select('created_at, sender')
             .eq('tenant_id', tenantId)
@@ -2248,7 +2361,7 @@ router.get('/customers/:tenantId', async (req, res) => {
     try {
         const { tenantId } = req.params;
 
-        const { data: topCustomers, error } = await supabase
+        const { data: topCustomers, error } = await dbClient
             .from('conversations')
             .select(`
                 end_user_phone,
@@ -2296,7 +2409,7 @@ router.get('/conversation/:tenantId/:conversationId', async (req, res) => {
             return res.status(400).json({ success: false, error: 'tenantId and conversationId required' });
         }
 
-        const { data: conversation, error: convError } = await supabase
+        const { data: conversation, error: convError } = await dbClient
             .from('conversations')
             .select('*')
             .eq('id', conversationId)
@@ -2314,7 +2427,7 @@ router.get('/conversation/:tenantId/:conversationId', async (req, res) => {
             console.log('[CONV_DETAIL_DEBUG] Conversation found:', conversation.id, conversation.tenant_id);
         }
 
-        const { data: messages, error: msgError } = await supabase
+        const { data: messages, error: msgError } = await dbClient
             .from('messages')
             .select('id, sender, message_body, message_type, created_at')
             .eq('conversation_id', conversationId)
@@ -2340,7 +2453,7 @@ router.get('/conversation/:conversationId', async (req, res) => {
     try {
         const { conversationId } = req.params;
         
-        const { data: conversation, error: convError } = await supabase
+        const { data: conversation, error: convError } = await dbClient
             .from('conversations')
             .select('*')
             .eq('id', conversationId)
@@ -2365,7 +2478,7 @@ router.get('/messages/:conversationId', async (req, res) => {
     try {
         const { conversationId } = req.params;
         
-        const { data: messages, error: msgError } = await supabase
+        const { data: messages, error: msgError } = await dbClient
             .from('messages')
             .select('id, sender, message_body, message_type, created_at')
             .eq('conversation_id', conversationId)
@@ -2398,7 +2511,7 @@ router.post('/conversation/:tenantId/:conversationId/reply', async (req, res) =>
             return res.status(400).json({ success: false, error: 'text required' });
         }
 
-        const { data: conversation, error: convError } = await supabase
+        const { data: conversation, error: convError } = await dbClient
             .from('conversations')
             .select('*')
             .eq('id', conversationId)
@@ -2418,7 +2531,7 @@ router.post('/conversation/:tenantId/:conversationId/reply', async (req, res) =>
             return res.status(400).json({ success: false, error: 'Conversation has no phone number' });
         }
 
-        const messageId = await sendMessage(to, text);
+        const messageId = await sendMessage(to, text, tenantId);
         if (!messageId) {
             return res.status(502).json({ success: false, error: 'Failed to send WhatsApp message' });
         }
@@ -2435,7 +2548,7 @@ router.post('/conversation/:tenantId/:conversationId/reply', async (req, res) =>
             messagePayload.tenant_id = tenantId;
         }
 
-        const { error: insertError } = await supabase
+        const { error: insertError } = await dbClient
             .from('messages')
             .insert(messagePayload);
 
@@ -2445,7 +2558,7 @@ router.post('/conversation/:tenantId/:conversationId/reply', async (req, res) =>
             return res.json({ success: true, messageId, warning: 'Sent but failed to log message' });
         }
 
-        await supabase
+        await dbClient
             .from('conversations')
             .update({ updated_at: new Date().toISOString() })
             .eq('id', conversationId)
@@ -2466,7 +2579,7 @@ router.get('/settings/:tenantId', async (req, res) => {
     try {
         const { tenantId } = req.params;
         
-        const { data: tenant, error } = await supabase
+        const { data: tenant, error } = await dbClient
             .from('tenants')
             .select('*')
             .eq('id', tenantId)
@@ -2488,7 +2601,19 @@ router.get('/settings/:tenantId', async (req, res) => {
                 free_shipping_threshold: tenant.free_shipping_threshold || 10000,
                 standard_shipping_rate: tenant.standard_shipping_rate || 20,
                 bulk_shipping_rate: tenant.bulk_shipping_rate || 15,
-                bulk_threshold: tenant.bulk_threshold || 15
+                bulk_threshold: tenant.bulk_threshold || 15,
+
+                // AI settings (do not return raw keys)
+                openai_model: tenant.openai_model || process.env.AI_MODEL_FAST || 'grok-code-fast-1',
+                openai_project: tenant.openai_project || '',
+                openai_api_key_set: !!(tenant.openai_api_key || process.env.OPENAI_API_KEY),
+                anthropic_api_key_set: !!tenant.anthropic_api_key,
+                gemini_api_key_set: !!tenant.gemini_api_key,
+
+                // Maytapi settings (mask key)
+                maytapi_product_id: tenant.maytapi_product_id || '',
+                maytapi_phone_id: tenant.maytapi_phone_id || '',
+                maytapi_api_key_set: !!(tenant.maytapi_api_key || process.env.MAYTAPI_API_KEY)
             }
         });
     } catch (err) {
@@ -2504,11 +2629,50 @@ router.get('/settings/:tenantId', async (req, res) => {
 router.put('/settings/:tenantId', async (req, res) => {
     try {
         const { tenantId } = req.params;
-        const settings = req.body;
+        const settings = req.body || {};
+
+        const allowed = [
+            'business_name',
+            'gstin',
+            'business_address',
+            'business_state',
+            'gst_rate',
+            'free_shipping_threshold',
+            'standard_shipping_rate',
+            'bulk_shipping_rate',
+            'bulk_threshold',
+            // AI
+            'openai_model',
+            'openai_project',
+            'openai_api_key',
+            'anthropic_api_key',
+            'gemini_api_key',
+            // Maytapi
+            'maytapi_product_id',
+            'maytapi_phone_id',
+            'maytapi_api_key'
+        ];
+
+        const updatePayload = {};
+        for (const key of allowed) {
+            if (Object.prototype.hasOwnProperty.call(settings, key)) {
+                updatePayload[key] = settings[key];
+            }
+        }
+
+        // Do not overwrite secrets with empty strings
+        for (const secretKey of ['openai_api_key', 'anthropic_api_key', 'gemini_api_key', 'maytapi_api_key']) {
+            if (Object.prototype.hasOwnProperty.call(updatePayload, secretKey)) {
+                const val = String(updatePayload[secretKey] || '').trim();
+                if (!val) {
+                    delete updatePayload[secretKey];
+                }
+            }
+        }
         
-        const { data, error } = await supabase
+        const { data, error } = await dbClient
             .from('tenants')
-            .update(settings)
+            .update(updatePayload)
             .eq('id', tenantId)
             .select()
             .single();
@@ -2522,6 +2686,38 @@ router.put('/settings/:tenantId', async (req, res) => {
     } catch (err) {
         console.error('[Settings Update Error]', err);
         res.status(500).json({ success: false, error: 'Failed to update settings' });
+    }
+});
+
+/**
+ * GET /api/dashboard/audit-logs/:tenantId
+ * List recent audit logs for a tenant
+ * Query params: limit (default 200)
+ */
+router.get('/audit-logs/:tenantId', async (req, res) => {
+    try {
+        const { tenantId } = req.params;
+        const limitRaw = req.query.limit != null ? Number(req.query.limit) : 200;
+        const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(limitRaw, 1), 500) : 200;
+
+        let query = dbClient
+            .from('audit_logs')
+            .select('id, tenant_id, actor_type, actor_id, actor_name, action, entity_type, entity_id, summary, metadata, created_at')
+            .eq('tenant_id', tenantId)
+            .order('created_at', { ascending: false })
+            .limit(limit);
+
+        const { data, error } = await query;
+
+        if (error) {
+            // In some environments the table may not exist yet.
+            return res.json({ success: true, logs: [], warning: error.message || String(error) });
+        }
+
+        return res.json({ success: true, logs: data || [] });
+    } catch (error) {
+        console.error('[DASHBOARD_API] Error fetching audit logs:', error);
+        return res.status(500).json({ success: false, error: error.message || String(error) });
     }
 });
 
@@ -2633,7 +2829,7 @@ router.put('/products/:tenantId/:productId', async (req, res) => {
         const updateData = req.body;
 
         // Only allow updates for products belonging to the tenant
-        const { data: product, error: fetchError } = await supabase
+        const { data: product, error: fetchError } = await dbClient
             .from('products')
             .select('id')
             .eq('tenant_id', tenantId)
@@ -2645,7 +2841,7 @@ router.put('/products/:tenantId/:productId', async (req, res) => {
         }
 
         // Update product
-        const { data: updated, error: updateError } = await supabase
+        const { data: updated, error: updateError } = await dbClient
             .from('products')
             .update(updateData)
             .eq('tenant_id', tenantId)
@@ -2694,12 +2890,12 @@ router.post('/products/:tenantId', async (req, res) => {
             units_per_carton: body.units_per_carton ?? 1
         };
 
-        // In Supabase mode, some schemas use `category_id` as the FK; set it when safe.
+        // In dbClient mode, some schemas use `category_id` as the FK; set it when safe.
         if (!useLocalDb && insertData.category) {
             insertData.category_id = insertData.category;
         }
 
-        const { data: created, error } = await supabase
+        const { data: created, error } = await dbClient
             .from('products')
             .insert([insertData])
             .select()

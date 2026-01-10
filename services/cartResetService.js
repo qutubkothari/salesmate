@@ -1,5 +1,5 @@
-// Enhanced cart and conversation management utilities
-const { supabase } = require('./config');
+﻿// Enhanced cart and conversation management utilities
+const { dbClient } = require('./config');
 
 /**
  * Handles conversation reset when new chat session starts
@@ -8,7 +8,7 @@ const { supabase } = require('./config');
 const handleConversationReset = async (tenantId, endUserPhone) => {
     try {
         // Check if conversation is stale (inactive for X hours)
-        const { data: conversation } = await supabase
+        const { data: conversation } = await dbClient
             .from('conversations')
             .select('*')
             .eq('tenant_id', tenantId)
@@ -25,7 +25,7 @@ const handleConversationReset = async (tenantId, endUserPhone) => {
                 console.log('[CART_RESET] Conversation stale, clearing cart for', endUserPhone);
                 
                 // Get cart ID first
-                const { data: cart } = await supabase
+                const { data: cart } = await dbClient
                     .from('carts')
                     .select('id')
                     .eq('conversation_id', conversation.id)
@@ -33,7 +33,7 @@ const handleConversationReset = async (tenantId, endUserPhone) => {
 
                 if (cart) {
                     // Clear cart items
-                    const { error: deleteError } = await supabase
+                    const { error: deleteError } = await dbClient
                         .from('cart_items')
                         .delete()
                         .eq('cart_id', cart.id);
@@ -46,7 +46,7 @@ const handleConversationReset = async (tenantId, endUserPhone) => {
                 }
 
                 // Reset conversation state
-                const { error: updateError } = await supabase
+                const { error: updateError } = await dbClient
                     .from('conversations')
                     .update({
                         state: null,
@@ -84,7 +84,7 @@ const addOrUpdateCartItemEnhanced = async (cartId, productId, quantity, options 
             return { success: false, error: `Cannot add more than ${MAX_CARTONS} cartons per item.` };
         }
         // Try to find existing item
-        const { data: existing, error: errFind } = await supabase
+        const { data: existing, error: errFind } = await dbClient
             .from('cart_items')
             .select('id, quantity')
             .eq('cart_id', cartId)
@@ -100,7 +100,7 @@ const addOrUpdateCartItemEnhanced = async (cartId, productId, quantity, options 
                     updateData.carton_price_override = carton_price_override;
                     console.log('[CART_ENHANCED] Setting personalized price:', carton_price_override);
                 }
-                const { error: errUpdate } = await supabase
+                const { error: errUpdate } = await dbClient
                     .from('cart_items')
                     .update(updateData)
                     .eq('id', existing.id);
@@ -119,7 +119,7 @@ const addOrUpdateCartItemEnhanced = async (cartId, productId, quantity, options 
                     updateData.carton_price_override = carton_price_override;
                     console.log('[CART_ENHANCED] Setting personalized price:', carton_price_override);
                 }
-                const { error: errUpdate } = await supabase
+                const { error: errUpdate } = await dbClient
                     .from('cart_items')
                     .update(updateData)
                     .eq('id', existing.id);
@@ -138,7 +138,7 @@ const addOrUpdateCartItemEnhanced = async (cartId, productId, quantity, options 
                 insertData.carton_price_override = carton_price_override;
                 console.log('[CART_ENHANCED] Setting personalized price on new item:', carton_price_override);
             }
-            const { data: inserted, error: errInsert } = await supabase
+            const { data: inserted, error: errInsert } = await dbClient
                 .from('cart_items')
                 .insert(insertData)
                 .select('*')
@@ -156,7 +156,7 @@ const addOrUpdateCartItemEnhanced = async (cartId, productId, quantity, options 
 const forceCartResetOnNewOrder = async (tenantId, endUserPhone) => {
     try {
         // Get conversationId
-        const { data: conversation } = await supabase
+        const { data: conversation } = await dbClient
             .from('conversations')
             .select('*')
             .eq('tenant_id', tenantId)
@@ -164,16 +164,16 @@ const forceCartResetOnNewOrder = async (tenantId, endUserPhone) => {
             .single();
         if (!conversation) return { success: false };
         // Get cart
-        const { data: cart } = await supabase
+        const { data: cart } = await dbClient
             .from('carts')
             .select('id')
             .eq('conversation_id', conversation.id)
             .single();
         if (cart) {
-            await supabase.from('cart_items').delete().eq('cart_id', cart.id);
+            await dbClient.from('cart_items').delete().eq('cart_id', cart.id);
         }
         // Reset conversation state
-        await supabase
+        await dbClient
             .from('conversations')
             .update({
                 state: null,
@@ -198,15 +198,15 @@ const clearCart = async (tenantId, endUserPhone) => {
         const conversationId = await getConversationId(tenantId, endUserPhone);
         if (!conversationId) return "Could not identify your conversation.";
 
-        const { data: cart } = await supabase
+        const { data: cart } = await dbClient
             .from('carts')
             .select('id')
             .eq('conversation_id', conversationId)
             .single();
 
         if (cart) {
-            await supabase.from('cart_items').delete().eq('cart_id', cart.id);
-            await supabase.from('carts').update({ 
+            await dbClient.from('cart_items').delete().eq('cart_id', cart.id);
+            await dbClient.from('carts').update({ 
                 applied_discount_id: null, 
                 discount_amount: 0,
                 updated_at: new Date().toISOString()
@@ -214,7 +214,7 @@ const clearCart = async (tenantId, endUserPhone) => {
         }
 
         // FIXED: Only update columns that exist
-        await supabase
+        await dbClient
             .from('conversations')
             .update({
                 state: null,
@@ -244,7 +244,7 @@ const forceClearCartSimple = async (tenantId, endUserPhone) => {
         }
 
         // Get all carts for this conversation
-        const { data: carts } = await supabase
+        const { data: carts } = await dbClient
             .from('carts')
             .select('id')
             .eq('conversation_id', conversationId);
@@ -252,7 +252,7 @@ const forceClearCartSimple = async (tenantId, endUserPhone) => {
         if (carts && carts.length > 0) {
             for (const cart of carts) {
                 // Delete all cart items
-                await supabase
+                await dbClient
                     .from('cart_items')
                     .delete()
                     .eq('cart_id', cart.id);
@@ -262,7 +262,7 @@ const forceClearCartSimple = async (tenantId, endUserPhone) => {
         }
 
         // Reset only the essential conversation fields that we know exist
-        const { error: resetError } = await supabase
+        const { error: resetError } = await dbClient
             .from('conversations')
             .update({
                 state: null,
@@ -295,14 +295,14 @@ const clearCartSafe = async (tenantId, endUserPhone) => {
         if (!conversationId) return "Could not identify your conversation.";
 
         // First, clear the cart items (this should always work)
-        const { data: cart } = await supabase
+        const { data: cart } = await dbClient
             .from('carts')
             .select('id')
             .eq('conversation_id', conversationId)
             .single();
 
         if (cart) {
-            const { error: clearError } = await supabase
+            const { error: clearError } = await dbClient
                 .from('cart_items')
                 .delete()
                 .eq('cart_id', cart.id);
@@ -313,7 +313,7 @@ const clearCartSafe = async (tenantId, endUserPhone) => {
             }
 
             // Reset cart metadata
-            await supabase
+            await dbClient
                 .from('carts')
                 .update({ 
                     applied_discount_id: null, 
@@ -325,7 +325,7 @@ const clearCartSafe = async (tenantId, endUserPhone) => {
 
         // Try to reset conversation state with minimal fields
         try {
-            await supabase
+            await dbClient
                 .from('conversations')
                 .update({
                     state: null,
@@ -339,7 +339,7 @@ const clearCartSafe = async (tenantId, endUserPhone) => {
             console.warn('[CART_CLEAR_SAFE] Conversation reset failed, but cart is cleared:', convError.message);
         }
 
-        return "✅ Your shopping cart has been cleared successfully!";
+        return "âœ… Your shopping cart has been cleared successfully!";
 
     } catch (error) {
         console.error('[CART_CLEAR_SAFE] Error:', error.message);
@@ -373,3 +373,4 @@ if (!module.exports.addProductToCartEnhanced) {
         return { success: false, error: 'add_missing' };
     });
 }
+

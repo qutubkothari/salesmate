@@ -1,13 +1,14 @@
-/**
+﻿/**
  * @title Simplified Broadcast Service with Enforced Rate Limiting
  * @description Uses direct SQL for lock management, compatible with all PostgreSQL versions
  */
-const { supabase, openai } = require('./config');
+const { dbClient, openai } = require('./config');
 const { sendMessage, sendMessageWithImage } = require('./whatsappService');
 const { sendWebMessage, sendWebMessageWithMedia, getClientStatus } = require('./whatsappWebService');
 const { parseContactSheet } = require('./scheduleService');
 const chrono = require('chrono-node');
 const crypto = require('crypto');
+const { isUnsubscribed: isUnsubscribedUnified } = require('./unsubscribeService');
 
 // Configuration
 const BATCH_SIZE = 5;                         // Exactly 5 messages per batch
@@ -109,7 +110,7 @@ const personalizeMessage = async (messageTemplate, phoneNumber, tenantId) => {
         // Get tenant business name
         let businessName = 'Our Business';
         try {
-            const { data: tenant } = await supabase
+            const { data: tenant } = await dbClient
                 .from('tenants')
                 .select('business_name')
                 .eq('id', tenantId)
@@ -124,7 +125,7 @@ const personalizeMessage = async (messageTemplate, phoneNumber, tenantId) => {
         // Try to get contact name from conversations or customers
         let contactName = null;
         try {
-            const { data: conversation } = await supabase
+            const { data: conversation } = await dbClient
                 .from('conversations')
                 .select('end_user_name')
                 .eq('tenant_id', tenantId)
@@ -137,7 +138,7 @@ const personalizeMessage = async (messageTemplate, phoneNumber, tenantId) => {
         } catch (err) {
             // Try customers table
             try {
-                const { data: customer } = await supabase
+                const { data: customer } = await dbClient
                     .from('customers')
                     .select('name')
                     .eq('tenant_id', tenantId)
@@ -161,7 +162,7 @@ const personalizeMessage = async (messageTemplate, phoneNumber, tenantId) => {
         return personalizedMessage;
     } catch (error) {
         BroadcastLogger.error('Message personalization failed', error);
-        return messageTemplate; // Return original if personalization fails
+        return String(messageTemplate || '');
     }
 };
 
@@ -171,7 +172,7 @@ const personalizeMessage = async (messageTemplate, phoneNumber, tenantId) => {
 const getRandomGreeting = async (tenantId) => {
     try {
         // Get active templates for tenant
-        const { data: templates, error } = await supabase
+        const { data: templates, error } = await dbClient
             .from('greeting_templates')
             .select('id, template_text')
             .eq('is_active', true)
@@ -180,8 +181,8 @@ const getRandomGreeting = async (tenantId) => {
         if (error || !templates || templates.length === 0) {
             // Fallback greetings if database query fails
             const fallbackGreetings = [
-                'Hi {name}! 👋',
-                'Hello {name}! 😊',
+                'Hi {name}! ðŸ‘‹',
+                'Hello {name}! ðŸ˜Š',
                 'Hey {name}!',
                 'Good day {name}!',
                 'Hi there {name}!',
@@ -189,7 +190,7 @@ const getRandomGreeting = async (tenantId) => {
                 'Hey {name}, how are you?',
                 'Hi {name}, hope this message finds you well!',
                 'Hello dear {name}!',
-                'Hi {name}! 🌟'
+                'Hi {name}! ðŸŒŸ'
             ];
             return fallbackGreetings[Math.floor(Math.random() * fallbackGreetings.length)];
         }
@@ -198,9 +199,9 @@ const getRandomGreeting = async (tenantId) => {
         const randomTemplate = templates[Math.floor(Math.random() * templates.length)];
         
         // Update usage count
-        await supabase
+        await dbClient
             .from('greeting_templates')
-            .update({ usage_count: supabase.raw('usage_count + 1') })
+            .update({ usage_count: dbClient.raw('usage_count + 1') })
             .eq('id', randomTemplate.id);
         
         return randomTemplate.template_text;
@@ -234,8 +235,8 @@ const humanizeMessage = async (messageTemplate, phoneNumber, tenantId) => {
         // Add random variations
         const variations = [
             '', // No variation
-            ' 😊',
-            ' 🙂',
+            ' ðŸ˜Š',
+            ' ðŸ™‚',
             '!',
             '.',
         ];
@@ -289,21 +290,7 @@ const normalizePhoneNumber = (phone) => {
  */
 const isUnsubscribed = async (phoneNumber) => {
     try {
-        const { data, error } = await supabase
-            .from('unsubscribed_users')
-            .select('phone_number')
-            .eq('phone_number', phoneNumber)
-            .single();
-            
-        if (error && error.code !== 'PGRST116') {
-            BroadcastLogger.warn('Unsubscribe check failed, assuming subscribed', { 
-                phoneNumber, 
-                error: error.message 
-            });
-            return false;
-        }
-        
-        return !!data;
+        return await isUnsubscribedUnified(phoneNumber);
     } catch (error) {
         BroadcastLogger.warn('Unsubscribe check error, assuming subscribed', { 
             phoneNumber, 
@@ -319,7 +306,7 @@ const isUnsubscribed = async (phoneNumber) => {
 const acquireProcessingLock = async (processId) => {
     try {
         // First, check current lock status
-        const { data: lockData, error: lockError } = await supabase
+        const { data: lockData, error: lockError } = await dbClient
             .from('broadcast_processing_lock')
             .select('*')
             .eq('id', 1)
@@ -336,7 +323,7 @@ const acquireProcessingLock = async (processId) => {
         
         // If not processing or lock is stale, try to acquire
         if (!lockData.is_processing || isStale) {
-            const { error: updateError } = await supabase
+            const { error: updateError } = await dbClient
                 .from('broadcast_processing_lock')
                 .update({
                     is_processing: true,
@@ -373,7 +360,7 @@ const acquireProcessingLock = async (processId) => {
  */
 const releaseProcessingLock = async (processId) => {
     try {
-        const { error } = await supabase
+        const { error } = await dbClient
             .from('broadcast_processing_lock')
             .update({
                 is_processing: false,
@@ -399,7 +386,7 @@ const releaseProcessingLock = async (processId) => {
  */
 const checkBatchCooldown = async () => {
     try {
-        const { data: lastBatch, error } = await supabase
+        const { data: lastBatch, error } = await dbClient
             .from('broadcast_batch_log')
             .select('completed_at')
             .not('completed_at', 'is', null)
@@ -487,13 +474,13 @@ const processBroadcastQueue = async () => {
         });
         
         // Step 3: Get pending messages
-        const { data: pending, error } = await supabase
+        const { data: pending, error } = await dbClient
             .from('bulk_schedules')
             .select('*')
             .eq('status', 'pending')
-            .lte('scheduled_at', new Date().toISOString())  // ✅ Correct
+            .lte('scheduled_at', new Date().toISOString())  // âœ… Correct
             .lt('retry_count', MAX_RETRIES)
-            .order('scheduled_at')  // ✅ Correct
+            .order('scheduled_at')  // âœ… Correct
             .order('sequence_number')
             .limit(BATCH_SIZE);
             
@@ -510,7 +497,7 @@ const processBroadcastQueue = async () => {
         }
         
         // Step 4: Record batch start
-        const { data: batchLog, error: batchError } = await supabase
+        const { data: batchLog, error: batchError } = await dbClient
             .from('broadcast_batch_log')
             .insert({
                 process_id: processId,
@@ -545,7 +532,7 @@ const processBroadcastQueue = async () => {
             
             try {
                 // Mark as processing
-                await supabase
+                await dbClient
                     .from('bulk_schedules')
                     .update({ 
                         status: 'processing',
@@ -561,7 +548,7 @@ const processBroadcastQueue = async () => {
                 
                 // Check unsubscribe status
                 if (await isUnsubscribed(phoneNumber)) {
-                    await supabase
+                    await dbClient
                         .from('bulk_schedules')
                         .update({ 
                             status: 'skipped',
@@ -569,6 +556,20 @@ const processBroadcastQueue = async () => {
                             updated_at: new Date().toISOString()
                         })
                         .eq('id', message.id);
+
+                    // Reflect skip in per-contact tracking
+                    try {
+                        await dbClient
+                            .from(RECIPIENT_TRACKING_TABLE)
+                            .update({
+                                status: 'skipped',
+                                error_message: 'User unsubscribed'
+                            })
+                            .eq('campaign_id', message.campaign_id)
+                            .eq('phone', phoneNumber);
+                    } catch (e) {
+                        // Best-effort
+                    }
                     
                     BroadcastLogger.info('Message skipped - user unsubscribed', {
                         processId,
@@ -622,7 +623,7 @@ const processBroadcastQueue = async () => {
                 });
                 
                 // Mark as sent in bulk_schedules
-                await supabase
+                await dbClient
                     .from('bulk_schedules')
                     .update({ 
                         status: 'sent',
@@ -633,7 +634,7 @@ const processBroadcastQueue = async () => {
                     .eq('id', message.id);
                 
                 // Update recipient status in broadcast_recipients
-                await supabase
+                await dbClient
                     .from(RECIPIENT_TRACKING_TABLE)
                     .update({
                         status: 'sent',
@@ -643,7 +644,7 @@ const processBroadcastQueue = async () => {
                     .eq('phone', phoneNumber);
                 
                 // Increment daily message count
-                await supabase.rpc('increment_daily_message_count', { 
+                await dbClient.rpc('increment_daily_message_count', { 
                     p_tenant_id: message.tenant_id 
                 });
                 
@@ -673,7 +674,7 @@ const processBroadcastQueue = async () => {
                     updateData.delivery_status = 'failed';
                     
                     // Mark recipient as failed in broadcast_recipients
-                    await supabase
+                    await dbClient
                         .from(RECIPIENT_TRACKING_TABLE)
                         .update({
                             status: 'failed',
@@ -688,7 +689,7 @@ const processBroadcastQueue = async () => {
                     updateData.scheduled_at = nextRetryAt.toISOString();
                 }
                 
-                await supabase
+                await dbClient
                     .from('bulk_schedules')
                     .update(updateData)
                     .eq('id', message.id);
@@ -716,7 +717,7 @@ const processBroadcastQueue = async () => {
         }        
         // Step 6: Record batch completion and enforce cooldown
         if (batchLogId) {
-            await supabase
+            await dbClient
                 .from('broadcast_batch_log')
                 .update({
                     completed_at: new Date().toISOString(),
@@ -743,7 +744,7 @@ const processBroadcastQueue = async () => {
         });
         
         // Check remaining messages
-        const { data: remainingMessages } = await supabase
+        const { data: remainingMessages } = await dbClient
             .from('bulk_schedules')
             .select('count(*)')
             .eq('status', 'pending')
@@ -883,7 +884,7 @@ const scheduleMultiDayBroadcast = async (tenantId, campaignName, message, startA
                 auto_scheduled: true
             };
             
-            const { error: campaignError } = await supabase
+            const { error: campaignError } = await dbClient
                 .from('bulk_schedules')
                 .insert(campaignData);
             
@@ -905,7 +906,7 @@ const scheduleMultiDayBroadcast = async (tenantId, campaignName, message, startA
             
             for (let j = 0; j < recipients.length; j += INSERT_BATCH_SIZE) {
                 const recipientBatch = recipients.slice(j, j + INSERT_BATCH_SIZE);
-                const { error: recipientError } = await supabase
+                const { error: recipientError } = await dbClient
                     .from(RECIPIENT_TRACKING_TABLE)
                     .insert(recipientBatch);
                 
@@ -930,16 +931,16 @@ const scheduleMultiDayBroadcast = async (tenantId, campaignName, message, startA
         const schedule = dailyBatches.map((batch, index) => {
             const date = batch.sendAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
             const time = batch.sendAt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-            return `  📅 Day ${batch.dayNumber}: ${batch.recipients.length} contacts on ${date} at ${time}`;
+            return `  ðŸ“… Day ${batch.dayNumber}: ${batch.recipients.length} contacts on ${date} at ${time}`;
         }).join('\n');
         
-        return `✅ Multi-Day Broadcast Scheduled Successfully!\n\n` +
-               `📊 Campaign: ${campaignName}\n` +
-               `👥 Total Recipients: ${validRecipients.length}\n` +
-               `📈 Daily Limit: ${dailyLimit} messages/day\n` +
-               `📆 Schedule: ${totalDays} days\n\n` +
+        return `âœ… Multi-Day Broadcast Scheduled Successfully!\n\n` +
+               `ðŸ“Š Campaign: ${campaignName}\n` +
+               `ðŸ‘¥ Total Recipients: ${validRecipients.length}\n` +
+               `ðŸ“ˆ Daily Limit: ${dailyLimit} messages/day\n` +
+               `ðŸ“† Schedule: ${totalDays} days\n\n` +
                `${schedule}\n\n` +
-               `ℹ️ The system will automatically send each batch on its scheduled day. You don't need to do anything else!`;
+               `â„¹ï¸ The system will automatically send each batch on its scheduled day. You don't need to do anything else!`;
         
     } catch (error) {
         BroadcastLogger.error('Multi-day scheduling failed', error, { operationId });
@@ -965,7 +966,7 @@ const scheduleBroadcast = async (tenantId, campaignName, message, sendAt, phoneN
     
     try {
         // Input validation
-        if (!tenantId || !campaignName || !message || !sendAt) {
+        if (!tenantId || !campaignName || !sendAt) {
             throw new Error('Missing required parameters');
         }
         
@@ -977,8 +978,13 @@ const scheduleBroadcast = async (tenantId, campaignName, message, sendAt, phoneN
             return 'Cannot schedule broadcast to more than 10,000 contacts at once. Please split into smaller batches.';
         }
         
+        const hasPerRecipientMessage = phoneNumbers.some((p) => p && typeof p === 'object' && (p.message || p.text));
+        if (!message && !hasPerRecipientMessage) {
+            throw new Error('Missing required parameters');
+        }
+
         // Get tenant's daily limit
-        const { data: tenantData, error: tenantError } = await supabase
+        const { data: tenantData, error: tenantError } = await dbClient
             .from('tenants')
             .select('daily_message_limit')
             .eq('id', tenantId)
@@ -992,41 +998,98 @@ const scheduleBroadcast = async (tenantId, campaignName, message, sendAt, phoneN
         const dailyLimit = tenantData?.daily_message_limit || 1000;
         
         // Check today's usage
-        const { data: todayStats, error: statsError } = await supabase
-            .rpc('get_daily_message_count', { p_tenant_id: tenantId });
-        
-        const currentCount = todayStats || 0;
+        let currentCount = 0;
+        try {
+            const { data: todayStats } = await dbClient
+                .rpc('get_daily_message_count', { p_tenant_id: tenantId });
+            currentCount = todayStats || 0;
+        } catch (e) {
+            currentCount = 0;
+        }
         const remainingToday = dailyLimit - currentCount;
-        
-        // Multi-day scheduling logic
-        if (phoneNumbers.length > remainingToday && remainingToday > 0) {
-            // Split into multiple days
-            return await scheduleMultiDayBroadcast(
-                tenantId, 
-                campaignName, 
-                message, 
-                sendAt, 
-                phoneNumbers, 
-                imageUrl, 
-                dailyLimit, 
-                currentCount
-            );
-        } else if (remainingToday <= 0) {
-            // No capacity today - schedule for tomorrow
-            const tomorrow = new Date(sendAt);
-            tomorrow.setDate(tomorrow.getDate() + 1);
-            tomorrow.setHours(9, 0, 0, 0); // 9 AM tomorrow
-            
-            return await scheduleMultiDayBroadcast(
+
+        // Normalize into entries (supports per-recipient message)
+        const inputEntries = phoneNumbers
+            .map((p) => {
+                if (p && typeof p === 'object') {
+                    const phone = p.phone || p.phone_number || p.to_phone_number || p.number || p.to || p.to_number;
+                    const msg = p.message || p.text || null;
+                    return { phone, message: msg };
+                }
+                return { phone: p, message: null };
+            })
+            .map((e) => {
+                const normalized = normalizePhoneNumber(e.phone);
+                if (!normalized) return null;
+                return { phone: normalized, message: e.message != null ? String(e.message) : null };
+            })
+            .filter(Boolean);
+
+        if (inputEntries.length === 0) {
+            return 'No valid phone numbers found. Please check the format and try again.';
+        }
+
+        // Filter out unsubscribed users
+        const validEntries = [];
+        for (const entry of inputEntries) {
+            if (!(await isUnsubscribed(entry.phone))) {
+                validEntries.push(entry);
+            }
+        }
+
+        if (validEntries.length === 0) {
+            return 'All recipients have unsubscribed or have invalid phone numbers. No messages were scheduled.';
+        }
+
+        BroadcastLogger.info('Recipients filtered', {
+            operationId,
+            total: phoneNumbers.length,
+            valid: validEntries.length,
+            filtered: phoneNumbers.length - validEntries.length
+        });
+
+        // Build multi-day schedule plan (per-message rows, compatible with processBroadcastQueue)
+        const now = new Date();
+        const startDate = new Date(sendAt);
+        const isSameDay = (a, b) =>
+            a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+
+        // If scheduling for a future day, treat currentCount as 0 for that day.
+        const effectiveCurrentCount = isSameDay(startDate, now) ? currentCount : 0;
+        const effectiveRemainingToday = Math.max(0, dailyLimit - effectiveCurrentCount);
+
+        const scheduledEntries = [];
+
+        let offset = 0;
+        if (effectiveRemainingToday > 0) {
+            const day1Count = Math.min(effectiveRemainingToday, validEntries.length);
+            const day1 = validEntries.slice(0, day1Count);
+            for (const e of day1) scheduledEntries.push({ ...e, scheduled_at: startDate.toISOString() });
+            offset = day1Count;
+        }
+
+        if (offset < validEntries.length) {
+            let dayIndex = 1;
+            while (offset < validEntries.length) {
+                const batch = validEntries.slice(offset, offset + dailyLimit);
+                const sendDate = new Date(startDate);
+                sendDate.setDate(sendDate.getDate() + dayIndex);
+                sendDate.setHours(9, 0, 0, 0);
+                for (const e of batch) scheduledEntries.push({ ...e, scheduled_at: sendDate.toISOString() });
+                offset += dailyLimit;
+                dayIndex++;
+            }
+        }
+
+        // Warn if approaching limit (day 1 only)
+        if (isSameDay(startDate, now) && (effectiveCurrentCount + Math.min(validEntries.length, effectiveRemainingToday)) > dailyLimit * 0.8) {
+            BroadcastLogger.warn('Approaching daily limit', {
+                operationId,
                 tenantId,
-                campaignName,
-                message,
-                tomorrow.toISOString(),
-                phoneNumbers,
-                imageUrl,
-                dailyLimit,
-                0 // Start fresh tomorrow
-            );
+                currentCount: effectiveCurrentCount,
+                newTotal: effectiveCurrentCount + Math.min(validEntries.length, effectiveRemainingToday),
+                limit: dailyLimit
+            });
         }
         
         // Can send today within limit
@@ -1042,48 +1105,23 @@ const scheduleBroadcast = async (tenantId, campaignName, message, sendAt, phoneN
             });
         }
         
-        // Validate and normalize phone numbers
-        const validatedNumbers = phoneNumbers
-            .map(normalizePhoneNumber)
-            .filter(phone => phone !== null);
-            
-        if (validatedNumbers.length === 0) {
-            return 'No valid phone numbers found. Please check the format and try again.';
-        }
-        
-        // Filter out unsubscribed users
-        const validRecipients = [];
-        for (const phone of validatedNumbers) {
-            if (!(await isUnsubscribed(phone))) {
-                validRecipients.push(phone);
-            }
-        }
-        
-        if (validRecipients.length === 0) {
-            return 'All recipients have unsubscribed or have invalid phone numbers. No messages were scheduled.';
-        }
-        
-        BroadcastLogger.info('Recipients filtered', {
-            operationId,
-            total: phoneNumbers.length,
-            valid: validRecipients.length,
-            filtered: phoneNumbers.length - validRecipients.length
-        });
-        
         // Create broadcast records
         const campaignId = crypto.randomUUID();
         const currentTime = new Date().toISOString();
-        
-        const schedules = validRecipients.map((phone, index) => ({
+
+        const baseMessage = String(message || '');
+        const schedules = scheduledEntries.map((entry, index) => {
+            const msg = (entry.message != null && entry.message !== '') ? String(entry.message) : baseMessage;
+            return ({
             tenant_id: tenantId,
             // Older local SQLite schema required a campaign-level name
             name: campaignName.slice(0, 255),
-            to_phone_number: phone,
-            message_text: message.slice(0, 4096),
-            message_body: message.slice(0, 4096),
+            to_phone_number: entry.phone,
+            message_text: msg.slice(0, 4096),
+            message_body: msg.slice(0, 4096),
             image_url: imageUrl,
             media_url: imageUrl,
-            scheduled_at: sendAt,
+            scheduled_at: entry.scheduled_at,
             campaign_id: campaignId,
             campaign_name: campaignName.slice(0, 255),
             status: 'pending',
@@ -1092,7 +1130,8 @@ const scheduleBroadcast = async (tenantId, campaignName, message, sendAt, phoneN
             retry_count: 0,
             sequence_number: index + 1,
             delivery_status: 'pending'
-        }));
+        });
+        });
         
         // Insert in batches
         const INSERT_BATCH_SIZE = 1000;
@@ -1100,7 +1139,7 @@ const scheduleBroadcast = async (tenantId, campaignName, message, sendAt, phoneN
         
         for (let i = 0; i < schedules.length; i += INSERT_BATCH_SIZE) {
             const batch = schedules.slice(i, i + INSERT_BATCH_SIZE);
-            const { error } = await supabase.from('bulk_schedules').insert(batch);
+            const { error } = await dbClient.from('bulk_schedules').insert(batch);
             
             if (error) {
                 BroadcastLogger.error('Database insert failed', error, {
@@ -1116,16 +1155,16 @@ const scheduleBroadcast = async (tenantId, campaignName, message, sendAt, phoneN
         
         // Insert recipients into broadcast_recipients table for per-contact tracking
         const isLocalDb = process.env.USE_LOCAL_DB === 'true';
-        const recipients = validRecipients.map(phone => ({
+        const recipients = scheduledEntries.map(entry => ({
             ...(isLocalDb ? { tenant_id: tenantId } : {}),
             campaign_id: campaignId,
-            phone: phone,
+            phone: entry.phone,
             status: 'pending'
         }));
         
         for (let i = 0; i < recipients.length; i += INSERT_BATCH_SIZE) {
             const batch = recipients.slice(i, i + INSERT_BATCH_SIZE);
-            const { error: recipientError } = await supabase
+            const { error: recipientError } = await dbClient
                 .from(RECIPIENT_TRACKING_TABLE)
                 .insert(batch);
             
@@ -1147,11 +1186,13 @@ const scheduleBroadcast = async (tenantId, campaignName, message, sendAt, phoneN
             operationId,
             campaignId,
             duration,
-            recipientCount: validRecipients.length,
+            recipientCount: scheduledEntries.length,
             scheduledFor: formattedDate
         });
-        
-        return `Successfully scheduled the "${campaignName}" broadcast for ${formattedDate} to ${validRecipients.length} contacts. Campaign ID: ${campaignId.slice(0, 8)}`;
+
+        const uniqueDays = new Set(scheduledEntries.map((e) => String(e.scheduled_at).slice(0, 10))).size;
+        const dayNote = uniqueDays > 1 ? ` over ${uniqueDays} day(s)` : '';
+        return `Successfully scheduled the "${campaignName}" broadcast for ${formattedDate} to ${scheduledEntries.length} contacts${dayNote}. Campaign ID: ${campaignId.slice(0, 8)}`;
         
     } catch (error) {
         const duration = Date.now() - startTime;
@@ -1204,7 +1245,7 @@ const generateBroadcastContent = async (topic) => {
  */
 const scheduleBroadcastToSegment = async (tenantId, segmentName, campaignName, message, timeString, imageUrl = null) => {
     try {
-        const { data: segment, error: segError } = await supabase
+        const { data: segment, error: segError } = await dbClient
             .from('customer_segments')
             .select('id')
             .eq('tenant_id', tenantId)
@@ -1215,7 +1256,7 @@ const scheduleBroadcastToSegment = async (tenantId, segmentName, campaignName, m
             return `Could not find a customer segment named "${segmentName}".`;
         }
         
-        const { data: conversations, error: convError } = await supabase
+        const { data: conversations, error: convError } = await dbClient
             .from('conversation_segments')
             .select('conversation:conversations (end_user_phone)')
             .eq('segment_id', segment.id);

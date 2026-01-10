@@ -1,8 +1,8 @@
-/**
+﻿/**
  * @title Follow-up and Response Categorization Service
  * @description Handles AI-powered categorization of end-user responses, schedules follow-ups, and sends reminders.
  */
-const { openai, supabase } = require('./config');
+const { openai, dbClient } = require('./config');
 const { sendMessage } = require('./whatsappService');
 
 /**
@@ -26,7 +26,7 @@ const normalizeConversationHistory = (conversation) => {
             const parsed = JSON.parse(rawHistory);
             conversationHistory = Array.isArray(parsed) ? parsed : [parsed];
         } catch (e) {
-            // not JSON — treat as single-string entry
+            // not JSON â€” treat as single-string entry
             conversationHistory = [rawHistory];
         }
     } else if (typeof rawHistory === 'object') {
@@ -127,7 +127,7 @@ const updateConversationCategory = async (tenantId, endUserPhone, category) => {
             followUpTime = now.toISOString();
         }
 
-        const { error } = await supabase
+        const { error } = await dbClient
             .from('conversations')
             .update({
                 end_user_category: category,
@@ -146,7 +146,7 @@ const updateConversationCategory = async (tenantId, endUserPhone, category) => {
         }
 
     } catch (error) {
-        console.error('Error updating conversation category in Supabase:', error.message);
+        console.error('Error updating conversation category in dbClient:', error.message);
     }
 };
 
@@ -157,7 +157,7 @@ const sendDueFollowUpReminders = async () => {
     try {
         const now = new Date().toISOString();
         // Find conversations where the follow-up time is in the past
-        const { data: dueFollowUps, error } = await supabase
+        const { data: dueFollowUps, error } = await dbClient
             .from('conversations')
             .select(`
                 id,
@@ -182,7 +182,7 @@ const sendDueFollowUpReminders = async () => {
                 await sendMessage(tenantPhoneNumber, reminderMessage);
 
                 // Update the conversation to nullify the follow-up time so we don't send it again
-                await supabase
+                await dbClient
                     .from('conversations')
                     .update({ follow_up_at: null })
                     .eq('id', followUp.id);
@@ -205,4 +205,5 @@ module.exports = {
     conversationHistoryToText,
     getConversationTextForAnalysis
 };
+
 

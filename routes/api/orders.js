@@ -1,7 +1,7 @@
-// routes/api/orders.js
+﻿// routes/api/orders.js
 const express = require('express');
 const router = express.Router();
-const { supabase } = require('../../services/config');
+const { dbClient } = require('../../services/config');
 
 /**
  * GET /api/orders/:orderId
@@ -12,7 +12,7 @@ router.get('/:orderId', async (req, res) => {
     const { orderId } = req.params;
     if (!orderId) return res.status(400).json({ error: 'orderId required' });
 
-    const { data: order, error: orderErr } = await supabase
+    const { data: order, error: orderErr } = await dbClient
       .from('orders')
       .select('*')
       .eq('id', orderId)
@@ -27,7 +27,7 @@ router.get('/:orderId', async (req, res) => {
     // fetch order_items and products (safe and tolerant)
     let items = [];
     try {
-      const { data: orderItems, error: itemsErr } = await supabase
+      const { data: orderItems, error: itemsErr } = await dbClient
         .from('order_items')
         .select('*, products ( id, name, sku, model_number )')
         .eq('order_id', orderId);
@@ -77,7 +77,7 @@ router.patch('/:orderId/status', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Invalid status' });
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await dbClient
       .from('orders')
       .update({ status, order_status: status })
       .eq('id', orderId)
@@ -97,3 +97,4 @@ router.patch('/:orderId/status', async (req, res) => {
 });
 
 module.exports = router;
+

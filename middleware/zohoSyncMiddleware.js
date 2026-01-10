@@ -1,4 +1,4 @@
-
+﻿
 // middleware/zohoSyncMiddleware.js
 /**
  * Middleware to handle Zoho customer matching on first message
@@ -16,11 +16,11 @@ const zohoSyncMiddleware = async (req, res, next) => {
         }
 
         // Check if this is customer's first interaction today
-        const { supabase } = require('../services/config');
+        const { dbClient } = require('../services/config');
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
-        const { data: recentMessage } = await supabase
+        const { data: recentMessage } = await dbClient
             .from('message_history')
             .select('id')
             .eq('tenant_id', tenant.id)

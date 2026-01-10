@@ -1,5 +1,5 @@
-const express = require('express');
-const { supabase } = require('../services/config');
+﻿const express = require('express');
+const { dbClient } = require('../services/config');
 const router = express.Router();
 
 // Mount dashboard sub-routes
@@ -14,9 +14,41 @@ router.use('/ai-learning', aiLearningRouter);
 const followupsRouter = require('./api/followups');
 router.use('/followups', followupsRouter);
 
-// Mount triage API (SAK-SMS embedded module)
+// Mount triage API
 const triageRouter = require('./api/triage');
 router.use('/triage', triageRouter);
+
+// Mount leads API
+const leadsRouter = require('./api/leads');
+router.use('/leads', leadsRouter);
+
+// Mount leads pipeline API
+const leadsPipelineRouter = require('./api/leadsPipeline');
+router.use('/leads-pipeline', leadsPipelineRouter);
+
+// Integration auth + platform modules
+const apiKeysRouter = require('./api/apiKeys');
+router.use('/api-keys', apiKeysRouter);
+
+const notificationsRouter = require('./api/notifications');
+router.use('/notifications', notificationsRouter);
+
+const botsRouter = require('./api/bots');
+router.use('/bots', botsRouter);
+
+const emailRouter = require('./api/email');
+router.use('/email', emailRouter);
+
+const interactiveRouter = require('./api/interactive');
+router.use('/interactive', interactiveRouter);
+
+// Mount sales team / assignees API
+const salesTeamRouter = require('./api/salesTeam');
+router.use('/sales-team', salesTeamRouter);
+
+// Mount triage smart-assignment status API
+const triageAssignmentRouter = require('./api/triageAssignment');
+router.use('/triage-assignment', triageAssignmentRouter);
 
 // Authentication endpoints
 
@@ -43,7 +75,7 @@ router.post('/verify-token', async (req, res) => {
             console.log('[API] Demo access attempt...');
             
             // Try to find any active tenant (preferably the first one)
-            const { data: tenants } = await supabase
+            const { data: tenants } = await dbClient
                 .from('tenants')
                 .select('id, business_name, admin_phones')
                 .limit(1);
@@ -72,7 +104,7 @@ router.post('/verify-token', async (req, res) => {
         const now = new Date();
 
         // Find a tenant with a matching, non-expired token
-        const { data: tenant, error } = await supabase
+        const { data: tenant, error } = await dbClient
             .from('tenants')
             .select('id, business_name, web_auth_token_expires_at')
             .eq('web_auth_token', token)
@@ -88,7 +120,7 @@ router.post('/verify-token', async (req, res) => {
         }
 
         // TEMP: Don't invalidate token for demo purposes
-        // await supabase
+        // await dbClient
         //     .from('tenants')
         //     .update({ web_auth_token: null, web_auth_token_expires_at: null })
         //     .eq('id', tenant.id);
@@ -126,7 +158,7 @@ router.post('/verify-magic-token', async (req, res) => {
     try {
         const now = new Date();
 
-        const { data: tenant, error } = await supabase
+        const { data: tenant, error } = await dbClient
             .from('tenants')
             .select('id, business_name, web_auth_token_expires_at')
             .eq('web_auth_token', token)
@@ -137,7 +169,7 @@ router.post('/verify-magic-token', async (req, res) => {
             return res.status(401).json({ error: 'Invalid or expired login link.' });
         }
 
-        await supabase
+        await dbClient
             .from('tenants')
             .update({ web_auth_token: null, web_auth_token_expires_at: null })
             .eq('id', tenant.id);
@@ -173,3 +205,4 @@ router.get('/test', (req, res) => {
 });
 
 module.exports = router;
+

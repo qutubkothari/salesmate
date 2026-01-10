@@ -1,8 +1,8 @@
-// services/conversationFlagService.js
+﻿// services/conversationFlagService.js
 // Crash-proof, minimal implementation used by scheduler.js and tests.
 // Keeps running even if the DB/table isn't present yet.
 
-const { supabase } = require('./config');
+const { dbClient } = require('./config');
 
 function nowIso() { return new Date().toISOString(); }
 
@@ -17,7 +17,7 @@ async function flagInactiveConversations({ tenantId = null, minutes = 60 } = {})
 
   try {
     // 1) Find inactive, open conversations
-    let q = supabase
+    let q = dbClient
       .from('conversations')
       .select('id, tenant_id, updated_at, status')
       .lte('updated_at', since)
@@ -40,7 +40,7 @@ async function flagInactiveConversations({ tenantId = null, minutes = 60 } = {})
       meta: { since, minutes: cutoffMinutes }
     }));
 
-    const { error: upErr } = await supabase
+    const { error: upErr } = await dbClient
       .from('conversation_flags')
       .upsert(flags, { onConflict: 'conversation_id' });
 
@@ -58,7 +58,7 @@ async function flagInactiveConversations({ tenantId = null, minutes = 60 } = {})
  */
 async function clearFlags({ tenantId = null, conversationId = null } = {}) {
   try {
-    let q = supabase.from('conversation_flags').delete();
+    let q = dbClient.from('conversation_flags').delete();
     if (conversationId) q = q.eq('conversation_id', conversationId);
     if (tenantId) q = q.eq('tenant_id', tenantId);
     const { error } = await q;
@@ -75,7 +75,7 @@ async function clearFlags({ tenantId = null, conversationId = null } = {}) {
  */
 async function getFlagSummary() {
   try {
-    const { count, error } = await supabase
+    const { count, error } = await dbClient
       .from('conversation_flags')
       .select('*', { count: 'exact', head: true });
     if (error) throw error;
@@ -91,3 +91,4 @@ module.exports = {
   clearFlags,
   getFlagSummary
 };
+

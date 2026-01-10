@@ -1,9 +1,9 @@
-/**
+﻿/**
  * Test Core Services - Validation Script
  * Tests CustomerService, StateManager, and GSTService
  */
 
-const { supabase } = require('../services/config');
+const { dbClient } = require('../services/config');
 const CustomerService = require('../services/core/CustomerService');
 const StateManager = require('../services/core/ConversationStateManager');
 const GSTService = require('../services/core/GSTService');
@@ -13,7 +13,7 @@ const TEST_PHONE = '919999999999@c.us';
 const TENANT_ID = 'your-tenant-id'; // Will get from database
 
 async function getTenantId() {
-    const { data, error } = await supabase
+    const { data, error } = await dbClient
         .from('tenants')
         .select('id')
         .limit(1)
@@ -35,29 +35,29 @@ async function testCustomerService(tenantId) {
         // Test 1: Ensure profile
         console.log('1.1 Testing ensureCustomerProfile...');
         const { profile, created } = await CustomerService.ensureCustomerProfile(tenantId, TEST_PHONE);
-        console.log(`✅ Profile ${created ? 'created' : 'found'}:`, profile.phone);
+        console.log(`âœ… Profile ${created ? 'created' : 'found'}:`, profile.phone);
         
         // Test 2: Get profile
         console.log('\n1.2 Testing getCustomerProfile...');
         const fetchedProfile = await CustomerService.getCustomerProfile(tenantId, TEST_PHONE);
-        console.log('✅ Profile fetched:', fetchedProfile.phone);
+        console.log('âœ… Profile fetched:', fetchedProfile.phone);
         
         // Test 3: Save GST preference - no GST
         console.log('\n1.3 Testing saveGSTPreference (no_gst)...');
         await CustomerService.saveGSTPreference(tenantId, TEST_PHONE, 'no_gst', null);
         const gstPref = await CustomerService.getGSTPreference(tenantId, TEST_PHONE);
-        console.log('✅ GST preference saved:', gstPref);
+        console.log('âœ… GST preference saved:', gstPref);
         
         // Test 4: Save GST preference - with GST
         console.log('\n1.4 Testing saveGSTPreference (with_gst)...');
         await CustomerService.saveGSTPreference(tenantId, TEST_PHONE, 'with_gst', '22AAAAA0000A1Z5');
         const gstPref2 = await CustomerService.getGSTPreference(tenantId, TEST_PHONE);
-        console.log('✅ GST preference updated:', gstPref2);
+        console.log('âœ… GST preference updated:', gstPref2);
         
-        console.log('\n✅ CustomerService: ALL TESTS PASSED');
+        console.log('\nâœ… CustomerService: ALL TESTS PASSED');
         return true;
     } catch (error) {
-        console.error('❌ CustomerService test failed:', error.message);
+        console.error('âŒ CustomerService test failed:', error.message);
         return false;
     }
 }
@@ -69,7 +69,7 @@ async function testStateManager(tenantId) {
     
     try {
         // Need a conversation first
-        const { data: conversation, error } = await supabase
+        const { data: conversation, error } = await dbClient
             .from('conversations')
             .upsert({
                 tenant_id: tenantId,
@@ -86,36 +86,36 @@ async function testStateManager(tenantId) {
         // Test 1: Get state
         console.log('2.1 Testing getState...');
         const { state } = await StateManager.getState(tenantId, TEST_PHONE);
-        console.log('✅ Current state:', state || 'INITIAL');
+        console.log('âœ… Current state:', state || 'INITIAL');
         
         // Test 2: Set state
         console.log('\n2.2 Testing setState (AWAITING_GST)...');
         await StateManager.setState(tenantId, TEST_PHONE, StateManager.STATES.AWAITING_GST);
         const { state: newState } = await StateManager.getState(tenantId, TEST_PHONE);
-        console.log('✅ State updated to:', newState);
+        console.log('âœ… State updated to:', newState);
         
         // Test 3: isInState
         console.log('\n2.3 Testing isInState...');
         const isInGST = await StateManager.isInState(tenantId, TEST_PHONE, StateManager.STATES.AWAITING_GST);
-        console.log('✅ Is in AWAITING_GST:', isInGST);
+        console.log('âœ… Is in AWAITING_GST:', isInGST);
         
         // Test 4: Escape keyword
         console.log('\n2.4 Testing isEscapeKeyword...');
         console.log('   "cancel":', StateManager.isEscapeKeyword('cancel'));
         console.log('   "stop":', StateManager.isEscapeKeyword('stop'));
         console.log('   "hello":', StateManager.isEscapeKeyword('hello'));
-        console.log('✅ Escape keywords working');
+        console.log('âœ… Escape keywords working');
         
         // Test 5: Reset state
         console.log('\n2.5 Testing resetState...');
         await StateManager.resetState(tenantId, TEST_PHONE);
         const { state: resetState } = await StateManager.getState(tenantId, TEST_PHONE);
-        console.log('✅ State reset to:', resetState || 'INITIAL');
+        console.log('âœ… State reset to:', resetState || 'INITIAL');
         
-        console.log('\n✅ StateManager: ALL TESTS PASSED');
+        console.log('\nâœ… StateManager: ALL TESTS PASSED');
         return true;
     } catch (error) {
-        console.error('❌ StateManager test failed:', error.message);
+        console.error('âŒ StateManager test failed:', error.message);
         return false;
     }
 }
@@ -131,29 +131,29 @@ async function testGSTService(tenantId) {
         const patterns = ['no gst', 'without gst', 'nahi', 'no'];
         patterns.forEach(pattern => {
             const detected = GSTService.isNoGSTResponse(pattern);
-            console.log(`   "${pattern}": ${detected ? '✅' : '❌'}`);
+            console.log(`   "${pattern}": ${detected ? 'âœ…' : 'âŒ'}`);
         });
         
         // Test 2: GST number validation
         console.log('\n3.2 Testing GST number validation...');
         const validGST = '22AAAAA0000A1Z5';
         const invalidGST = '123456';
-        console.log(`   Valid GST (${validGST}):`, GSTService.isValidGSTNumber(validGST) ? '✅' : '❌');
-        console.log(`   Invalid GST (${invalidGST}):`, GSTService.isValidGSTNumber(invalidGST) ? '❌ (correct)' : '✅');
+        console.log(`   Valid GST (${validGST}):`, GSTService.isValidGSTNumber(validGST) ? 'âœ…' : 'âŒ');
+        console.log(`   Invalid GST (${invalidGST}):`, GSTService.isValidGSTNumber(invalidGST) ? 'âŒ (correct)' : 'âœ…');
         
         // Test 3: GST number extraction
         console.log('\n3.3 Testing GST number extraction...');
         const message = 'My GST is 22AAAAA0000A1Z5 please use it';
         const extracted = GSTService.extractGSTNumber(message);
         console.log(`   From: "${message}"`);
-        console.log(`   Extracted: ${extracted}`, extracted === validGST ? '✅' : '❌');
+        console.log(`   Extracted: ${extracted}`, extracted === validGST ? 'âœ…' : 'âŒ');
         
         // Test 4: Checkout confirmation patterns
         console.log('\n3.4 Testing checkout confirmation patterns...');
         const checkoutPatterns = ['go ahead', 'proceed', 'confirm', 'ok'];
         checkoutPatterns.forEach(pattern => {
             const detected = GSTService.isCheckoutConfirmation(pattern);
-            console.log(`   "${pattern}": ${detected ? '✅' : '❌'}`);
+            console.log(`   "${pattern}": ${detected ? 'âœ…' : 'âŒ'}`);
         });
         
         // Test 5: needsGSTCollection
@@ -161,17 +161,17 @@ async function testGSTService(tenantId) {
         // Clear GST preference first
         await CustomerService.saveGSTPreference(tenantId, TEST_PHONE, null, null);
         const needsGST1 = await GSTService.needsGSTCollection(tenantId, TEST_PHONE);
-        console.log('   Without preference:', needsGST1 ? '✅ needs GST' : '❌');
+        console.log('   Without preference:', needsGST1 ? 'âœ… needs GST' : 'âŒ');
         
         // Set preference and check again
         await CustomerService.saveGSTPreference(tenantId, TEST_PHONE, 'no_gst', null);
         const needsGST2 = await GSTService.needsGSTCollection(tenantId, TEST_PHONE);
-        console.log('   With no_gst:', needsGST2 ? '❌' : '✅ doesn\'t need');
+        console.log('   With no_gst:', needsGST2 ? 'âŒ' : 'âœ… doesn\'t need');
         
-        console.log('\n✅ GSTService: ALL TESTS PASSED');
+        console.log('\nâœ… GSTService: ALL TESTS PASSED');
         return true;
     } catch (error) {
-        console.error('❌ GSTService test failed:', error.message);
+        console.error('âŒ GSTService test failed:', error.message);
         return false;
     }
 }
@@ -184,7 +184,7 @@ async function checkRecentActivity(tenantId) {
     try {
         // Check recent customer profiles
         console.log('Recent customer profiles:');
-        const { data: profiles } = await supabase
+        const { data: profiles } = await dbClient
             .from('customer_profiles')
             .select('phone, first_name, gst_preference, created_at')
             .eq('tenant_id', tenantId)
@@ -201,7 +201,7 @@ async function checkRecentActivity(tenantId) {
         
         // Check recent conversations
         console.log('\nRecent conversation states:');
-        const { data: conversations } = await supabase
+        const { data: conversations } = await dbClient
             .from('conversations')
             .select('end_user_phone, state, updated_at')
             .eq('tenant_id', tenantId)
@@ -219,13 +219,13 @@ async function checkRecentActivity(tenantId) {
         
         return true;
     } catch (error) {
-        console.error('❌ Activity check failed:', error.message);
+        console.error('âŒ Activity check failed:', error.message);
         return false;
     }
 }
 
 async function runAllTests() {
-    console.log('\n🚀 CORE SERVICES VALIDATION TEST\n');
+    console.log('\nðŸš€ CORE SERVICES VALIDATION TEST\n');
     console.log('Deployment: auto-deploy-20251112-003427');
     console.log('Testing: CustomerService, StateManager, GSTService\n');
     
@@ -251,21 +251,21 @@ async function runAllTests() {
         const total = Object.keys(results).length;
         
         Object.entries(results).forEach(([test, result]) => {
-            console.log(`${result ? '✅' : '❌'} ${test}: ${result ? 'PASSED' : 'FAILED'}`);
+            console.log(`${result ? 'âœ…' : 'âŒ'} ${test}: ${result ? 'PASSED' : 'FAILED'}`);
         });
         
         console.log(`\n${passed}/${total} tests passed`);
         
         if (passed === total) {
-            console.log('\n🎉 ALL TESTS PASSED - Core services are working correctly!\n');
+            console.log('\nðŸŽ‰ ALL TESTS PASSED - Core services are working correctly!\n');
         } else {
-            console.log('\n⚠️  SOME TESTS FAILED - Review errors above\n');
+            console.log('\nâš ï¸  SOME TESTS FAILED - Review errors above\n');
         }
         
         process.exit(passed === total ? 0 : 1);
         
     } catch (error) {
-        console.error('\n❌ FATAL ERROR:', error.message);
+        console.error('\nâŒ FATAL ERROR:', error.message);
         console.error(error.stack);
         process.exit(1);
     }
@@ -273,3 +273,4 @@ async function runAllTests() {
 
 // Run tests
 runAllTests();
+

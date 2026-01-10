@@ -1,5 +1,5 @@
-// scripts/setupZohoOAuth.js - Zoho OAuth Setup for Tenant
-const { supabase } = require('../services/config');
+﻿// scripts/setupZohoOAuth.js - Zoho OAuth Setup for Tenant
+const { dbClient } = require('../services/config');
 
 /**
  * Step 1: Get Zoho OAuth URL for Authorization
@@ -18,9 +18,9 @@ const getZohoAuthURL = (clientId, redirectUri = 'http://localhost:3000/zoho/call
 
     const authUrl = `https://accounts.zoho.com/oauth/v2/auth?scope=${encodeURIComponent(scopes)}&client_id=${clientId}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&access_type=offline`;
     
-    console.log('🔗 Visit this URL to authorize your Zoho Books access:');
+    console.log('ðŸ”— Visit this URL to authorize your Zoho Books access:');
     console.log(authUrl);
-    console.log('\n📝 After authorization, you will get a code. Use that code in Step 2.');
+    console.log('\nðŸ“ After authorization, you will get a code. Use that code in Step 2.');
     
     return authUrl;
 };
@@ -50,7 +50,7 @@ const exchangeCodeForTokens = async (clientId, clientSecret, authCode, redirectU
             throw new Error(`Token exchange failed: ${JSON.stringify(data)}`);
         }
 
-        console.log('✅ Token exchange successful!');
+        console.log('âœ… Token exchange successful!');
         console.log('Access Token:', data.access_token);
         console.log('Refresh Token:', data.refresh_token);
         console.log('Expires in:', data.expires_in, 'seconds');
@@ -61,7 +61,7 @@ const exchangeCodeForTokens = async (clientId, clientSecret, authCode, redirectU
             expiresIn: data.expires_in
         };
     } catch (error) {
-        console.error('❌ Error exchanging code for tokens:', error);
+        console.error('âŒ Error exchanging code for tokens:', error);
         throw error;
     }
 };
@@ -85,14 +85,14 @@ const getZohoOrganizationId = async (accessToken) => {
 
         if (data.organizations && data.organizations.length > 0) {
             const org = data.organizations[0];
-            console.log('🏢 Found organization:', org.name);
-            console.log('📋 Organization ID:', org.organization_id);
+            console.log('ðŸ¢ Found organization:', org.name);
+            console.log('ðŸ“‹ Organization ID:', org.organization_id);
             return org.organization_id;
         } else {
             throw new Error('No organizations found');
         }
     } catch (error) {
-        console.error('❌ Error getting organization ID:', error);
+        console.error('âŒ Error getting organization ID:', error);
         throw error;
     }
 };
@@ -104,7 +104,7 @@ const saveZohoTokensToDatabase = async (tenantId, accessToken, refreshToken, org
     try {
         const expiresAt = new Date(Date.now() + 3600 * 1000); // 1 hour from now
         
-        const { error } = await supabase
+        const { error } = await dbClient
             .from('tenants')
             .update({
                 zoho_access_token: accessToken,
@@ -121,10 +121,10 @@ const saveZohoTokensToDatabase = async (tenantId, accessToken, refreshToken, org
             throw new Error(`Database update failed: ${error.message}`);
         }
 
-        console.log('✅ Zoho tokens saved to database successfully!');
-        console.log('🎉 Zoho integration is now ready!');
+        console.log('âœ… Zoho tokens saved to database successfully!');
+        console.log('ðŸŽ‰ Zoho integration is now ready!');
     } catch (error) {
-        console.error('❌ Error saving tokens to database:', error);
+        console.error('âŒ Error saving tokens to database:', error);
         throw error;
     }
 };
@@ -136,7 +136,7 @@ const setupZohoIntegration = async (config) => {
     const { tenantId, clientId, clientSecret, authCode, redirectUri } = config;
     
     try {
-        console.log('🚀 Starting Zoho integration setup...');
+        console.log('ðŸš€ Starting Zoho integration setup...');
         
         // Step 1: Exchange code for tokens
         const tokens = await exchangeCodeForTokens(clientId, clientSecret, authCode, redirectUri);
@@ -154,7 +154,7 @@ const setupZohoIntegration = async (config) => {
             clientSecret
         );
         
-        console.log('🎉 Zoho integration setup complete!');
+        console.log('ðŸŽ‰ Zoho integration setup complete!');
         return {
             success: true,
             organizationId,
@@ -162,7 +162,7 @@ const setupZohoIntegration = async (config) => {
         };
         
     } catch (error) {
-        console.error('❌ Setup failed:', error);
+        console.error('âŒ Setup failed:', error);
         return {
             success: false,
             error: error.message

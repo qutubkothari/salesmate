@@ -1,6 +1,6 @@
-// controllers/documentController.js
+﻿// controllers/documentController.js
 const whatsappService = require('../services/whatsappService');
-const { supabase } = require('../config/database');
+const { dbClient } = require('../config/database');
 const { processShippingSlipUpload, formatTrackingMessage, trackVRLShipment } = require('../services/shipmentTrackingService');
 // const productService = require('../services/productService'); // when ready
 
@@ -35,7 +35,7 @@ exports.handleDocument = async (req, res) => {
     console.log(`[DOCUMENT] File URL: ${fileUrl}, Caption: ${caption}`);
 
     // Check conversation context to determine what the upload is for
-    const { data: conversation } = await supabase
+    const { data: conversation } = await dbClient
       .from('conversations')
       .select('state, context_data')
       .eq('tenant_id', tenant.id)
@@ -64,7 +64,7 @@ exports.handleDocument = async (req, res) => {
     }
 
     // Check if user has a recent order without LR - likely uploading shipping slip
-    const { data: recentOrderCheck } = await supabase
+    const { data: recentOrderCheck } = await dbClient
       .from('conversations')
       .select('id')
       .eq('tenant_id', tenant.id)
@@ -72,7 +72,7 @@ exports.handleDocument = async (req, res) => {
       .single();
 
     if (recentOrderCheck) {
-      const { data: recentOrder } = await supabase
+      const { data: recentOrder } = await dbClient
         .from('orders')
         .select('id, created_at')
         .eq('tenant_id', tenant.id)
@@ -99,19 +99,19 @@ exports.handleDocument = async (req, res) => {
     if (caption && caption.toLowerCase().includes('gst')) {
       console.log('[DOCUMENT] Detected GST certificate upload');
       // Handle GST certificate
-      await whatsappService.sendMessage(from, '✅ GST certificate received! We will verify it shortly.');
+      await whatsappService.sendMessage(from, 'âœ… GST certificate received! We will verify it shortly.');
       return res.status(200).json({ ok: true, type: 'gst_certificate' });
     }
 
     // === PRODUCT CATALOG UPLOAD ===
     if (caption && (caption.toLowerCase().includes('product') || caption.toLowerCase().includes('catalog'))) {
       console.log('[DOCUMENT] Detected product catalog upload');
-      await whatsappService.sendMessage(from, '📄 Product catalog received! Use `/products` command to import products.');
+      await whatsappService.sendMessage(from, 'ðŸ“„ Product catalog received! Use `/products` command to import products.');
       return res.status(200).json({ ok: true, type: 'product_catalog' });
     }
 
     // === DEFAULT: Generic document received ===
-    await whatsappService.sendMessage(from, '📄 Document received! If this is a shipping slip, please reply with "shipping slip" or send with "LR" in the caption.');
+    await whatsappService.sendMessage(from, 'ðŸ“„ Document received! If this is a shipping slip, please reply with "shipping slip" or send with "LR" in the caption.');
     return res.status(200).json({ ok: true, type: 'generic_document' });
 
   } catch (error) {
@@ -129,7 +129,7 @@ async function handleShippingSlipUpload(tenantId, customerPhone, fileUrl, captio
 
     // If no orderId provided, find the most recent order
     if (!orderId) {
-      const { data: conversation } = await supabase
+      const { data: conversation } = await dbClient
         .from('conversations')
         .select('id')
         .eq('tenant_id', tenantId)
@@ -137,7 +137,7 @@ async function handleShippingSlipUpload(tenantId, customerPhone, fileUrl, captio
         .single();
 
       if (conversation) {
-        const { data: recentOrder } = await supabase
+        const { data: recentOrder } = await dbClient
           .from('orders')
           .select('id')
           .eq('tenant_id', tenantId)
@@ -153,7 +153,7 @@ async function handleShippingSlipUpload(tenantId, customerPhone, fileUrl, captio
     if (!orderId) {
       await whatsappService.sendMessage(
         customerPhone,
-        '❌ No recent order found. Please place an order first.'
+        'âŒ No recent order found. Please place an order first.'
       );
       return;
     }
@@ -172,7 +172,7 @@ async function handleShippingSlipUpload(tenantId, customerPhone, fileUrl, captio
       }
 
       // Clear awaiting state if exists
-      await supabase
+      await dbClient
         .from('conversations')
         .update({ state: null })
         .eq('tenant_id', tenantId)
@@ -181,7 +181,7 @@ async function handleShippingSlipUpload(tenantId, customerPhone, fileUrl, captio
     } else {
       await whatsappService.sendMessage(
         customerPhone,
-        result.message || '❌ Error processing shipping slip. Please try again or provide LR number manually.'
+        result.message || 'âŒ Error processing shipping slip. Please try again or provide LR number manually.'
       );
     }
 
@@ -189,7 +189,7 @@ async function handleShippingSlipUpload(tenantId, customerPhone, fileUrl, captio
     console.error('[SHIPPING_SLIP] Error:', error);
     await whatsappService.sendMessage(
       customerPhone,
-      '❌ Error processing shipping slip. Please contact support.'
+      'âŒ Error processing shipping slip. Please contact support.'
     );
   }
 }
@@ -204,4 +204,5 @@ exports.handle = async (tenant, message) => {
   };
   return await exports.handleDocument(req, res);
 };
+
 

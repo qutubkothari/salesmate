@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @title Enhanced Cron Job for All Scheduled Tasks
  * @description Updated scheduler with enhanced AI-driven follow-up system,
  * multi-language support, and dynamic lead scoring intervals.
@@ -54,8 +54,8 @@ console.log('[SCHEDULER] All schedulers initialized successfully');
 const processLeadScoreUpdates = async () => {
   try {
     // Process all conversations that need lead score updates
-    const { supabase } = require('./services/config');
-    const { data: conversations } = await supabase
+    const { dbClient } = require('./services/config');
+    const { data: conversations } = await dbClient
       .from('conversations')
       .select('tenant_id, end_user_phone')
       .is('last_lead_score_update', null)
@@ -83,10 +83,10 @@ const processLeadScoreUpdates = async () => {
 // Proactive messaging wrapper - runs for all tenants
 const processProactiveMessages = async () => {
   try {
-    const { supabase } = require('./services/config');
+    const { dbClient } = require('./services/config');
     
     // Get all active tenants
-    const { data: tenants, error } = await supabase
+    const { data: tenants, error } = await dbClient
       .from('tenants')
       .select('id, business_name')
       .eq('is_active', true);
@@ -115,10 +115,10 @@ const processProactiveMessages = async () => {
 // Send pending proactive messages - runs hourly
 const sendProactiveMessages = async () => {
   try {
-    const { supabase } = require('./services/config');
+    const { dbClient } = require('./services/config');
     
     // Get all active tenants
-    const { data: tenants, error } = await supabase
+    const { data: tenants, error } = await dbClient
       .from('tenants')
       .select('id, business_name')
       .eq('is_active', true);
@@ -163,7 +163,7 @@ const processShipmentTracking = async () => {
 
     // Log to admin if there were significant updates
     if (summary.notified > 0) {
-      console.log(`[SHIPMENT_TRACKING] 📬 Sent ${summary.notified} notifications to customers`);
+      console.log(`[SHIPMENT_TRACKING] ðŸ“¬ Sent ${summary.notified} notifications to customers`);
     }
 
     return summary;
@@ -342,11 +342,11 @@ const runScheduledTasks = async () => {
             const duration = Date.now() - taskStart;
             taskMetrics.successful++;
             
-            console.log(`✅ [${task.name}] completed successfully in ${duration}ms`);
+            console.log(`âœ… [${task.name}] completed successfully in ${duration}ms`);
             
             // Log slow tasks
             if (duration > 30000) { // 30 seconds
-                console.warn(`⚠️ [${task.name}] took ${duration}ms - consider optimization`);
+                console.warn(`âš ï¸ [${task.name}] took ${duration}ms - consider optimization`);
             }
             
         } catch (error) {
@@ -358,7 +358,7 @@ const runScheduledTasks = async () => {
                 duration
             });
             
-            console.error(`❌ [${task.name}] failed after ${duration}ms:`, error.message);
+            console.error(`âŒ [${task.name}] failed after ${duration}ms:`, error.message);
             
             // For critical tasks, log more details
             if (task.priority === 'high') {
@@ -385,7 +385,7 @@ const runScheduledTasks = async () => {
 
     // Alert on high failure rate
     if (taskMetrics.failed > 0 && (taskMetrics.failed / taskMetrics.total) > 0.3) {
-        console.error(`🚨 HIGH FAILURE RATE: ${taskMetrics.failed}/${taskMetrics.total} tasks failed`);
+        console.error(`ðŸš¨ HIGH FAILURE RATE: ${taskMetrics.failed}/${taskMetrics.total} tasks failed`);
     }
 
     return summary;
@@ -418,9 +418,9 @@ const runEmergencyTasks = async () => {
     for (const task of criticalTasks) {
         try {
             await task.func();
-            console.log(`✅ Emergency task [${task.name}] completed`);
+            console.log(`âœ… Emergency task [${task.name}] completed`);
         } catch (error) {
-            console.error(`❌ Emergency task [${task.name}] failed:`, error.message);
+            console.error(`âŒ Emergency task [${task.name}] failed:`, error.message);
         }
     }
 };

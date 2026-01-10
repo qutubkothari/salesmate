@@ -1,10 +1,10 @@
-// routes/handlers/modules/orderConfirmationHandler.js
+﻿// routes/handlers/modules/orderConfirmationHandler.js
 // Handles order confirmation and adding quoted products to cart
 
 const { isOrderConfirmationEnhanced } = require('../../../services/orderConfirmationService');
 const { addProductToCartEnhanced } = require('../../../services/cartService');
 const { sendMessage } = require('../../../services/whatsappService');
-const { supabase } = require('../../../services/config');
+const { dbClient } = require('../../../services/config');
 
 async function handleOrderConfirmation(req, res, tenant, from, userQuery, intentResult, conversation) {
     console.log('[ORDER_CONFIRM_HANDLER] Checking for order confirmation');
@@ -89,7 +89,7 @@ async function handleOrderConfirmation(req, res, tenant, from, userQuery, intent
             }
 
             // Clear quoted products after adding to cart
-            await supabase
+            await dbClient
                 .from('conversations')
                 .update({
                     last_quoted_products: null,
@@ -109,7 +109,7 @@ async function handleOrderConfirmation(req, res, tenant, from, userQuery, intent
                 };
             } else {
                 return {
-                    response: '✅ Products added to cart! Type "cart" to view your cart.',
+                    response: 'âœ… Products added to cart! Type "cart" to view your cart.',
                     source: 'order_confirmation_simple'
                 };
             }
@@ -131,3 +131,4 @@ async function handleOrderConfirmation(req, res, tenant, from, userQuery, intent
 module.exports = {
     handleOrderConfirmation
 };
+

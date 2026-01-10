@@ -1,4 +1,4 @@
-/**
+﻿/**
  * CustomerService - Centralized Customer Profile Management
  * 
  * This service is the SINGLE SOURCE OF TRUTH for all customer profile operations.
@@ -11,7 +11,7 @@
  * @module services/core/CustomerService
  */
 
-const { supabase } = require('../config');
+const { dbClient } = require('../config');
 const { toWhatsAppFormat, normalizePhone } = require('../../utils/phoneUtils');
 
 /**
@@ -59,7 +59,7 @@ async function ensureCustomerProfile(tenantId, phoneNumber) {
         console.log(`[CustomerService] Ensuring profile exists: ${whatsappPhone}`);
         
         // First, try to get existing profile
-        const { data: existingProfile, error: fetchError } = await supabase
+        const { data: existingProfile, error: fetchError } = await dbClient
             .from('customer_profiles')
             .select('*')
             .eq('tenant_id', tenantId)
@@ -97,7 +97,7 @@ async function ensureCustomerProfile(tenantId, phoneNumber) {
             first_contact_date: new Date().toISOString()
         };
         
-        const { data: newProfile, error: createError } = await supabase
+        const { data: newProfile, error: createError } = await dbClient
             .from('customer_profiles')
             .insert(profileData)
             .select()
@@ -109,7 +109,7 @@ async function ensureCustomerProfile(tenantId, phoneNumber) {
             // If error is duplicate, try to fetch again (race condition)
             if (createError.code === '23505') {
                 console.log('[CustomerService] Duplicate detected, fetching existing profile');
-                const { data: retryProfile } = await supabase
+                const { data: retryProfile } = await dbClient
                     .from('customer_profiles')
                     .select('*')
                     .eq('tenant_id', tenantId)
@@ -148,7 +148,7 @@ async function getCustomerProfile(tenantId, phoneNumber) {
         
         const whatsappPhone = toWhatsAppFormat(phoneNumber);
         
-        const { data, error } = await supabase
+        const { data, error } = await dbClient
             .from('customer_profiles')
             .select('*')
             .eq('tenant_id', tenantId)
@@ -201,7 +201,7 @@ async function updateCustomerProfile(tenantId, phoneNumber, updates) {
         
         console.log(`[CustomerService] Updating profile: ${whatsappPhone}`, Object.keys(updateData));
         
-        const { data, error } = await supabase
+        const { data, error } = await dbClient
             .from('customer_profiles')
             .update(updateData)
             .eq('tenant_id', tenantId)
@@ -347,3 +347,4 @@ module.exports = {
     saveGSTPreference,
     getGSTPreference
 };
+

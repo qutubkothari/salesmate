@@ -1,5 +1,5 @@
-// Order confirmation and request handlers moved from customerHandler.js
-const { supabase, checkoutWithDiscounts, sendAndLogMessage, processMultipleOrderRequest, processOrderRequestEnhanced, viewCartWithDiscounts } = require('./imports');
+﻿// Order confirmation and request handlers moved from customerHandler.js
+const { dbClient, checkoutWithDiscounts, sendAndLogMessage, processMultipleOrderRequest, processOrderRequestEnhanced, viewCartWithDiscounts } = require('./imports');
 
 const handleOrderConfirmation = async (tenant, from, conversation, res) => {
 	// ...existing code from customerHandler.js...
@@ -14,3 +14,4 @@ module.exports = {
 	handleOrderRequest
 };
 // Order confirmation logic
+

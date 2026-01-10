@@ -1,10 +1,10 @@
-// services/intelligentFollowUpService.js
+﻿// services/intelligentFollowUpService.js
 /**
  * Intelligent Follow-up Service
  * Automatically schedules follow-ups based on customer behavior, lead scoring, and conversation patterns
  */
 
-const { supabase } = require('./config');
+const { dbClient } = require('./config');
 const { scheduleFollowUp } = require('./followUpSchedulerService');
 
 // Follow-up intervals based on lead temperature (in hours)
@@ -25,7 +25,7 @@ async function processIntelligentFollowUps() {
     
     try {
         // Get all tenants
-        const { data: tenants, error: tenantsError } = await supabase
+        const { data: tenants, error: tenantsError } = await dbClient
             .from('tenants')
             .select('id');
         
@@ -71,7 +71,7 @@ async function getFollowUpCandidates(tenantId) {
         // 2. Some inactivity (at least MIN_INACTIVITY_HOURS since last message)
         // 3. Lead score assigned
         // 4. No pending follow-up already scheduled
-        const { data: conversations, error } = await supabase
+        const { data: conversations, error } = await dbClient
             .from('conversations')
             .select(`
                 id,
@@ -119,7 +119,7 @@ async function getFollowUpCandidates(tenantId) {
  */
 async function checkExistingFollowUp(tenantId, phone) {
     try {
-        const { data, error } = await supabase
+        const { data, error } = await dbClient
             .from('scheduled_followups')
             .select('id')
             .eq('tenant_id', tenantId)
@@ -142,7 +142,7 @@ async function checkExistingFollowUp(tenantId, phone) {
 async function checkAbandonedCart(conversationId) {
     try {
         // Check if cart has items
-        const { data: cart, error: cartError } = await supabase
+        const { data: cart, error: cartError } = await dbClient
             .from('carts')
             .select('items')
             .eq('conversation_id', conversationId)
@@ -153,7 +153,7 @@ async function checkAbandonedCart(conversationId) {
         }
         
         // Check if there's a recent order
-        const { data: orders, error: orderError } = await supabase
+        const { data: orders, error: orderError } = await dbClient
             .from('orders')
             .select('id')
             .eq('conversation_id', conversationId)
@@ -176,7 +176,7 @@ async function checkAbandonedCart(conversationId) {
 async function checkPriceInquiryNoOrder(conversationId) {
     try {
         // Get recent messages
-        const { data: messages, error: msgError } = await supabase
+        const { data: messages, error: msgError } = await dbClient
             .from('messages')
             .select('message_body, sender')
             .eq('conversation_id', conversationId)
@@ -197,7 +197,7 @@ async function checkPriceInquiryNoOrder(conversationId) {
         if (!hasPriceInquiry) return false;
         
         // Check if there's a recent order
-        const { data: orders, error: orderError } = await supabase
+        const { data: orders, error: orderError } = await dbClient
             .from('orders')
             .select('id')
             .eq('conversation_id', conversationId)
@@ -268,7 +268,7 @@ async function createIntelligentFollowUp(tenantId, candidate) {
 async function getConversationContext(conversationId) {
     try {
         // Get recent messages
-        const { data: messages } = await supabase
+        const { data: messages } = await dbClient
             .from('messages')
             .select('message_body, sender')
             .eq('conversation_id', conversationId)
@@ -276,7 +276,7 @@ async function getConversationContext(conversationId) {
             .limit(5);
         
         // Get quoted products
-        const { data: quotedProducts } = await supabase
+        const { data: quotedProducts } = await dbClient
             .from('messages')
             .select('metadata')
             .eq('conversation_id', conversationId)
@@ -285,7 +285,7 @@ async function getConversationContext(conversationId) {
             .limit(1);
         
         // Get cart items
-        const { data: cart } = await supabase
+        const { data: cart } = await dbClient
             .from('carts')
             .select('items')
             .eq('conversation_id', conversationId)
@@ -309,7 +309,7 @@ async function getConversationContext(conversationId) {
 async function createManualIntelligentFollowUp(tenantId, phone, leadScore) {
     try {
         // Get conversation
-        const { data: conversation } = await supabase
+        const { data: conversation } = await dbClient
             .from('conversations')
             .select('id, end_user_phone, lead_score')
             .eq('tenant_id', tenantId)
@@ -352,3 +352,4 @@ module.exports = {
     checkAbandonedCart,
     checkPriceInquiryNoOrder
 };
+

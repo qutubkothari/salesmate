@@ -1,8 +1,8 @@
-/**
+﻿/**
  * @title Platform Analytics Service
  * @description Manages the logic for generating a high-level analytics dashboard for the platform administrator.
  */
-const { supabase } = require('./config');
+const { dbClient } = require('./config');
 
 /**
  * Gathers and formats key performance indicators from across the entire platform.
@@ -22,11 +22,11 @@ const getPlatformDashboard = async () => {
             { data: totalOrdersData },
             { count: openSupportTickets }
         ] = await Promise.all([
-            supabase.from('tenants').select('*', { count: 'exact', head: true }),
-            supabase.from('tenants').select('*', { count: 'exact', head: true }).eq('subscription_status', 'active'),
-            supabase.from('tenants').select('*', { count: 'exact', head: true }).gt('created_at', sevenDaysAgo),
-            supabase.from('orders').select('total_amount'),
-            supabase.from('support_tickets').select('*', { count: 'exact', head: true }).eq('status', 'open')
+            dbClient.from('tenants').select('*', { count: 'exact', head: true }),
+            dbClient.from('tenants').select('*', { count: 'exact', head: true }).eq('subscription_status', 'active'),
+            dbClient.from('tenants').select('*', { count: 'exact', head: true }).gt('created_at', sevenDaysAgo),
+            dbClient.from('orders').select('total_amount'),
+            dbClient.from('support_tickets').select('*', { count: 'exact', head: true }).eq('status', 'open')
         ]);
 
         // Calculate total revenue from orders
@@ -34,7 +34,7 @@ const getPlatformDashboard = async () => {
         const totalOrders = totalOrdersData.length;
 
         // Format the report
-        let report = `🚀 *Platform Analytics Dashboard*\n\n`;
+        let report = `ðŸš€ *Platform Analytics Dashboard*\n\n`;
         report += `*--- Tenants ---*\n`;
         report += `- Total Registered Tenants: *${totalTenants}*\n`;
         report += `- Active Subscriptions: *${activeSubscriptions}*\n`;
@@ -58,3 +58,4 @@ const getPlatformDashboard = async () => {
 module.exports = {
     getPlatformDashboard,
 };
+

@@ -1,5 +1,5 @@
-
-const { supabase } = require('../config');
+﻿
+const { dbClient } = require('../config');
 
 class MemoryManager {
   /**
@@ -10,7 +10,7 @@ class MemoryManager {
       console.log(`[Memory] Saving conversation for ${phoneNumber}`);
       const conversationData = {
         phone_number: phoneNumber,
-        end_user_phone: phoneNumber,  // ✅ CORRECT for conversations table
+        end_user_phone: phoneNumber,  // âœ… CORRECT for conversations table
         tenant_id: tenantId,
         context_data: context,  // Use context_data not context
         last_message_at: new Date().toISOString(),
@@ -20,7 +20,7 @@ class MemoryManager {
         conversationData.last_intent = lastIntent;
       }
       // Use upsert with correct conflict columns
-      const { data, error } = await supabase
+      const { data, error } = await dbClient
         .from('conversations')
         .upsert(conversationData, {
           onConflict: 'tenant_id,end_user_phone',  // Match your UNIQUE constraint
@@ -32,7 +32,7 @@ class MemoryManager {
         console.error('[Memory] Error saving conversation:', error);
         return null;
       }
-      console.log(`[Memory] ✅ Saved conversation: ${data.id}`);
+      console.log(`[Memory] âœ… Saved conversation: ${data.id}`);
       return data;
     } catch (error) {
       console.error('[Memory] Exception saving conversation:', error);
@@ -46,10 +46,10 @@ class MemoryManager {
   async getConversation(phoneNumber, tenantId) {
     try {
       console.log(`[Memory] Fetching conversation for ${phoneNumber}`);
-      const { data, error } = await supabase
+      const { data, error } = await dbClient
         .from('conversations')
         .select('*')
-        .eq('end_user_phone', phoneNumber)  // ✅ CORRECT column name
+        .eq('end_user_phone', phoneNumber)  // âœ… CORRECT column name
         .eq('tenant_id', tenantId)
         .maybeSingle();
       if (error) {
@@ -60,7 +60,7 @@ class MemoryManager {
         console.log('[Memory] No conversation found, returning empty');
         return { messages: [], context: {}, lastIntent: null };
       }
-      console.log(`[Memory] ✅ Found conversation: ${data.id}`);
+      console.log(`[Memory] âœ… Found conversation: ${data.id}`);
       return {
         id: data.id,
         messages: [], // Messages stored elsewhere in your system
@@ -80,7 +80,7 @@ class MemoryManager {
    */
   async linkCustomerProfile(phoneNumber, tenantId, customerProfileId) {
     try {
-      const { error } = await supabase
+      const { error } = await dbClient
         .from('conversations')
         .update({ customer_profile_id: customerProfileId })
         .eq('end_user_phone', phoneNumber)
@@ -88,7 +88,7 @@ class MemoryManager {
       if (error) {
         console.error('[Memory] Error linking customer profile:', error);
       } else {
-        console.log(`[Memory] ✅ Linked customer profile ${customerProfileId}`);
+        console.log(`[Memory] âœ… Linked customer profile ${customerProfileId}`);
       }
     } catch (error) {
       console.error('[Memory] Exception linking customer:', error);
@@ -97,3 +97,4 @@ class MemoryManager {
 }
 
 module.exports = new MemoryManager();
+

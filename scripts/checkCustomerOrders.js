@@ -1,6 +1,6 @@
-// scripts/checkCustomerOrders.js
+﻿// scripts/checkCustomerOrders.js
 require('dotenv').config();
-const { supabase } = require('../services/config');
+const { dbClient } = require('../services/config');
 
 const TENANT_ID = 'a10aa26a-b5f9-4afe-87cc-70bfb4d1f6e6';
 const PHONE = '96567709452@c.us';
@@ -9,7 +9,7 @@ async function checkOrders() {
     console.log('[Order Check] Checking orders for:', PHONE);
     
     // Get customer profile
-    const { data: conversation, error: convError } = await supabase
+    const { data: conversation, error: convError } = await dbClient
         .from('conversations')
         .select('id, customer_profile_id, end_user_phone')
         .eq('tenant_id', TENANT_ID)
@@ -29,7 +29,7 @@ async function checkOrders() {
     }
     
     // Get customer profile details
-    const { data: profile, error: profileError } = await supabase
+    const { data: profile, error: profileError } = await dbClient
         .from('customer_profiles')
         .select('id, phone, email, created_at')
         .eq('id', conversation.customer_profile_id)
@@ -42,7 +42,7 @@ async function checkOrders() {
     }
     
     // Count orders
-    const { count, error: countError, data: orders } = await supabase
+    const { count, error: countError, data: orders } = await dbClient
         .from('orders')
         .select('id, status, total_amount, created_at')
         .eq('tenant_id', TENANT_ID)
@@ -57,7 +57,7 @@ async function checkOrders() {
     console.log('[Order Check] Orders:', JSON.stringify(orders, null, 2));
     
     // Count confirmed/completed orders
-    const { count: confirmedCount } = await supabase
+    const { count: confirmedCount } = await dbClient
         .from('orders')
         .select('*', { count: 'exact', head: true })
         .eq('tenant_id', TENANT_ID)
@@ -69,3 +69,4 @@ async function checkOrders() {
 }
 
 checkOrders().catch(console.error);
+

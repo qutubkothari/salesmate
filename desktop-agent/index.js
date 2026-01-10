@@ -90,17 +90,24 @@ localApp.post('/broadcast', async (req, res) => {
             phoneNumbers, 
             message: broadcastMessage,
             imageBase64,
+            imageBase64List,
             messageType = 'text',
             batchSize = 10,
             messageDelay = 500,
             batchDelay = 2000
         } = req.body;
+
+        const images = Array.isArray(imageBase64List)
+            ? imageBase64List.filter(Boolean)
+            : (imageBase64 ? [imageBase64] : []);
         
         if (!phoneNumbers || !Array.isArray(phoneNumbers) || phoneNumbers.length === 0) {
             return res.status(400).json({ error: 'Phone numbers array required' });
         }
         
-        if (!broadcastMessage) {
+        // Allow either a global `message` OR per-recipient objects like { phone, message }.
+        const hasPerRecipientMessage = phoneNumbers.some((p) => p && typeof p === 'object' && (p.message || p.text));
+        if (!broadcastMessage && !hasPerRecipientMessage) {
             return res.status(400).json({ error: 'Message required' });
         }
         
@@ -124,8 +131,18 @@ localApp.post('/broadcast', async (req, res) => {
             
             console.log(`📦 Batch ${batchNum}/${totalBatches} (${batch.length} contacts)`);
             
-            for (const phone of batch) {
+            for (const entry of batch) {
                 try {
+                    const phone = (entry && typeof entry === 'object')
+                        ? (entry.phone || entry.phone_number || entry.number || entry.to || entry.to_number)
+                        : entry;
+
+                    const perRecipientMessage = (entry && typeof entry === 'object')
+                        ? (entry.message || entry.text)
+                        : null;
+
+                    const effectiveMessage = String(perRecipientMessage != null ? perRecipientMessage : (broadcastMessage || ''));
+
                     // Normalize: digits only + add country code if user provided local 10-digit number.
                     const rawDigits = String(phone).replace(/[^0-9]/g, '');
                     const agentDigits = String(WHATSAPP_PHONE || '').replace(/[^0-9]/g, '');
@@ -141,26 +158,30 @@ localApp.post('/broadcast', async (req, res) => {
                         throw new Error('Recipient is not registered on WhatsApp');
                     }
                     
-                    // Handle image + text or text only
-                    if (messageType === 'image' && imageBase64) {
+                    // Handle image + text (1..N images) or text only
+                    if (messageType === 'image' && images.length) {
                         const { MessageMedia } = require('whatsapp-web.js');
-                        
-                        // Extract base64 data and mime type
-                        let base64Data = imageBase64;
-                        let mimeType = 'image/jpeg';
-                        
-                        if (imageBase64.includes('base64,')) {
-                            const parts = imageBase64.split('base64,');
-                            base64Data = parts[1];
-                            const mimeMatch = parts[0].match(/data:([^;]+)/);
-                            if (mimeMatch) mimeType = mimeMatch[1];
+
+                        for (let j = 0; j < images.length; j++) {
+                            const img = images[j];
+
+                            // Extract base64 data and mime type
+                            let base64Data = img;
+                            let mimeType = 'image/jpeg';
+
+                            if (typeof img === 'string' && img.includes('base64,')) {
+                                const parts = img.split('base64,');
+                                base64Data = parts[1];
+                                const mimeMatch = parts[0].match(/data:([^;]+)/);
+                                if (mimeMatch) mimeType = mimeMatch[1];
+                            }
+
+                            const media = new MessageMedia(mimeType, base64Data);
+                            await global.whatsappClient.sendMessage(chatId, media, { caption: j === 0 ? effectiveMessage : '' });
                         }
-                        
-                        const media = new MessageMedia(mimeType, base64Data);
-                        await global.whatsappClient.sendMessage(chatId, media, { caption: broadcastMessage });
-                        console.log(`✅ Sent image to ${cleanPhone}`);
+                        console.log(`✅ Sent ${images.length} image(s) to ${cleanPhone}`);
                     } else {
-                        await global.whatsappClient.sendMessage(chatId, broadcastMessage);
+                        await global.whatsappClient.sendMessage(chatId, effectiveMessage);
                         console.log(`✅ Sent text to ${cleanPhone}`);
                     }
                     

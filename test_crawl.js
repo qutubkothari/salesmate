@@ -1,10 +1,10 @@
-/**
+﻿/**
  * Test script to verify website crawling and embedding storage
  */
 
 const { crawlWebsite } = require('./services/webCrawlerService');
 const { processWebsiteContent } = require('./services/websiteEmbeddingService');
-const { supabase } = require('./services/config');
+const { dbClient } = require('./services/config');
 
 async function testCrawl() {
     const tenantId = 'a10aa26a-b5f9-4afe-87cc-70bfb4d1f6e6';
@@ -16,19 +16,19 @@ async function testCrawl() {
     
     // Step 1: Check if tables exist
     console.log('Step 1: Checking database tables...');
-    const { data: embeddings, error: embError } = await supabase
+    const { data: embeddings, error: embError } = await dbClient
         .from('website_embeddings')
         .select('count');
     
     if (embError) {
-        console.error('❌ website_embeddings table error:', embError.message);
-        console.log('\n⚠️  You need to run the migration first!');
-        console.log('Run this in Supabase SQL Editor:');
+        console.error('âŒ website_embeddings table error:', embError.message);
+        console.log('\nâš ï¸  You need to run the migration first!');
+        console.log('Run this in dbClient SQL Editor:');
         console.log('migrations/create_website_embeddings.sql\n');
         return;
     }
     
-    console.log('✅ website_embeddings table exists');
+    console.log('âœ… website_embeddings table exists');
     console.log(`   Current rows: ${embeddings[0].count}\n`);
     
     // Step 2: Test crawling
@@ -39,11 +39,11 @@ async function testCrawl() {
     });
     
     if (!crawlResult.success) {
-        console.error('❌ Crawl failed:', crawlResult.error);
+        console.error('âŒ Crawl failed:', crawlResult.error);
         return;
     }
     
-    console.log('✅ Crawl successful!');
+    console.log('âœ… Crawl successful!');
     console.log(`   Page title: ${crawlResult.pageTitle}`);
     console.log(`   Content length: ${crawlResult.content.length} chars`);
     console.log(`   Word count: ${crawlResult.wordCount}`);
@@ -54,18 +54,18 @@ async function testCrawl() {
     try {
         const embeddingResult = await processWebsiteContent(crawlResult, tenantId);
         
-        console.log('✅ Embeddings created successfully!');
+        console.log('âœ… Embeddings created successfully!');
         console.log(`   Chunks created: ${embeddingResult.chunksCreated}`);
         console.log(`   Embedding IDs: ${embeddingResult.embeddingIds.slice(0, 3).join(', ')}...`);
     } catch (embError) {
-        console.error('❌ Embedding creation failed:', embError.message);
+        console.error('âŒ Embedding creation failed:', embError.message);
         console.error('   Stack:', embError.stack);
         return;
     }
     
     // Step 4: Verify data in database
     console.log('\nStep 4: Verifying data in database...');
-    const { data: savedEmbeddings, error: verifyError } = await supabase
+    const { data: savedEmbeddings, error: verifyError } = await dbClient
         .from('website_embeddings')
         .select('id, url, page_title, chunk_index, content_type')
         .eq('tenant_id', tenantId)
@@ -73,11 +73,11 @@ async function testCrawl() {
         .order('chunk_index');
     
     if (verifyError) {
-        console.error('❌ Verification failed:', verifyError.message);
+        console.error('âŒ Verification failed:', verifyError.message);
         return;
     }
     
-    console.log(`✅ Found ${savedEmbeddings.length} chunks in database:`);
+    console.log(`âœ… Found ${savedEmbeddings.length} chunks in database:`);
     savedEmbeddings.forEach((emb, idx) => {
         console.log(`   ${idx + 1}. Chunk ${emb.chunk_index}: ${emb.page_title}`);
     });
@@ -87,7 +87,7 @@ async function testCrawl() {
     const { generateFreeEmbedding } = require('./services/freeEmbeddingService');
     const queryEmbedding = await generateFreeEmbedding('fasteners products');
     
-    const { data: searchResults, error: searchError } = await supabase
+    const { data: searchResults, error: searchError } = await dbClient
         .rpc('search_website_content', {
             query_embedding: queryEmbedding,
             query_tenant_id: tenantId,
@@ -96,11 +96,11 @@ async function testCrawl() {
         });
     
     if (searchError) {
-        console.error('❌ Search function error:', searchError.message);
+        console.error('âŒ Search function error:', searchError.message);
         console.log('   The RPC function might not be created yet.');
         console.log('   Make sure to run the full migration SQL.');
     } else {
-        console.log(`✅ Search works! Found ${searchResults.length} results`);
+        console.log(`âœ… Search works! Found ${searchResults.length} results`);
         searchResults.forEach((result, idx) => {
             console.log(`   ${idx + 1}. ${result.page_title} (similarity: ${result.similarity?.toFixed(3)})`);
         });
@@ -116,3 +116,4 @@ testCrawl().catch(error => {
     console.error('Test failed:', error);
     process.exit(1);
 });
+

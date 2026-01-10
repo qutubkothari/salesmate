@@ -1,8 +1,8 @@
-/**
+﻿/**
  * @title Appointment Booking Service
  * @description Manages the multi-step logic for booking appointments.
  */
-const { supabase } = require('./config');
+const { dbClient } = require('./config');
 const { sendMessage } = require('./whatsappService');
 const { logMessage, getConversationId } = require('./historyService');
 const chrono = require('chrono-node');
@@ -31,7 +31,7 @@ const handleAppointmentBooking = async (tenant, conversation, userMessage) => {
 
             tempStorage.date = parsedDate.toISOString().split('T')[0]; // Store date as YYYY-MM-DD
 
-            await supabase
+            await dbClient
                 .from('conversations')
                 .update({
                     state: 'awaiting_appointment_time',
@@ -58,12 +58,12 @@ const handleAppointmentBooking = async (tenant, conversation, userMessage) => {
 
             const appointmentDateTime = parsedTime.toISOString();
 
-            await supabase
+            await dbClient
                 .from('appointments')
                 .update({ appointment_datetime: appointmentDateTime })
                 .eq('conversation_id', conversation.id);
 
-            await supabase
+            await dbClient
                 .from('conversations')
                 .update({
                     state: 'awaiting_appointment_notes',
@@ -79,13 +79,13 @@ const handleAppointmentBooking = async (tenant, conversation, userMessage) => {
         case 'awaiting_appointment_notes':
             // 3. Save the notes, confirm, and notify the tenant.
             const notes = userMessage.toLowerCase().trim() === 'no' ? null : userMessage;
-            await supabase
+            await dbClient
                 .from('appointments')
                 .update({ customer_notes: notes, status: 'confirmed' })
                 .eq('conversation_id', conversation.id);
 
             // Clear the state to end the booking flow.
-            await supabase
+            await dbClient
                 .from('conversations')
                 .update({ state: null })
                 .eq('id', conversation.id);
@@ -94,10 +94,10 @@ const handleAppointmentBooking = async (tenant, conversation, userMessage) => {
             await sendMessage(endUserPhone, confirmationMessage);
             await logMessage(tenantId, endUserPhone, 'bot', confirmationMessage);
 
-            const { data: finalAppointment } = await supabase.from('appointments').select('appointment_datetime').eq('conversation_id', conversation.id).single();
+            const { data: finalAppointment } = await dbClient.from('appointments').select('appointment_datetime').eq('conversation_id', conversation.id).single();
             const finalDateTime = new Date(finalAppointment.appointment_datetime).toLocaleString();
 
-            const tenantNotification = `🗓️ *New Appointment Booked!*\n\nA new appointment has been booked with ${endUserPhone} for *${finalDateTime}*.`;
+            const tenantNotification = `ðŸ—“ï¸ *New Appointment Booked!*\n\nA new appointment has been booked with ${endUserPhone} for *${finalDateTime}*.`;
             await sendMessage(tenant.phone_number, tenantNotification);
             break;
     }
@@ -116,7 +116,7 @@ const startAppointmentBooking = async (tenantId, endUserPhone) => {
     }
 
     // Create a new appointment record
-    await supabase
+    await dbClient
         .from('appointments')
         .insert({
             tenant_id: tenantId,
@@ -124,7 +124,7 @@ const startAppointmentBooking = async (tenantId, endUserPhone) => {
         });
 
     // Set the initial state for the conversation
-    await supabase
+    await dbClient
         .from('conversations')
         .update({ state: 'awaiting_appointment_date' })
         .eq('id', conversationId);
@@ -138,3 +138,4 @@ module.exports = {
     handleAppointmentBooking,
     startAppointmentBooking,
 };
+

@@ -1,4 +1,4 @@
-const { supabase } = require('../config/database');
+﻿const { dbClient } = require('../config/database');
 
 /**
  * Get customer's last purchase price for a specific product
@@ -12,7 +12,7 @@ async function getCustomerLastPrice(tenantId, phoneNumber, productId) {
         });
 
         // Get customer profile
-        const { data: customer } = await supabase
+        const { data: customer } = await dbClient
             .from('customer_profiles')
             .select('id')
             .eq('tenant_id', tenantId)
@@ -25,7 +25,7 @@ async function getCustomerLastPrice(tenantId, phoneNumber, productId) {
         }
 
         // Get last order containing this product
-        const { data: lastOrderItem, error } = await supabase
+        const { data: lastOrderItem, error } = await dbClient
             .from('order_items')
             .select(`
                 price_at_time_of_purchase,
@@ -74,7 +74,7 @@ async function getCustomerLastPrice(tenantId, phoneNumber, productId) {
  */
 async function getCustomerPurchaseHistory(tenantId, phoneNumber, productId) {
     try {
-        const { data: customer } = await supabase
+        const { data: customer } = await dbClient
             .from('customer_profiles')
             .select('id')
             .eq('tenant_id', tenantId)
@@ -83,7 +83,7 @@ async function getCustomerPurchaseHistory(tenantId, phoneNumber, productId) {
 
         if (!customer) return [];
 
-        const { data: history } = await supabase
+        const { data: history } = await dbClient
             .from('order_items')
             .select(`
                 price_per_unit,
@@ -123,7 +123,7 @@ async function getPersonalizedPrice(tenantId, phoneNumber, productId, catalogPri
             return {
                 price: lastPrice.price,
                 isPersonalized: true,
-                message: `Your last price: ₹${lastPrice.price} (ordered on ${new Date(lastPrice.lastOrderDate).toLocaleDateString()})`,
+                message: `Your last price: â‚¹${lastPrice.price} (ordered on ${new Date(lastPrice.lastOrderDate).toLocaleDateString()})`,
                 catalogPrice: catalogPrice,
                 savings: catalogPrice > lastPrice.price ? catalogPrice - lastPrice.price : 0
             };
@@ -133,7 +133,7 @@ async function getPersonalizedPrice(tenantId, phoneNumber, productId, catalogPri
         return {
             price: catalogPrice,
             isPersonalized: false,
-            message: `Price: ₹${catalogPrice}`,
+            message: `Price: â‚¹${catalogPrice}`,
             catalogPrice: catalogPrice,
             savings: 0
         };
@@ -143,7 +143,7 @@ async function getPersonalizedPrice(tenantId, phoneNumber, productId, catalogPri
         return {
             price: catalogPrice,
             isPersonalized: false,
-            message: `Price: ₹${catalogPrice}`,
+            message: `Price: â‚¹${catalogPrice}`,
             catalogPrice: catalogPrice,
             savings: 0
         };
@@ -155,7 +155,7 @@ async function getPersonalizedPrice(tenantId, phoneNumber, productId, catalogPri
  */
 async function shouldOfferSpecialPrice(tenantId, phoneNumber, productId) {
     try {
-        const { data: product } = await supabase
+        const { data: product } = await dbClient
             .from('products')
             .select('price')
             .eq('id', productId)
@@ -181,7 +181,7 @@ async function shouldOfferSpecialPrice(tenantId, phoneNumber, productId) {
 async function getPricingMessage(tenantId, phoneNumber, productName, productId) {
     try {
         // Get product details
-        const { data: product } = await supabase
+        const { data: product } = await dbClient
             .from('products')
             .select('price, units_per_carton, packaging_unit')
             .eq('id', productId)
@@ -198,24 +198,24 @@ async function getPricingMessage(tenantId, phoneNumber, productName, productId) 
             parseFloat(product.price)
         );
 
-        let message = `📦 *${productName}*\n\n`;
+        let message = `ðŸ“¦ *${productName}*\n\n`;
 
         if (pricing.isPersonalized) {
-            message += `✨ *Your Special Price*: ₹${pricing.price}/${product.packaging_unit || 'carton'}\n`;
+            message += `âœ¨ *Your Special Price*: â‚¹${pricing.price}/${product.packaging_unit || 'carton'}\n`;
             message += `   (Last ordered: ${new Date(await getLastOrderDate(tenantId, phoneNumber, productId)).toLocaleDateString()})\n\n`;
             
             if (pricing.savings > 0) {
-                message += `💰 You save ₹${pricing.savings} from catalog price!\n\n`;
+                message += `ðŸ’° You save â‚¹${pricing.savings} from catalog price!\n\n`;
             }
         } else {
-            message += `💵 *Price*: ₹${pricing.price}/${product.packaging_unit || 'carton'}\n\n`;
+            message += `ðŸ’µ *Price*: â‚¹${pricing.price}/${product.packaging_unit || 'carton'}\n\n`;
         }
 
         if (product.units_per_carton) {
-            message += `📊 ${product.units_per_carton} pieces per carton\n\n`;
+            message += `ðŸ“Š ${product.units_per_carton} pieces per carton\n\n`;
         }
 
-        message += `Ready to order? Let me know the quantity! 🛒`;
+        message += `Ready to order? Let me know the quantity! ðŸ›’`;
 
         return message;
 
@@ -238,7 +238,7 @@ async function getLastOrderDate(tenantId, phoneNumber, productId) {
  */
 async function getProductCustomerPrices(tenantId, productId) {
     try {
-        const { data: prices } = await supabase
+        const { data: prices } = await dbClient
             .from('order_items')
             .select(`
                 price_per_unit,

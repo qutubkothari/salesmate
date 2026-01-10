@@ -1,8 +1,8 @@
-/**
+﻿/**
  * @title Quick Reply Service
  * @description Manages keyword-based quick replies for common, simple user interactions.
  */
-const { supabase } = require('./config');
+const { dbClient } = require('./config');
 
 /**
  * Finds if a user's message is an exact match for a tenant's quick reply trigger.
@@ -12,7 +12,7 @@ const { supabase } = require('./config');
  */
 const findQuickReplyResponse = async (tenantId, userMessage) => {
     try {
-        const { data, error } = await supabase
+        const { data, error } = await dbClient
             .from('quick_replies')
             .select('response')
             .eq('tenant_id', tenantId)
@@ -41,7 +41,7 @@ const findQuickReplyResponse = async (tenantId, userMessage) => {
  */
 const addQuickReply = async (tenantId, trigger, response) => {
     try {
-        const { error } = await supabase
+        const { error } = await dbClient
             .from('quick_replies')
             .upsert({
                 tenant_id: tenantId,
@@ -66,7 +66,7 @@ const addQuickReply = async (tenantId, trigger, response) => {
  */
 const deleteQuickReply = async (tenantId, trigger) => {
     try {
-        const { error } = await supabase
+        const { error } = await dbClient
             .from('quick_replies')
             .delete()
             .eq('tenant_id', tenantId)
@@ -88,7 +88,7 @@ const deleteQuickReply = async (tenantId, trigger) => {
  */
 const listQuickReplies = async (tenantId) => {
     try {
-        const { data, error } = await supabase
+        const { data, error } = await dbClient
             .from('quick_replies')
             .select('trigger_phrase, response')
             .eq('tenant_id', tenantId);
@@ -119,3 +119,4 @@ module.exports = {
     deleteQuickReply,
     listQuickReplies,
 };
+

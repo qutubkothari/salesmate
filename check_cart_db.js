@@ -1,5 +1,5 @@
-require('dotenv').config();
-const { supabase } = require('./config/database');
+﻿require('dotenv').config();
+const { dbClient } = require('./config/database');
 
 (async () => {
   const phone = '96567709452@c.us';
@@ -8,7 +8,7 @@ const { supabase } = require('./config/database');
   console.log('Checking conversation and cart for:', phone);
   
   // First check if ANY conversations exist for this tenant
-  const { data: allConvs } = await supabase
+  const { data: allConvs } = await dbClient
     .from('conversations')
     .select('id, end_user_phone')
     .eq('tenant_id', tenantId)
@@ -17,7 +17,7 @@ const { supabase } = require('./config/database');
   
   console.log('\nRecent conversations for tenant:', allConvs);
   
-  const { data: conv, error: convError } = await supabase
+  const { data: conv, error: convError } = await dbClient
     .from('conversations')
     .select('id, end_user_phone')
     .eq('end_user_phone', phone)
@@ -38,7 +38,7 @@ const { supabase } = require('./config/database');
   
   if (conv) {
     // Get cart first
-    const { data: cart } = await supabase
+    const { data: cart } = await dbClient
       .from('carts')
       .select('id')
       .eq('conversation_id', conv.id)
@@ -47,7 +47,7 @@ const { supabase } = require('./config/database');
     console.log('\nCart:', cart);
     
     if (cart) {
-      const { data: items } = await supabase
+      const { data: items } = await dbClient
         .from('cart_items')
         .select('id, product_id, quantity, carton_price_override')
         .eq('cart_id', cart.id);
@@ -56,7 +56,7 @@ const { supabase } = require('./config/database');
     }
     
     // Check orders count
-    const { data: profile } = await supabase
+    const { data: profile } = await dbClient
       .from('customer_profiles')
       .select('id')
       .eq('phone_number', phone)
@@ -64,7 +64,7 @@ const { supabase } = require('./config/database');
       .maybeSingle();
     
     if (profile) {
-      const { count } = await supabase
+      const { count } = await dbClient
         .from('orders')
         .select('*', { count: 'exact', head: true })
         .eq('customer_profile_id', profile.id)
@@ -74,3 +74,4 @@ const { supabase } = require('./config/database');
     }
   }
 })();
+

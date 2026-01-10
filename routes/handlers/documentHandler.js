@@ -1,11 +1,11 @@
-// routes/handlers/documentHandler.js
+﻿// routes/handlers/documentHandler.js
 const { sendMessage } = require('../../services/whatsappService');
 const { handleImageUpload } = require('./imageHandler');
 const { checkSubscriptionStatus } = require('../../services/subscriptionService');
 const { processProductSheet } = require('../../services/productService');
 const { scheduleBroadcast } = require('../../services/broadcastService');
 const { subscribeUsersFromSheet } = require('../../services/dripCampaignService');
-const { supabase } = require('../../services/config');
+const { dbClient } = require('../../services/config');
 const broadcastCommands = require('../../commands/broadcast');
 const { analyzePDF } = require('../../services/pdfAnalysisService');
 const { uploadPDFToGCS, savePDFMetadata } = require('../../services/pdfUploadService');
@@ -169,7 +169,7 @@ const handleAdminDocument = async (req, res) => {
   const subscription = await checkSubscriptionStatus(tenant.id);
   if (subscription.status !== 'active' && subscription.status !== 'trial') {
     await sendMessage(from, `Your subscription is not active, so you cannot upload files. Please use '/activate <key>' to continue.`);
-    await supabase.from('tenants').update({ last_command_context: null }).eq('id', tenant.id);
+    await dbClient.from('tenants').update({ last_command_context: null }).eq('id', tenant.id);
     return res.status(200).json({ ok: false, error: 'subscription_inactive' });
   }
 
@@ -182,14 +182,14 @@ const handleAdminDocument = async (req, res) => {
   const fileUrl = extractDocumentUrl(message);
   if (!fileUrl) {
     await sendMessage(from, "Could not access the document. Please try uploading again.");
-    await supabase.from('tenants').update({ last_command_context: null }).eq('id', tenant.id);
+    await dbClient.from('tenants').update({ last_command_context: null }).eq('id', tenant.id);
     return res.status(200).json({ ok: false, error: 'no_file_url' });
   }
 
   // Handle product uploads
   if (contextString === 'upload_products') {
     await processProductSheet(tenant.id, fileUrl, from);
-    await supabase.from('tenants').update({ last_command_context: null }).eq('id', tenant.id);
+    await dbClient.from('tenants').update({ last_command_context: null }).eq('id', tenant.id);
     return res.status(200).json({ ok: true, type: 'products_processed' });
   }
 
@@ -275,7 +275,7 @@ const handleAdminDocument = async (req, res) => {
   try {
     const currentContext = JSON.parse(contextString);
     if (finalSteps.includes(currentContext.type)) {
-      await supabase.from('tenants').update({ last_command_context: null }).eq('id', tenant.id);
+      await dbClient.from('tenants').update({ last_command_context: null }).eq('id', tenant.id);
     }
   } catch (e) {
     console.error('Error clearing context:', e);
@@ -403,7 +403,7 @@ const handleDocument = async (req, res) => {
       const from = message.from;
       
       // First, try to find recent orders
-      const { data: recentOrders, error: queryError } = await supabase
+      const { data: recentOrders, error: queryError } = await dbClient
         .from('orders')
         .select('id, created_at, order_data')
         .eq('tenant_id', tenant.id)
@@ -510,20 +510,20 @@ const handleDocument = async (req, res) => {
           );
           
           if (businessResult.success) {
-            console.log('[DOCUMENT_HANDLER] ✅ GST certificate processed successfully');
+            console.log('[DOCUMENT_HANDLER] âœ… GST certificate processed successfully');
             
-            // 🆕 CRITICAL FIX: Update customer profile with extracted GST info
+            // ðŸ†• CRITICAL FIX: Update customer profile with extracted GST info
             const gstInfo = businessResult.business_info || {};
             
             if (gstInfo.gst_number || gstInfo.gstin) {
               console.log('[DOCUMENT_HANDLER] Updating customer profile with GST:', gstInfo.gst_number || gstInfo.gstin);
               
-              // 🔧 CRITICAL FIX: Ensure phone format matches database (with @c.us)
+              // ðŸ”§ CRITICAL FIX: Ensure phone format matches database (with @c.us)
               const formattedPhone = toWhatsAppFormat(message.from);
               console.log('[DOCUMENT_HANDLER] Using phone format:', formattedPhone);
               
               try {
-                await supabase
+                await dbClient
                   .from('customer_profiles')
                   .update({
                     gst_number: gstInfo.gst_number || gstInfo.gstin,
@@ -536,10 +536,10 @@ const handleDocument = async (req, res) => {
                   .eq('tenant_id', req.tenant.id)
                   .eq('phone', formattedPhone);
                 
-                console.log('[DOCUMENT_HANDLER] ✅ Customer profile updated with GST');
+                console.log('[DOCUMENT_HANDLER] âœ… Customer profile updated with GST');
                 
-                // 🆕 CRITICAL FIX: Check for pending checkout and clear state
-                const { data: conversation } = await supabase
+                // ðŸ†• CRITICAL FIX: Check for pending checkout and clear state
+                const { data: conversation } = await dbClient
                   .from('conversations')
                   .select('state, context_data')
                   .eq('tenant_id', req.tenant.id)
@@ -561,7 +561,7 @@ const handleDocument = async (req, res) => {
                     console.log('[DOCUMENT_HANDLER] Pending checkout detected - proceeding to checkout');
                     
                     // Clear state and proceed with checkout
-                    await supabase
+                    await dbClient
                       .from('conversations')
                       .update({
                         state: 'discount_approved',
@@ -573,7 +573,7 @@ const handleDocument = async (req, res) => {
                       .eq('end_user_phone', message.from);
                     
                     // Send success message
-                    await sendMessage(message.from, businessResult.response + "\n\n✅ Processing your order now...");
+                    await sendMessage(message.from, businessResult.response + "\n\nâœ… Processing your order now...");
                     
                     // Proceed with checkout
                     const { checkoutWithDiscounts } = require('../../services/cartService');
@@ -597,7 +597,7 @@ const handleDocument = async (req, res) => {
                     });
                   } else {
                     // No pending checkout - just clear state
-                    await supabase
+                    await dbClient
                       .from('conversations')
                       .update({
                         state: null,
@@ -606,7 +606,7 @@ const handleDocument = async (req, res) => {
                       .eq('tenant_id', req.tenant.id)
                       .eq('end_user_phone', message.from);
                     
-                    console.log('[DOCUMENT_HANDLER] ✅ State cleared - no pending checkout');
+                    console.log('[DOCUMENT_HANDLER] âœ… State cleared - no pending checkout');
                   }
                 }
               } catch (updateError) {

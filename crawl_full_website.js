@@ -1,10 +1,10 @@
-/**
+﻿/**
  * Crawl entire website with all subpages
  */
 
 const { crawlEntireWebsite, parseSitemap } = require('./services/webCrawlerService');
 const { processWebsiteContent } = require('./services/websiteEmbeddingService');
-const { supabase } = require('./services/config');
+const { dbClient } = require('./services/config');
 
 async function crawlFullWebsite() {
     const tenantId = 'a10aa26a-b5f9-4afe-87cc-70bfb4d1f6e6';
@@ -20,7 +20,7 @@ async function crawlFullWebsite() {
     console.log('\n-------------------------------------------\n');
     
     // Create crawl job
-    const { data: job, error: jobError } = await supabase
+    const { data: job, error: jobError } = await dbClient
         .from('crawl_jobs')
         .insert({
             tenant_id: tenantId,
@@ -43,7 +43,7 @@ async function crawlFullWebsite() {
     let urlsToCrawl = await parseSitemap(websiteUrl);
     
     if (urlsToCrawl.length > 0) {
-        console.log(`✅ Found sitemap with ${urlsToCrawl.length} URLs`);
+        console.log(`âœ… Found sitemap with ${urlsToCrawl.length} URLs`);
         urlsToCrawl = urlsToCrawl.slice(0, 100); // Limit to 100
         console.log(`Processing ${urlsToCrawl.length} URLs...\n`);
     } else {
@@ -70,9 +70,9 @@ async function crawlFullWebsite() {
             
             if (result.success) {
                 crawlResults.push(result);
-                console.log(`    ✅ ${result.wordCount} words extracted`);
+                console.log(`    âœ… ${result.wordCount} words extracted`);
             } else {
-                console.log(`    ❌ Failed: ${result.error}`);
+                console.log(`    âŒ Failed: ${result.error}`);
             }
             
             // Respectful delay
@@ -110,14 +110,14 @@ async function crawlFullWebsite() {
             const embeddingResult = await processWebsiteContent(crawlResult, tenantId);
             totalChunks += embeddingResult.chunksCreated;
             successfulPages++;
-            console.log(`    ✅ ${embeddingResult.chunksCreated} chunks saved`);
+            console.log(`    âœ… ${embeddingResult.chunksCreated} chunks saved`);
         } catch (error) {
-            console.log(`    ❌ Failed: ${error.message}`);
+            console.log(`    âŒ Failed: ${error.message}`);
         }
     }
     
     // Update job
-    await supabase
+    await dbClient
         .from('crawl_jobs')
         .update({
             status: 'completed',
@@ -130,13 +130,13 @@ async function crawlFullWebsite() {
     console.log('\n===========================================');
     console.log('CRAWL COMPLETE!');
     console.log('===========================================');
-    console.log(`✅ Pages crawled: ${successfulPages}`);
-    console.log(`✅ Total chunks: ${totalChunks}`);
-    console.log(`✅ Job ID: ${job.id}`);
+    console.log(`âœ… Pages crawled: ${successfulPages}`);
+    console.log(`âœ… Total chunks: ${totalChunks}`);
+    console.log(`âœ… Job ID: ${job.id}`);
     console.log('===========================================\n');
     
     // Show summary
-    const { data: allChunks } = await supabase
+    const { data: allChunks } = await dbClient
         .from('website_embeddings')
         .select('url, page_title')
         .eq('tenant_id', tenantId);
@@ -145,10 +145,11 @@ async function crawlFullWebsite() {
     
     console.log('Total URLs in database:', uniqueUrls.length);
     console.log('Total chunks in database:', allChunks.length);
-    console.log('\nYour website content is now searchable! 🎉');
+    console.log('\nYour website content is now searchable! ðŸŽ‰');
 }
 
 crawlFullWebsite().catch(error => {
     console.error('Crawl failed:', error);
     process.exit(1);
 });
+

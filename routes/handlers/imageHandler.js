@@ -1,9 +1,9 @@
-// routes/handlers/imageHandler.js
+﻿// routes/handlers/imageHandler.js
 const { sendMessage } = require('../../services/whatsappService');
 const broadcastCommands = require('../../commands/broadcast');
 const { uploadImageToGCS, saveImageMetadata } = require('../../services/imageUploadService');
 const { identifyProductFromImage } = require('../../services/ocrService');
-const { supabase } = require('../../services/config');
+const { dbClient } = require('../../services/config');
 
 /**
  * Enhanced image URL extraction that handles all Maytapi formats
@@ -115,7 +115,7 @@ const handleAdminImageUpload = async (req, res) => {
         console.log('[ADMIN_IMAGE] Detected shipping slip with LR:', extraction.lrNumber);
         
         // Find the most recent order without LR number
-        const { data: recentOrders, error } = await supabase
+        const { data: recentOrders, error } = await dbClient
           .from('orders')
           .select('id, customer_phone, created_at')
           .eq('tenant_id', tenant.id)
@@ -137,14 +137,14 @@ const handleAdminImageUpload = async (req, res) => {
           
           if (result.success) {
             // Send the LR copy to the customer
-            const customerMessage = `📦 *Your Shipping Details*\n\nHere is your LR copy for the recent order:\n\n${result.message}`;
+            const customerMessage = `ðŸ“¦ *Your Shipping Details*\n\nHere is your LR copy for the recent order:\n\n${result.message}`;
             await sendMessage(order.customer_phone, customerMessage);
             
             // Send the actual image
             // Note: Maytapi might have limitations on sending images programmatically
             // For now, just send the tracking info
             
-            await sendMessage(phoneNumber, `✅ LR Copy processed and sent to customer ${order.customer_phone}\n\n${result.message}`);
+            await sendMessage(phoneNumber, `âœ… LR Copy processed and sent to customer ${order.customer_phone}\n\n${result.message}`);
             return res.status(200).json({ success: true, type: 'shipping_slip_sent' });
           }
         } else {
@@ -222,7 +222,7 @@ const handleCustomerImageUpload = async (req, res) => {
         // Only save context if we actually have a product
         if (analysisResult.product && analysisResult.product.name) {
             try {
-                const updateResult = await supabase
+                const updateResult = await dbClient
                     .from('conversations')
                     .update({
                         last_product_discussed: analysisResult.product.name, // Should be "NFF 8x80"
@@ -247,7 +247,7 @@ const handleCustomerImageUpload = async (req, res) => {
         } else if (productName) {
             // Fallback: save with any product name we found
             try {
-                const updateResult = await supabase
+                const updateResult = await dbClient
                     .from('conversations')
                     .update({
                         last_product_discussed: productName,
@@ -392,7 +392,7 @@ const analyzeCustomerImage = async (imageUrl, message, tenantId) => {
         } else {
           return {
             type: 'shipping_slip_extracted',
-            message: `✅ I found the LR Number: **${extractionResult.lrNumber}**\n\nI'm checking the shipment status now... Please wait a moment.`,
+            message: `âœ… I found the LR Number: **${extractionResult.lrNumber}**\n\nI'm checking the shipment status now... Please wait a moment.`,
             lrNumber: extractionResult.lrNumber
           };
         }
@@ -424,20 +424,20 @@ const analyzeCustomerImage = async (imageUrl, message, tenantId) => {
       // Use OCR to identify the product
       const ocrResult = await identifyProductFromImage(imageUrl, tenantId);
       
-      // 🔧 FIX: Be more conservative - don't claim we have products unless very confident
+      // ðŸ”§ FIX: Be more conservative - don't claim we have products unless very confident
       if (ocrResult.found && ocrResult.confidence === 'high' && ocrResult.topMatch.relevanceScore >= 7) {
         const product = ocrResult.topMatch;
-        // ✅ Only confirm if we're VERY sure (high relevance score)
+        // âœ… Only confirm if we're VERY sure (high relevance score)
         return {
           type: 'product_identified',
-          message: `I found this in our catalog: **${product.name}**\n\n💰 Price: ₹${product.price}${product.packaging_unit === 'carton' ? '/carton' : ''}\n📦 ${product.description || 'Product details available'}\n\nIs this what you're looking for? Reply "yes" to get pricing or add to cart.`,
+          message: `I found this in our catalog: **${product.name}**\n\nðŸ’° Price: â‚¹${product.price}${product.packaging_unit === 'carton' ? '/carton' : ''}\nðŸ“¦ ${product.description || 'Product details available'}\n\nIs this what you're looking for? Reply "yes" to get pricing or add to cart.`,
           ocrResult,
           product
         };
       } else if (ocrResult.found && (ocrResult.confidence === 'high' || ocrResult.confidence === 'medium')) {
-        // 🔧 FIX: Show options instead of claiming we have it
+        // ðŸ”§ FIX: Show options instead of claiming we have it
         const products = ocrResult.products.slice(0, 3);
-        const productList = products.map((p, idx) => `${idx + 1}. **${p.name}** - ₹${p.price}${p.packaging_unit === 'carton' ? '/carton' : ''}`).join('\n');
+        const productList = products.map((p, idx) => `${idx + 1}. **${p.name}** - â‚¹${p.price}${p.packaging_unit === 'carton' ? '/carton' : ''}`).join('\n');
         return {
           type: 'product_suggestions',
           message: `I found these similar products in our catalog:\n\n${productList}\n\nDoes any of these match what you're looking for? Please reply with the number or product name.`,
@@ -445,13 +445,13 @@ const analyzeCustomerImage = async (imageUrl, message, tenantId) => {
           suggestions: products
         };
       } else {
-        // 🔧 FIX: Be honest when we can't identify it clearly
+        // ðŸ”§ FIX: Be honest when we can't identify it clearly
         const extractedInfo = ocrResult.extractedText && !ocrResult.isVisualDescription 
           ? `I could see some text: "${ocrResult.extractedText.substring(0, 100)}"` 
           : `I can see it's a product image`;
         return {
           type: 'product_inquiry_manual',
-          message: `${extractedInfo}, but I couldn't match it confidently to our catalog.\n\nCould you please share:\n• Product code/model number\n• Brand name\n• Product type\n\nThis will help me find exact pricing and availability for you.`,
+          message: `${extractedInfo}, but I couldn't match it confidently to our catalog.\n\nCould you please share:\nâ€¢ Product code/model number\nâ€¢ Brand name\nâ€¢ Product type\n\nThis will help me find exact pricing and availability for you.`,
           ocrResult
         };
       }
@@ -512,7 +512,7 @@ const analyzeCustomerImage = async (imageUrl, message, tenantId) => {
   console.log('[IMAGE_ANALYSIS] No specific intent detected, trying OCR for general product identification...');
   const ocrResult = await identifyProductFromImage(imageUrl, tenantId);
   
-  // ⭐ CHECK IF OCR DETECTED A SHIPPING SLIP
+  // â­ CHECK IF OCR DETECTED A SHIPPING SLIP
   if (ocrResult.isShippingSlip && ocrResult.lrNumber) {
     console.log('[SHIPPING_SLIP] OCR detected shipping slip with LR:', ocrResult.lrNumber);
     
@@ -533,7 +533,7 @@ const analyzeCustomerImage = async (imageUrl, message, tenantId) => {
         // LR number saved for tracking - notify customer we'll monitor it
         return {
           type: 'shipping_slip_saved_for_tracking',
-          message: `✅ *Shipping Slip Received!*\n\n📋 *LR Number:* ${ocrResult.lrNumber}\n🚚 *Transporter:* VRL Logistics\n\n� *We're on it!*\nI've saved your tracking number. I'll monitor the shipment status and notify you of any updates, including:\n\n✨ Shipment dispatched\n📦 In transit updates\n🚛 Out for delivery\n✅ Delivered\n\n🔍 *Want to track manually?*\nVisit: ${trackingResult.trackingUrl}\nLR Number: ${ocrResult.lrNumber}\n\nYou'll hear from me as soon as there's an update! 🙌`,
+          message: `âœ… *Shipping Slip Received!*\n\nðŸ“‹ *LR Number:* ${ocrResult.lrNumber}\nðŸšš *Transporter:* VRL Logistics\n\nï¿½ *We're on it!*\nI've saved your tracking number. I'll monitor the shipment status and notify you of any updates, including:\n\nâœ¨ Shipment dispatched\nðŸ“¦ In transit updates\nðŸš› Out for delivery\nâœ… Delivered\n\nðŸ” *Want to track manually?*\nVisit: ${trackingResult.trackingUrl}\nLR Number: ${ocrResult.lrNumber}\n\nYou'll hear from me as soon as there's an update! ðŸ™Œ`,
           lrNumber: ocrResult.lrNumber,
           trackingUrl: trackingResult.trackingUrl,
           ocrResult
@@ -541,7 +541,7 @@ const analyzeCustomerImage = async (imageUrl, message, tenantId) => {
       } else {
         return {
           type: 'shipping_slip_extracted',
-          message: `✅ I found the LR Number: **${ocrResult.lrNumber}**\n\n🔍 Track at: https://www.vrlgroup.in/track_consignment.aspx\n\nEnter this LR number on their website to check shipment status.`,
+          message: `âœ… I found the LR Number: **${ocrResult.lrNumber}**\n\nðŸ” Track at: https://www.vrlgroup.in/track_consignment.aspx\n\nEnter this LR number on their website to check shipment status.`,
           lrNumber: ocrResult.lrNumber,
           ocrResult
         };
@@ -550,14 +550,14 @@ const analyzeCustomerImage = async (imageUrl, message, tenantId) => {
       console.error('[SHIPPING_SLIP] Error tracking:', error);
       return {
         type: 'shipping_slip_error',
-        message: `✅ *Shipping Slip Detected!*\n\n📋 *LR Number:* ${ocrResult.lrNumber}\n🚚 *Transporter:* VRL Logistics\n\n🔍 *Track Your Shipment:*\nVisit: https://www.vrlgroup.in/track_consignment.aspx\nEnter LR: ${ocrResult.lrNumber}\n\n📞 Or call VRL customer care for updates.`,
+        message: `âœ… *Shipping Slip Detected!*\n\nðŸ“‹ *LR Number:* ${ocrResult.lrNumber}\nðŸšš *Transporter:* VRL Logistics\n\nðŸ” *Track Your Shipment:*\nVisit: https://www.vrlgroup.in/track_consignment.aspx\nEnter LR: ${ocrResult.lrNumber}\n\nðŸ“ž Or call VRL customer care for updates.`,
         lrNumber: ocrResult.lrNumber,
         ocrResult
       };
     }
   }
   
-  // 🔧 FIX: Be very conservative with auto-identification
+  // ðŸ”§ FIX: Be very conservative with auto-identification
   if (ocrResult.found) {
     const product = ocrResult.topMatch;
 
@@ -565,14 +565,14 @@ const analyzeCustomerImage = async (imageUrl, message, tenantId) => {
     if (ocrResult.confidence === 'high' && product.relevanceScore >= 8) {
       return {
         type: 'product_auto_identified',
-        message: `I think I found this in our catalog: **${product.name}**\n\n💰 Price: ₹${product.price}${product.packaging_unit === 'carton' ? '/carton' : ''}\n\nIs this correct? Let me know if you need more details or want to order!`,
+        message: `I think I found this in our catalog: **${product.name}**\n\nðŸ’° Price: â‚¹${product.price}${product.packaging_unit === 'carton' ? '/carton' : ''}\n\nIs this correct? Let me know if you need more details or want to order!`,
         ocrResult,
         product
       };
     } else if (ocrResult.confidence === 'high' || ocrResult.confidence === 'medium') {
-      // 🔧 FIX: Show as suggestion, not confirmation
+      // ðŸ”§ FIX: Show as suggestion, not confirmation
       const topProducts = ocrResult.products.slice(0, 2);
-      const productList = topProducts.map((p, idx) => `${idx + 1}. **${p.name}** - ₹${p.price}${p.packaging_unit === 'carton' ? '/carton' : ''}`).join('\n');
+      const productList = topProducts.map((p, idx) => `${idx + 1}. **${p.name}** - â‚¹${p.price}${p.packaging_unit === 'carton' ? '/carton' : ''}`).join('\n');
       return {
         type: 'product_suggestions',
         message: `I found similar products in our catalog:\n\n${productList}\n\nWhich one matches your image? Or please share the product code/name for exact details.`,
