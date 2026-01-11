@@ -4,7 +4,7 @@
 
 const express = require('express');
 const router = express.Router();
-const { getTenantDb } = require('../../services/config');
+const { db } = require('../../services/config');
 
 /**
  * GET /api/tasks/:tenantId
@@ -15,7 +15,6 @@ router.get('/:tenantId', (req, res) => {
     const { tenantId } = req.params;
     const { status, assigned_to, priority } = req.query;
     
-    const db = getTenantDb(tenantId);
     
     let query = `
       SELECT t.*, 
@@ -68,7 +67,6 @@ router.get('/:tenantId/my-tasks', (req, res) => {
       return res.status(400).json({ success: false, error: 'user_id required' });
     }
     
-    const db = getTenantDb(tenantId);
     
     const tasks = db.prepare(`
       SELECT t.*, 
@@ -118,7 +116,6 @@ router.post('/:tenantId', (req, res) => {
       return res.status(400).json({ success: false, error: 'Title is required' });
     }
     
-    const db = getTenantDb(tenantId);
     
     const result = db.prepare(`
       INSERT INTO tasks (
@@ -157,7 +154,6 @@ router.put('/:tenantId/:taskId', (req, res) => {
     const { tenantId, taskId } = req.params;
     const { title, description, assigned_to, priority, status, due_date, reminder_at } = req.body;
     
-    const db = getTenantDb(tenantId);
     
     const updates = [];
     const values = [];
@@ -194,8 +190,7 @@ router.put('/:tenantId/:taskId', (req, res) => {
 router.post('/:tenantId/:taskId/complete', (req, res) => {
   try {
     const { tenantId, taskId } = req.params;
-    const db = getTenantDb(tenantId);
-    
+
     db.prepare(`
       UPDATE tasks
       SET status = 'COMPLETED', completed_at = CURRENT_TIMESTAMP
@@ -218,8 +213,7 @@ router.post('/:tenantId/:taskId/complete', (req, res) => {
 router.delete('/:tenantId/:taskId', (req, res) => {
   try {
     const { tenantId, taskId } = req.params;
-    const db = getTenantDb(tenantId);
-    
+
     db.prepare('DELETE FROM tasks WHERE id = ? AND tenant_id = ?')
       .run(taskId, tenantId);
     

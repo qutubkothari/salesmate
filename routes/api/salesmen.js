@@ -4,7 +4,7 @@
 
 const express = require('express');
 const router = express.Router();
-const { getTenantDb } = require('../../services/config');
+const { db } = require('../../services/config');
 const { getActiveSalesmen, getSalesmanWorkload } = require('../../services/assignmentService');
 
 /**
@@ -14,7 +14,6 @@ const { getActiveSalesmen, getSalesmanWorkload } = require('../../services/assig
 router.get('/:tenantId', (req, res) => {
   try {
     const { tenantId } = req.params;
-    const db = getTenantDb(tenantId);
     
     const salesmen = db.prepare(`
       SELECT * FROM salesman
@@ -44,7 +43,6 @@ router.get('/:tenantId', (req, res) => {
 router.get('/:tenantId/:salesmanId', (req, res) => {
   try {
     const { tenantId, salesmanId } = req.params;
-    const db = getTenantDb(tenantId);
     
     const salesman = db.prepare('SELECT * FROM salesman WHERE id = ? AND tenant_id = ?')
       .get(salesmanId, tenantId);
@@ -77,8 +75,6 @@ router.post('/:tenantId', (req, res) => {
     if (!name) {
       return res.status(400).json({ success: false, error: 'Name is required' });
     }
-    
-    const db = getTenantDb(tenantId);
     
     const result = db.prepare(`
       INSERT INTO salesman (
@@ -114,8 +110,6 @@ router.put('/:tenantId/:salesmanId', (req, res) => {
   try {
     const { tenantId, salesmanId } = req.params;
     const { name, email, phone, max_leads_per_month, product_skills, language_skills, geographic_zone, active } = req.body;
-    
-    const db = getTenantDb(tenantId);
     
     const updates = [];
     const values = [];
@@ -154,8 +148,7 @@ router.put('/:tenantId/:salesmanId', (req, res) => {
 router.delete('/:tenantId/:salesmanId', (req, res) => {
   try {
     const { tenantId, salesmanId } = req.params;
-    const db = getTenantDb(tenantId);
-    
+
     db.prepare('UPDATE salesman SET active = 0 WHERE id = ? AND tenant_id = ?')
       .run(salesmanId, tenantId);
     
@@ -173,8 +166,7 @@ router.delete('/:tenantId/:salesmanId', (req, res) => {
 router.get('/:tenantId/:salesmanId/workload', (req, res) => {
   try {
     const { tenantId, salesmanId } = req.params;
-    const db = getTenantDb(tenantId);
-    
+
     const activeLeads = db.prepare(`
       SELECT c.*, cp.name, cp.phone
       FROM conversations c

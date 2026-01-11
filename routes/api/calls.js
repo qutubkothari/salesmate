@@ -4,7 +4,7 @@
 
 const express = require('express');
 const router = express.Router();
-const { getTenantDb } = require('../../services/config');
+const { db } = require('../../services/config');
 
 /**
  * GET /api/calls/:tenantId
@@ -15,7 +15,6 @@ router.get('/:tenantId', (req, res) => {
     const { tenantId } = req.params;
     const { lead_id, direction, outcome } = req.query;
     
-    const db = getTenantDb(tenantId);
     
     let query = `
       SELECT c.*, 
@@ -62,7 +61,7 @@ router.get('/:tenantId', (req, res) => {
 router.get('/:tenantId/by-lead/:leadId', (req, res) => {
   try {
     const { tenantId, leadId } = req.params;
-    const db = getTenantDb(tenantId);
+    
     
     const calls = db.prepare(`
       SELECT c.*, s.name as salesman_name
@@ -101,7 +100,7 @@ router.get('/:tenantId/by-lead/:leadId', (req, res) => {
 router.get('/:tenantId/scheduled-callbacks', (req, res) => {
   try {
     const { tenantId } = req.params;
-    const db = getTenantDb(tenantId);
+    
     
     const callbacks = db.prepare(`
       SELECT c.*, 
@@ -139,7 +138,6 @@ router.post('/:tenantId', (req, res) => {
       return res.status(400).json({ success: false, error: 'phone_number and direction are required' });
     }
     
-    const db = getTenantDb(tenantId);
     
     const result = db.prepare(`
       INSERT INTO calls (
@@ -187,7 +185,6 @@ router.put('/:tenantId/:callId', (req, res) => {
     const { tenantId, callId } = req.params;
     const { outcome, duration_seconds, notes, recording_url } = req.body;
     
-    const db = getTenantDb(tenantId);
     
     const updates = [];
     const values = [];

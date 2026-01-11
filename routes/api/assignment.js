@@ -4,7 +4,7 @@
 
 const express = require('express');
 const router = express.Router();
-const { getTenantDb } = require('../../services/config');
+const { db } = require('../../services/config');
 const { getAssignmentConfig, assignConversation, reassignConversation } = require('../../services/assignmentService');
 const { getConversationsByHeat, getHeatDistribution, updateConversationHeat, analyzeAndUpdateHeat } = require('../../services/heatScoringService');
 
@@ -37,7 +37,6 @@ router.put('/:tenantId/config', (req, res) => {
     const { tenantId } = req.params;
     const { strategy, auto_assign, consider_capacity, consider_score, consider_skills } = req.body;
     
-    const db = getTenantDb(tenantId);
     
     const updates = [];
     const values = [];
