@@ -2165,17 +2165,48 @@
             return;
         }
 
-        // TODO: Implement lead creation inside Salesmate
-        // For now, just show a confirmation
-        const confirmed = confirm(`Create lead from email?\n\nFrom: ${email.from_email}\nSubject: ${email.subject}\n\nThis will create a lead inside Salesmate for smart assignment.`);
-        
-        if (confirmed) {
-            try {
-                alert('Lead creation from email is not implemented yet.\n\nFor now, this email has been marked for lead creation.');
-            } catch (err) {
-                console.error('[EMAILS] Create lead error:', err);
-                alert('Error creating lead: ' + err.message);
+        const confirmed = confirm(
+            `Create lead from email?\n\nFrom: ${email.from_email || 'Unknown'}\nSubject: ${email.subject || '(No Subject)'}\n\nThis will create a lead inside Salesmate and run smart assignment.`
+        );
+        if (!confirmed) return;
+
+        const apiKey = localStorage.getItem('apiKey') || '';
+
+        try {
+            const response = await fetch(`api/email/${encodeURIComponent(emailId)}/create-lead`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-api-key': apiKey
+                }
+            });
+
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok || !data.success) {
+                throw new Error(data.error || `Failed to create lead (${response.status})`);
             }
+
+            const assignedName = data.assignedSalesman?.name || data.assignment?.salesman?.name || null;
+            const conversationId = data.conversation?.id || null;
+
+            let msg = data.created ? '✅ Lead created from email.' : '✅ Lead already existed for this email.';
+            if (assignedName) msg += `\n\nAssigned to: ${assignedName}`;
+            if (conversationId) msg += `\nConversation ID: ${conversationId}`;
+
+            alert(msg);
+
+            // Refresh list to show the email as processed/read + lead linkage
+            await fetchEmails();
+
+            // Optional: refresh leads if user is on the Leads tab
+            try {
+                if (typeof loadLeads === 'function') {
+                    await loadLeads();
+                }
+            } catch (_) {}
+        } catch (err) {
+            console.error('[EMAILS] Create lead error:', err);
+            alert('Error creating lead: ' + (err?.message || String(err)));
         }
     }
 

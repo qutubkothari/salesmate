@@ -2,6 +2,9 @@ const express = require('express');
 const router = express.Router();
 const { dbClient, db } = require('../../services/config');
 const { requireTenantAuth } = require('../../services/tenantAuth');
+const crypto = require('crypto');
+const assignmentService = require('../../services/assignmentService');
+const heatScoringService = require('../../services/heatScoringService');
 const {
   getOAuth2Client,
   makeOAuthState,
@@ -59,20 +62,62 @@ router.get('/list', async (req, res) => {
     
     const limit = Math.min(parseInt(req.query.limit) || 50, 100);
     const offset = parseInt(req.query.offset) || 0;
+    const search = typeof req.query.search === 'string' ? req.query.search.trim() : '';
+    const readFilter = typeof req.query.read === 'string' ? req.query.read.trim().toLowerCase() : '';
 
-    const emails = db.prepare(`
-      SELECT id, sender_email, subject, snippet, created_at, is_read
+    const whereParts = ['tenant_id = ?'];
+    const params = [tenantId];
+
+    if (search) {
+      whereParts.push('(COALESCE(from_email, \'\') LIKE ? OR COALESCE(subject, \'\') LIKE ? OR COALESCE(body, \'\') LIKE ?)');
+      const q = `%${search}%`;
+      params.push(q, q, q);
+    }
+
+    if (readFilter === 'read') {
+      whereParts.push('COALESCE(is_read, 0) = 1');
+    } else if (readFilter === 'unread') {
+      whereParts.push('COALESCE(is_read, 0) = 0');
+    }
+
+    const whereSql = whereParts.length ? `WHERE ${whereParts.join(' AND ')}` : '';
+
+    const emails = db
+      .prepare(
+        `
+      SELECT
+        id,
+        tenant_id,
+        from_email,
+        subject,
+        body,
+        received_at,
+        message_id,
+        thread_id,
+        COALESCE(snippet, '') AS snippet,
+        COALESCE(is_read, 0) AS is_read,
+        read_at,
+        lead_conversation_id,
+        lead_customer_profile_id,
+        lead_created_at,
+        created_at
       FROM email_enquiries
-      WHERE tenant_id = ?
-      ORDER BY created_at DESC
+      ${whereSql}
+      ORDER BY COALESCE(received_at, created_at) DESC
       LIMIT ? OFFSET ?
-    `).all(tenantId, limit, offset);
+    `
+      )
+      .all(...params, limit, offset);
 
-    const total = db.prepare(`
+    const total = db
+      .prepare(
+        `
       SELECT COUNT(*) as count
       FROM email_enquiries
-      WHERE tenant_id = ?
-    `).get(tenantId);
+      ${whereSql}
+    `
+      )
+      .get(...params);
 
     res.json({
       success: true,
@@ -84,6 +129,232 @@ router.get('/list', async (req, res) => {
   } catch (e) {
     console.error('[EMAIL_LIST] error:', e?.message || e);
     res.status(500).json({ success: false, error: 'Failed to list emails' });
+  }
+});
+
+function normalizeEmailAddress(raw) {
+  if (!raw) return null;
+  const s = String(raw).trim();
+  // Handles "Name <email@x.com>"; fallback to raw.
+  const match = s.match(/<([^>]+)>/);
+  const email = (match ? match[1] : s).trim().toLowerCase();
+  if (!email || !email.includes('@')) return null;
+  return email;
+}
+
+function extractDisplayName(raw) {
+  if (!raw) return null;
+  const s = String(raw).trim();
+  const match = s.match(/^\s*([^<]+?)\s*<[^>]+>\s*$/);
+  const name = (match ? match[1] : '').trim();
+  return name || null;
+}
+
+function makeHexId() {
+  return crypto.randomBytes(16).toString('hex');
+}
+
+// Create a Salesmate lead from an email enquiry (native Salesmate flow)
+// POST /api/email/:emailId/create-lead
+router.post('/:emailId/create-lead', async (req, res) => {
+  try {
+    const queryKey = req.query.key;
+    if (queryKey && !req.get('x-api-key')) {
+      req.headers['x-api-key'] = queryKey;
+    }
+
+    const auth = await require('../../services/tenantAuth').authenticateRequest(req);
+    const tenantId = String(auth?.tenantId || '');
+    if (!tenantId) return res.status(401).json({ success: false, error: 'Unauthorized' });
+
+    const emailId = String(req.params.emailId || '').trim();
+    if (!emailId) return res.status(400).json({ success: false, error: 'emailId required' });
+
+    const now = new Date().toISOString();
+
+    const tx = db.transaction(() => {
+      const email = db
+        .prepare(
+          `
+        SELECT *
+        FROM email_enquiries
+        WHERE id = ? AND tenant_id = ?
+        LIMIT 1
+      `
+        )
+        .get(emailId, tenantId);
+
+      if (!email) {
+        const err = new Error('Email not found');
+        err.status = 404;
+        throw err;
+      }
+
+      // Idempotency: if we've already created a lead, return it.
+      if (email.lead_conversation_id) {
+        const conv = db
+          .prepare('SELECT id, tenant_id, phone_number, end_user_phone, assigned_to, heat, created_at, updated_at FROM conversations WHERE id = ?')
+          .get(String(email.lead_conversation_id));
+
+        return {
+          email,
+          customer: email.lead_customer_profile_id
+            ? db.prepare('SELECT id, tenant_id, phone_number, name, email FROM customer_profiles WHERE id = ?').get(String(email.lead_customer_profile_id))
+            : null,
+          conversation: conv || { id: String(email.lead_conversation_id) },
+          created: false,
+        };
+      }
+
+      const fromEmail = normalizeEmailAddress(email.from_email);
+      const fromName = extractDisplayName(email.from_email);
+      if (!fromEmail) {
+        const err = new Error('Email enquiry has no valid from_email');
+        err.status = 400;
+        throw err;
+      }
+
+      const syntheticPhone = `email:${fromEmail}`;
+
+      // Upsert customer profile by synthetic phone.
+      let customer = db
+        .prepare('SELECT * FROM customer_profiles WHERE tenant_id = ? AND phone_number = ? LIMIT 1')
+        .get(tenantId, syntheticPhone);
+
+      if (!customer) {
+        const customerId = makeHexId();
+        db.prepare(
+          `
+          INSERT INTO customer_profiles (id, tenant_id, phone_number, name, email, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+        `
+        ).run(customerId, tenantId, syntheticPhone, fromName, fromEmail, now, now);
+
+        customer = db.prepare('SELECT * FROM customer_profiles WHERE id = ?').get(customerId);
+      } else {
+        const nextName = customer.name || fromName || null;
+        const nextEmail = customer.email || fromEmail || null;
+        db.prepare('UPDATE customer_profiles SET name = ?, email = ?, updated_at = ? WHERE id = ?')
+          .run(nextName, nextEmail, now, customer.id);
+        customer = db.prepare('SELECT * FROM customer_profiles WHERE id = ?').get(customer.id);
+      }
+
+      const conversationId = makeHexId();
+      const subject = email.subject ? String(email.subject) : '';
+      const body = email.body ? String(email.body) : '';
+      const receivedAt = email.received_at || email.created_at || now;
+      const messageText = `Email Lead\nFrom: ${fromEmail}\nSubject: ${subject}\n\n${body}`.trim();
+
+      const context = JSON.stringify({
+        source: 'email',
+        email_enquiry_id: emailId,
+        from_email: fromEmail,
+        subject,
+        received_at: receivedAt,
+      });
+
+      // Create conversation (use base columns that exist in all schemas)
+      db.prepare(
+        `
+        INSERT INTO conversations (id, tenant_id, customer_profile_id, phone_number, state, context, last_message_time, is_active, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
+      `
+      ).run(conversationId, tenantId, customer.id, syntheticPhone, 'EMAIL_LEAD', context, receivedAt, now, now);
+
+      // Best-effort optional fields (safe when columns exist)
+      try {
+        db.prepare(
+          `
+          UPDATE conversations
+          SET end_user_phone = ?, last_message_at = ?, status = 'OPEN', last_activity_at = COALESCE(last_activity_at, ?)
+          WHERE id = ? AND tenant_id = ?
+        `
+        ).run(syntheticPhone, receivedAt, receivedAt, conversationId, tenantId);
+      } catch (_) {}
+
+      // Insert initial message
+      const messageId = makeHexId();
+      db.prepare(
+        `
+        INSERT INTO messages (id, tenant_id, conversation_id, sender, message_body, message_type, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `
+      ).run(messageId, tenantId, conversationId, 'EMAIL', messageText, 'email', receivedAt);
+
+      // Mark email enquiry as processed + read
+      const snippet = (body || subject || '').replace(/\s+/g, ' ').trim().slice(0, 200);
+      db.prepare(
+        `
+        UPDATE email_enquiries
+        SET
+          snippet = COALESCE(snippet, ?),
+          is_read = 1,
+          read_at = COALESCE(read_at, ?),
+          lead_conversation_id = ?,
+          lead_customer_profile_id = ?,
+          lead_created_at = ?
+        WHERE id = ? AND tenant_id = ?
+      `
+      ).run(snippet, now, conversationId, customer.id, now, emailId, tenantId);
+
+      const conversation = db
+        .prepare('SELECT id, tenant_id, phone_number, end_user_phone, assigned_to, heat, created_at, updated_at FROM conversations WHERE id = ?')
+        .get(conversationId);
+
+      const updatedEmail = db
+        .prepare('SELECT * FROM email_enquiries WHERE id = ? AND tenant_id = ? LIMIT 1')
+        .get(emailId, tenantId);
+
+      return { email: updatedEmail, customer, conversation, created: true };
+    });
+
+    const { email, customer, conversation, created } = tx();
+
+    // Trigger heat scoring + assignment (non-blocking best-effort)
+    let heatResult = null;
+    let assignmentResult = null;
+
+    try {
+      const body = email?.body ? String(email.body) : '';
+      const subject = email?.subject ? String(email.subject) : '';
+      const msg = `${subject}\n${body}`.trim();
+      if (msg) {
+        heatResult = await heatScoringService.analyzeAndUpdateHeat(tenantId, conversation.id, msg, { useAI: false });
+      }
+    } catch (e) {
+      console.warn('[EMAIL] heat scoring skipped:', e?.message || e);
+    }
+
+    try {
+      assignmentResult = await assignmentService.assignConversation(tenantId, conversation.id);
+    } catch (e) {
+      console.warn('[EMAIL] assignment skipped:', e?.message || e);
+    }
+
+    let assignedSalesman = null;
+    try {
+      const refreshed = db
+        .prepare('SELECT assigned_to, heat FROM conversations WHERE id = ? AND tenant_id = ?')
+        .get(conversation.id, tenantId);
+      if (refreshed?.assigned_to) {
+        assignedSalesman = db.prepare('SELECT id, name, phone FROM salesman WHERE id = ? AND tenant_id = ?').get(refreshed.assigned_to, tenantId);
+      }
+    } catch (_) {}
+
+    return res.json({
+      success: true,
+      created,
+      email,
+      customer,
+      conversation,
+      heat: heatResult,
+      assignment: assignmentResult,
+      assignedSalesman,
+    });
+  } catch (e) {
+    const status = e?.status || 500;
+    console.error('[EMAIL] create-lead error:', e?.message || e);
+    return res.status(status).json({ success: false, error: e?.message || 'Failed to create lead from email' });
   }
 });
 

@@ -873,8 +873,14 @@ function ensureSqliteSchema(dbInstance) {
     { name: 'subject', type: 'TEXT' },
     { name: 'body', type: 'TEXT' },
     { name: 'received_at', type: 'TEXT' },
+    { name: 'snippet', type: 'TEXT' },
+    { name: 'is_read', type: 'INTEGER DEFAULT 0' },
+    { name: 'read_at', type: 'TEXT' },
     { name: 'message_id', type: 'TEXT' },
     { name: 'thread_id', type: 'TEXT' },
+    { name: 'lead_conversation_id', type: 'TEXT' },
+    { name: 'lead_customer_profile_id', type: 'TEXT' },
+    { name: 'lead_created_at', type: 'TEXT' },
     { name: 'raw', type: 'TEXT' },
     { name: 'created_at', type: "TEXT DEFAULT (DATETIME('now'))" }
   ]);
@@ -909,6 +915,12 @@ function ensureSqliteSchema(dbInstance) {
     { name: 'metadata', type: 'TEXT' },
     { name: 'last_message_at', type: 'TEXT' },
     { name: 'lead_type', type: 'TEXT' },
+    // Smart assignment + heat scoring fields (local SQLite)
+    { name: 'status', type: "TEXT DEFAULT 'OPEN'" },
+    { name: 'assigned_to', type: 'TEXT' },
+    { name: 'heat', type: 'TEXT' },
+    { name: 'ai_confidence', type: 'REAL' },
+    { name: 'last_activity_at', type: "TEXT DEFAULT (DATETIME('now'))" },
     // Lead + triage
     { name: 'lead_score', type: 'TEXT' },
     { name: 'requires_human_attention', type: 'INTEGER DEFAULT 0' },
