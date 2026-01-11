@@ -159,9 +159,18 @@ router.get('/gmail/callback', async (req, res) => {
 });
 
 // Status for dashboard
-router.get('/gmail/status', requireTenantAuth({ requireMatchParamTenantId: false }), async (req, res) => {
+router.get('/gmail/status', async (req, res) => {
   try {
-    const tenantId = String(req.auth?.tenantId || '');
+    const queryKey = req.query.key;
+    if (queryKey && !req.get('x-api-key')) {
+      req.headers['x-api-key'] = queryKey;
+    }
+    
+    const { authenticateRequest } = require('../../services/tenantAuth');
+    const auth = await authenticateRequest(req);
+    if (!auth?.tenantId) return res.status(401).json({ success: false, error: 'Unauthorized' });
+    
+    const tenantId = String(auth.tenantId);
     if (!tenantId) return res.status(401).json({ success: false, error: 'Unauthorized' });
 
     const { data: tenant, error } = await dbClient
@@ -188,9 +197,18 @@ router.get('/gmail/status', requireTenantAuth({ requireMatchParamTenantId: false
 });
 
 // Manual sync (fetches latest inbox messages)
-router.post('/gmail/sync', requireTenantAuth({ requireMatchParamTenantId: false }), async (req, res) => {
+router.post('/gmail/sync', async (req, res) => {
   try {
-    const tenantId = String(req.auth?.tenantId || '');
+    const queryKey = req.query.key;
+    if (queryKey && !req.get('x-api-key')) {
+      req.headers['x-api-key'] = queryKey;
+    }
+    
+    const { authenticateRequest } = require('../../services/tenantAuth');
+    const auth = await authenticateRequest(req);
+    if (!auth?.tenantId) return res.status(401).json({ success: false, error: 'Unauthorized' });
+    
+    const tenantId = String(auth.tenantId);
     if (!tenantId) return res.status(401).json({ success: false, error: 'Unauthorized' });
 
     const maxResults = req.body?.maxResults;
