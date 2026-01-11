@@ -46,11 +46,17 @@ router.post('/inbound', requireTenantAuth({ requireMatchParamTenantId: false }),
 });
 
 // List email enquiries for a tenant
-router.get('/list', requireTenantAuth({ requireMatchParamTenantId: false }), async (req, res) => {
+router.get('/list', async (req, res) => {
   try {
-    const tenantId = String(req.auth?.tenantId || '');
-    if (!tenantId) return res.status(401).json({ success: false, error: 'Unauthorized' });
-
+    // Accept API key from query param or header
+    const queryKey = req.query.key;
+    if (queryKey && !req.get('x-api-key')) {
+      req.headers['x-api-key'] = queryKey;
+    }
+    
+    const auth = await require('../../services/tenantAuth').authenticateRequest(req);
+    const tenantId = String(auth.tenantId);
+    
     const limit = Math.min(parseInt(req.query.limit) || 50, 100);
     const offset = parseInt(req.query.offset) || 0;
 
