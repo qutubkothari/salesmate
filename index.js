@@ -1150,6 +1150,19 @@ app.use('/api/broadcast', broadcastRouter);
 const whatsappWebRouter = require('./routes/api/whatsappWeb');
 app.use('/api/whatsapp-web', whatsappWebRouter);
 
+// SAK-SMS Intelligence Features
+const salesmenRouter = require('./routes/api/salesmen');
+app.use('/api/salesmen', salesmenRouter);
+
+const tasksRouter = require('./routes/api/tasks');
+app.use('/api/tasks', tasksRouter);
+
+const callsRouter = require('./routes/api/calls');
+app.use('/api/calls', callsRouter);
+
+const assignmentRouter = require('./routes/api/assignment');
+app.use('/api/assignment', assignmentRouter);
+
 // Cron endpoint for processing broadcast queue
 app.get('/cron/process-broadcasts', async (req, res) => {
   try {

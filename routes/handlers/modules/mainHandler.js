@@ -94,15 +94,63 @@ async function handleCustomerMessage(req, res, tenant, from, userQuery, conversa
                     });
                 }
                 
-                // Update conversation's last_message_at timestamp
+                // Update conversation's last_message_at and last_activity_at timestamps
                 await dbClient.from('conversations')
                     .update({ 
                         last_message_at: new Date().toISOString(),
+                        last_activity_at: new Date().toISOString(),
                         updated_at: new Date().toISOString()
                     })
                     .eq('id', conversation.id);
                     
                 console.log('[MAIN_HANDLER] User message saved to database');
+                
+                // ===== SAK-SMS INTELLIGENCE: AUTO HEAT SCORING =====
+                try {
+                    const { analyzeAndUpdateHeat, escalateHighHeatLead } = require('../../../services/heatScoringService');
+                    
+                    console.log('[HEAT_SCORING] Analyzing message urgency for conversation', conversation.id);
+                    const heatAnalysis = await analyzeAndUpdateHeat(
+                        tenant.id,
+                        conversation.id,
+                        userQuery,
+                        { useAI: true, conversationContext: {} }
+                    );
+                    
+                    console.log(`[HEAT_SCORING] Updated heat: ${heatAnalysis.heat} (confidence: ${heatAnalysis.confidence?.toFixed(2)})`);
+                    
+                    // Auto-escalate very hot leads to triage
+                    await escalateHighHeatLead(tenant.id, conversation.id, heatAnalysis.heat);
+                } catch (heatError) {
+                    console.error('[HEAT_SCORING] Error:', heatError.message);
+                    // Continue processing even if heat scoring fails
+                }
+                
+                // ===== SAK-SMS INTELLIGENCE: AUTO ASSIGNMENT =====
+                try {
+                    const { assignConversation } = require('../../../services/assignmentService');
+                    
+                    // Check if conversation is not already assigned
+                    const { data: convCheck } = await dbClient
+                        .from('conversations')
+                        .select('assigned_to')
+                        .eq('id', conversation.id)
+                        .single();
+                    
+                    if (!convCheck?.assigned_to) {
+                        console.log('[AUTO_ASSIGNMENT] Attempting to assign conversation', conversation.id);
+                        const assignResult = await assignConversation(tenant.id, conversation.id);
+                        
+                        if (assignResult.success) {
+                            console.log(`[AUTO_ASSIGNMENT] ✅ Assigned to salesman: ${assignResult.salesman?.name} (strategy: ${assignResult.strategy})`);
+                        } else {
+                            console.log(`[AUTO_ASSIGNMENT] Not assigned: ${assignResult.reason}`);
+                        }
+                    }
+                } catch (assignError) {
+                    console.error('[AUTO_ASSIGNMENT] Error:', assignError.message);
+                    // Continue processing even if assignment fails
+                }
             } catch (dbError) {
                 console.error('[MAIN_HANDLER] Failed to save user message:', dbError.message, dbError);
                 // Continue processing even if save fails
