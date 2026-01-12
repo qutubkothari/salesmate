@@ -64,7 +64,7 @@ const getAIResponse = async (tenantId, userQuery) => {
         // 1. Fetch the tenant's custom settings and business profile
         const { data: tenant, error: tenantError } = await dbClient
             .from('tenants')
-            .select('bot_personality, bot_language, business_name, business_address, business_website')
+            .select('bot_language, business_name, business_address, business_website')
             .eq('id', tenantId)
             .single();
 
@@ -82,10 +82,9 @@ const getAIResponse = async (tenantId, userQuery) => {
 
         // 5. Construct the system prompt with all available context
         const defaultPersonality = 'You are a friendly and professional WhatsApp sales assistant.';
-        const botPersonality = tenant.bot_personality || defaultPersonality;
         const botLanguage = tenant.bot_language || 'English';
 
-        const systemPrompt = `${botPersonality}
+        const systemPrompt = `${defaultPersonality}
 You are a helpful sales assistant. Use the context provided below to answer questions about products and services.
 You MUST respond in ${botLanguage}.
 - For Arabic: Use Modern Standard Arabic (Ø§Ù„Ø¹Ø±Ø¨ÙŠØ©) that is widely understood
@@ -197,7 +196,7 @@ async function getAIResponseV2(tenantId, userQuery, opts = {}) {
     // (a) Load tenant business/profile fields just like your V1 path
     const { data: tenant, error: tenantError } = await dbClient
       .from('tenants')
-      .select('bot_personality, bot_language, business_name, business_address, business_website')
+      .select('bot_language, business_name, business_address, business_website')
       .eq('id', tenantId)
       .single();
 
@@ -293,10 +292,9 @@ async function getAIResponseV2(tenantId, userQuery, opts = {}) {
 
     // (e) System prompt (respects tenant personality/lang, defaults preserved)
     const defaultPersonality = 'You are a friendly and professional WhatsApp sales assistant.';
-    const botPersonality = tenant.bot_personality || defaultPersonality;
     const botLanguage    = tenant.bot_language    || 'English';
 
-    const systemPrompt = `${botPersonality}
+    const systemPrompt = `${defaultPersonality}
 Your goal is to answer the user's question based ONLY on the context provided below (Business Profile and Product Information).
 You MUST respond in ${botLanguage}.
 When customers ask about products, help them find what they need from the available products. Be conversational and helpful.
