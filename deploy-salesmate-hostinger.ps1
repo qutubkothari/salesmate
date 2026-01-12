@@ -71,15 +71,25 @@ Write-Host "Dependencies updated" -ForegroundColor Green
 
 # ====== STEP 6: Run Migrations (if any) ======
 Write-Host "`n[6/7] Running Database Migrations" -ForegroundColor Yellow
+
+# Check if sqlite3 is installed, install if missing
+Write-Host "  Checking SQLite installation..." -ForegroundColor Gray
+$sqliteCheck = ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i $KEY_PATH "$HOSTINGER_USER@$HOSTINGER_IP" "which sqlite3 2>/dev/null || echo 'missing'"
+if ($sqliteCheck -match "missing") {
+    Write-Host "  Installing SQLite..." -ForegroundColor Yellow
+    ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i $KEY_PATH "$HOSTINGER_USER@$HOSTINGER_IP" "sudo apt-get update -qq && sudo apt-get install -y sqlite3"
+    Write-Host "  SQLite installed" -ForegroundColor Green
+}
+
 $migrationExists = ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i $KEY_PATH "$HOSTINGER_USER@$HOSTINGER_IP" "test -f $REMOTE_PATH/migrations/001_multi_user_support.sql && echo 'exists' || echo 'missing'"
 if ($migrationExists -match "exists") {
     Write-Host "  Found migration file, checking if already applied..." -ForegroundColor Gray
-    $tableExists = ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i $KEY_PATH "$HOSTINGER_USER@$HOSTINGER_IP" "cd $REMOTE_PATH; sqlite3 salesmate.db `"SELECT name FROM sqlite_master WHERE type='table' AND name='user_sessions';`" 2>/dev/null || echo ''"
+    $tableExists = ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i $KEY_PATH "$HOSTINGER_USER@$HOSTINGER_IP" "cd $REMOTE_PATH; sqlite3 salesmate.db \"SELECT name FROM sqlite_master WHERE type='table' AND name='user_sessions';\" 2>/dev/null || echo ''"
     if ($tableExists -match "user_sessions") {
         Write-Host "  Migration already applied (user_sessions table exists)" -ForegroundColor Green
     } else {
         Write-Host "  Applying migration..." -ForegroundColor Yellow
-        Invoke-RemoteCommand "cd $REMOTE_PATH; sqlite3 salesmate.db < migrations/001_multi_user_support.sql"
+        ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i $KEY_PATH "$HOSTINGER_USER@$HOSTINGER_IP" "cd $REMOTE_PATH && sqlite3 salesmate.db < migrations/001_multi_user_support.sql"
         Write-Host "  Migration applied successfully" -ForegroundColor Green
     }
 } else {
