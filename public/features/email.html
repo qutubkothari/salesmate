@@ -376,7 +376,7 @@
       
       try {
         const response = await fetch('/api/email/delete', {
-          method: 'DELETE',
+          method: 'POST',
           headers: {
             'Content-Type': 'application/json',
               'Authorization': `Bearer ${getAuthToken()}`,

@@ -86,13 +86,13 @@ router.post('/assign', requireTenantAuth({ requireMatchParamTenantId: false }), 
 });
 
 // Delete emails
-router.delete('/delete', requireTenantAuth({ requireMatchParamTenantId: false }), async (req, res) => {
+router.post('/delete', requireTenantAuth({ requireMatchParamTenantId: false }), async (req, res) => {
   try {
     const tenantId = String(req.auth?.tenantId || '');
     if (!tenantId) return res.status(401).json({ success: false, error: 'Unauthorized' });
 
     const { ids } = req.body || {};
-    if (!Array.isArray(ids)) {
+    if (!Array.isArray(ids) || ids.length === 0) {
       return res.status(400).json({ success: false, error: 'Invalid request' });
     }
 
