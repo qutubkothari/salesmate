@@ -82,7 +82,7 @@ if ($sqliteCheck -match "missing") {
 }
 
 # Run all migrations in order
-$migrations = @("001_multi_user_support.sql", "002_missing_tables.sql", "003_fix_schema_issues.sql", "004_additional_columns.sql", "005_fix_interactive_schema.sql", "006_conversation_learning.sql")
+$migrations = @("001_multi_user_support.sql", "002_missing_tables.sql", "003_fix_schema_issues.sql", "004_additional_columns.sql", "005_fix_interactive_schema.sql", "006_conversation_learning.sql", "007_document_management_embeddings.sql")
 foreach ($migration in $migrations) {
     $migrationExists = ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i $KEY_PATH "$HOSTINGER_USER@$HOSTINGER_IP" "test -f $REMOTE_PATH/migrations/$migration && echo 'exists' || echo 'missing'"
     if ($migrationExists -match "exists") {
