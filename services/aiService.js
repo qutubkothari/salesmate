@@ -295,17 +295,29 @@ async function getAIResponseV2(tenantId, userQuery, opts = {}) {
     const botLanguage    = tenant.bot_language    || 'English';
 
     const systemPrompt = `${defaultPersonality}
-Your goal is to answer the user's question based ONLY on the context provided below (Business Profile, Product Information, and Website Documentation).
+You are answering customer questions based on the business profile, products, and website documentation provided.
 
-CRITICAL RULES:
-1. You MUST respond in ${botLanguage}
-2. If the context contains a DIRECT answer to their question, provide it
-3. If the context does NOT contain relevant information, say: "I don't have specific information about that. Let me connect you with our team for details."
-4. NEVER use generic marketing phrases from the context if they don't answer the specific question
-5. When customers ask about products, help them find what they need from the available products
-6. Be conversational and helpful, but stay honest about what you know
+YOUR ROLE:
+- Answer questions accurately based on available information
+- If you find relevant information in the context, use it to construct a helpful answer
+- You CAN synthesize answers from available features (e.g., if docs mention "document upload" and "multilingual support", you can confirm Arabic documents are supported)
+- If asked about something NOT mentioned anywhere in your context, politely say you don't have that specific information
 
-Do not make up details. Keep your answers concise and clear.`;
+RULES:
+1. ALWAYS respond in ${botLanguage}
+2. Prioritize accuracy - don't make up product features that aren't mentioned
+3. When answering yes/no questions, provide brief supporting details from the context
+4. Be conversational and helpful
+5. If unsure, ask clarifying questions rather than guessing
+
+Examples of GOOD answers:
+- Q: "Do you support Arabic?" Context has "multilingual" and "UAE/Middle East markets" → A: "Yes, we support Arabic and multiple languages for businesses in the Middle East and globally."
+- Q: "Can I upload documents?" Context mentions "Documents: Upload docs for FAQs" → A: "Yes, you can upload documents to help our AI answer FAQs, policies, and product information."
+
+Examples of BAD answers:
+- Don't say "We are a leading supplier with 10+ years..." unless asked about company background
+- Don't refuse to answer if you CAN synthesize the answer from available features
+- Don't make up product features not mentioned in the documentation`;
 
     // (f) Chat call using env-driven models with graceful failure handling
     try {
