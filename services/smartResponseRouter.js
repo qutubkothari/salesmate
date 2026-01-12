@@ -902,31 +902,10 @@ const getSmartResponse = async (userQuery, tenantId, phoneNumber = null) => {
     console.log('[SMART_ROUTER] AI-powered processing for:', userQuery);
     console.log('[SMART_ROUTER] Customer phone:', phoneNumber || 'Not provided');
 
-    // Fast-path: greetings (prevents clarification loop on simple salutations)
-    // Enhanced to handle multi-word greetings like "hi there", "hello salesmate", etc.
-    try {
-        const q0 = String(userQuery || '').toLowerCase().trim();
-        const words = q0.split(/\s+/).filter(Boolean);
-        const isShort = words.length <= 4;
-        const startsWithGreeting = /^(hi|hello|hey|hii+|good\s*(morning|afternoon|evening))\b/.test(q0);
-        const looksOnlyGreeting = isShort && startsWithGreeting && !/\b(price|rate|cost|order|quote|discount|available|stock|catalog|product)\b/.test(q0);
-        
-        if (q0 && looksOnlyGreeting) {
-            console.log('[SMART_ROUTER][FASTPATH] Greeting detected');
-            const greetings = [
-                `Hi! How can I help you today?\n\nYou can say things like:\n1. "Show me your products"\n2. "Price of <product name>"\n3. "Add <product> 2 cartons"\n4. "View my cart"`,
-                `Hello! I'm here to assist you.\n\nTry asking:\n• "What products do you have?"\n• "Price of <product>"\n• "Add <product> to cart"`,
-                `Hey there! How may I assist you?\n\nFeel free to ask about:\n• Product catalog\n• Prices and quotes\n• Cart management`
-            ];
-            const randomGreeting = greetings[Math.floor(Math.random() * greetings.length)];
-            return {
-                response: randomGreeting,
-                source: 'greeting'
-            };
-        }
-    } catch (e) {
-        // ignore
-    }
+    // Fast-path: greetings - USE AI FOR PERSONALIZED RESPONSE
+    // Disabled static greetings in favor of AI-powered human-like responses
+    // AI will handle greetings with context awareness and personalization
+    // The AI system remembers conversation context and provides intelligent greetings
 
     // Fast-path: product catalog / product overview queries.
     // Avoids falling into clarification loops when the user clearly asks what products are available.
