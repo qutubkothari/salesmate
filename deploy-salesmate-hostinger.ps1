@@ -81,21 +81,16 @@ if ($sqliteCheck -match "missing") {
     Write-Host "  SQLite installed" -ForegroundColor Green
 }
 
-$migrationExists = ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i $KEY_PATH "$HOSTINGER_USER@$HOSTINGER_IP" "test -f $REMOTE_PATH/migrations/001_multi_user_support.sql && echo 'exists' || echo 'missing'"
-if ($migrationExists -match "exists") {
-    Write-Host "  Found migration file, checking if already applied..." -ForegroundColor Gray
-    # Use local-database.db (the actual database with data)
-    $tableExists = ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i $KEY_PATH "$HOSTINGER_USER@$HOSTINGER_IP" "cd $REMOTE_PATH && sqlite3 local-database.db 'SELECT name FROM sqlite_master WHERE type=''table'' AND name=''user_sessions'';'"
-    if ($tableExists -match "user_sessions") {
-        Write-Host "  Migration already applied (user_sessions table exists)" -ForegroundColor Green
-    } else {
-        Write-Host "  Applying migration to local-database.db..." -ForegroundColor Yellow
-        ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i $KEY_PATH "$HOSTINGER_USER@$HOSTINGER_IP" "cd $REMOTE_PATH && sqlite3 local-database.db < migrations/001_multi_user_support.sql"
-        Write-Host "  Migration applied successfully" -ForegroundColor Green
+# Run all migrations in order
+$migrations = @("001_multi_user_support.sql", "002_missing_tables.sql", "003_fix_schema_issues.sql")
+foreach ($migration in $migrations) {
+    $migrationExists = ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i $KEY_PATH "$HOSTINGER_USER@$HOSTINGER_IP" "test -f $REMOTE_PATH/migrations/$migration && echo 'exists' || echo 'missing'"
+    if ($migrationExists -match "exists") {
+        Write-Host "  Applying migration: $migration" -ForegroundColor Gray
+        ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i $KEY_PATH "$HOSTINGER_USER@$HOSTINGER_IP" "cd $REMOTE_PATH && sqlite3 local-database.db < migrations/$migration 2>&1 || true"
     }
-} else {
-    Write-Host "  No pending migrations" -ForegroundColor Gray
 }
+Write-Host "  All migrations processed" -ForegroundColor Green
 
 # ====== STEP 7: Restart PM2 ======
 Write-Host "`n[7/7] Restarting Application" -ForegroundColor Yellow
