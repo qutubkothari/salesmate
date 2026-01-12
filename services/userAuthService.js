@@ -179,7 +179,7 @@ async function loginWithPassword({ email, password }) {
   await dbClient
     .from('sales_users')
     .update({ last_login_at: new Date().toISOString() })
-    .eq('id', user.id');
+    .eq('id', user.id);
 
   return {
     user: sanitizeUser(user),
