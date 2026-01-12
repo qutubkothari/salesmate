@@ -84,12 +84,13 @@ if ($sqliteCheck -match "missing") {
 $migrationExists = ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i $KEY_PATH "$HOSTINGER_USER@$HOSTINGER_IP" "test -f $REMOTE_PATH/migrations/001_multi_user_support.sql && echo 'exists' || echo 'missing'"
 if ($migrationExists -match "exists") {
     Write-Host "  Found migration file, checking if already applied..." -ForegroundColor Gray
-    $tableExists = ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i $KEY_PATH "$HOSTINGER_USER@$HOSTINGER_IP" "cd $REMOTE_PATH && sqlite3 salesmate.db 'SELECT name FROM sqlite_master WHERE type=''table'' AND name=''user_sessions'';'"
+    # Use local-database.db (the actual database with data)
+    $tableExists = ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i $KEY_PATH "$HOSTINGER_USER@$HOSTINGER_IP" "cd $REMOTE_PATH && sqlite3 local-database.db 'SELECT name FROM sqlite_master WHERE type=''table'' AND name=''user_sessions'';'"
     if ($tableExists -match "user_sessions") {
         Write-Host "  Migration already applied (user_sessions table exists)" -ForegroundColor Green
     } else {
-        Write-Host "  Applying migration..." -ForegroundColor Yellow
-        ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i $KEY_PATH "$HOSTINGER_USER@$HOSTINGER_IP" "cd $REMOTE_PATH && sqlite3 salesmate.db < migrations/001_multi_user_support.sql"
+        Write-Host "  Applying migration to local-database.db..." -ForegroundColor Yellow
+        ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i $KEY_PATH "$HOSTINGER_USER@$HOSTINGER_IP" "cd $REMOTE_PATH && sqlite3 local-database.db < migrations/001_multi_user_support.sql"
         Write-Host "  Migration applied successfully" -ForegroundColor Green
     }
 } else {
