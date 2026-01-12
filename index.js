@@ -1163,6 +1163,10 @@ app.use('/api/calls', callsRouter);
 const assignmentRouter = require('./routes/api/assignment');
 app.use('/api/assignment', assignmentRouter);
 
+// User Management API (Multi-User Authentication System)
+const usersRouter = require('./routes/api/users');
+app.use('/api/users', usersRouter);
+
 // Cron endpoint for processing broadcast queue
 app.get('/cron/process-broadcasts', async (req, res) => {
   try {

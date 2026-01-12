@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Accept Invitation - Salesmate</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 500px;
+            width: 100%;
+            padding: 40px;
+        }
+        
+        .logo {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .logo h1 {
+            color: #667eea;
+            font-size: 32px;
+            font-weight: 700;
+        }
+        
+        .welcome-text {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .welcome-text h2 {
+            color: #333;
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        
+        .welcome-text p {
+            color: #666;
+            font-size: 15px;
+            line-height: 1.5;
+        }
+        
+        .user-info {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .user-info-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        
+        .user-info-item:last-child {
+            margin-bottom: 0;
+        }
+        
+        .user-info-label {
+            color: #666;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .user-info-value {
+            color: #333;
+            font-size: 15px;
+            font-weight: 600;
+        }
+        
+        .role-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .role-badge.tenant_admin {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+        
+        .role-badge.sales_manager {
+            background: #f3e5f5;
+            color: #7b1fa2;
+        }
+        
+        .role-badge.salesman {
+            background: #e8f5e9;
+            color: #388e3c;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            color: #333;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 12px 16px;
+            font-size: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            transition: all 0.3s;
+        }
+        
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .password-requirements {
+            margin-top: 8px;
+            padding: 12px;
+            background: #fff3cd;
+            border-radius: 6px;
+            font-size: 13px;
+            color: #856404;
+        }
+        
+        .password-requirements ul {
+            margin: 8px 0 0 20px;
+        }
+        
+        .password-requirements li {
+            margin: 4px 0;
+        }
+        
+        .btn {
+            width: 100%;
+            padding: 14px;
+            font-size: 16px;
+            font-weight: 600;
+            color: white;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn:active {
+            transform: translateY(0);
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .error-message {
+            background: #fee;
+            color: #c33;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            display: none;
+        }
+        
+        .success-message {
+            background: #e8f5e9;
+            color: #2e7d32;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            display: none;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+        }
+        
+        .loading-spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">
+            <h1>🚀 Salesmate</h1>
+        </div>
+        
+        <div id="loading-state" class="loading">
+            <div class="loading-spinner"></div>
+            <p>Loading invitation details...</p>
+        </div>
+        
+        <div id="invitation-form" class="hidden">
+            <div class="welcome-text">
+                <h2>Welcome to the Team!</h2>
+                <p>You've been invited to join Salesmate. Set your password to get started.</p>
+            </div>
+            
+            <div class="user-info">
+                <div class="user-info-item">
+                    <span class="user-info-label">Name:</span>
+                    <span class="user-info-value" id="user-name">-</span>
+                </div>
+                <div class="user-info-item">
+                    <span class="user-info-label">Email:</span>
+                    <span class="user-info-value" id="user-email">-</span>
+                </div>
+                <div class="user-info-item">
+                    <span class="user-info-label">Role:</span>
+                    <span class="role-badge" id="user-role">-</span>
+                </div>
+            </div>
+            
+            <div id="error-message" class="error-message"></div>
+            <div id="success-message" class="success-message"></div>
+            
+            <form id="accept-form">
+                <div class="form-group">
+                    <label for="password">Create Password</label>
+                    <input 
+                        type="password" 
+                        id="password" 
+                        name="password"
+                        placeholder="Enter a strong password"
+                        required
+                        minlength="8"
+                    >
+                </div>
+                
+                <div class="form-group">
+                    <label for="confirm-password">Confirm Password</label>
+                    <input 
+                        type="password" 
+                        id="confirm-password" 
+                        name="confirm-password"
+                        placeholder="Re-enter your password"
+                        required
+                        minlength="8"
+                    >
+                </div>
+                
+                <div class="password-requirements">
+                    <strong>Password Requirements:</strong>
+                    <ul>
+                        <li>At least 8 characters long</li>
+                        <li>Include uppercase and lowercase letters</li>
+                        <li>Include at least one number</li>
+                        <li>Include at least one special character</li>
+                    </ul>
+                </div>
+                
+                <button type="submit" class="btn" id="submit-btn">
+                    Complete Setup
+                </button>
+            </form>
+        </div>
+        
+        <div id="error-state" class="hidden">
+            <div class="welcome-text">
+                <h2>❌ Invalid Invitation</h2>
+                <p id="error-state-message">This invitation link is invalid or has expired. Please contact your administrator for a new invitation.</p>
+            </div>
+        </div>
+        
+        <div id="success-state" class="hidden">
+            <div class="welcome-text">
+                <h2>✅ Account Activated!</h2>
+                <p>Your account has been successfully activated. Redirecting to dashboard...</p>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Get token from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+        
+        const loadingState = document.getElementById('loading-state');
+        const invitationForm = document.getElementById('invitation-form');
+        const errorState = document.getElementById('error-state');
+        const successState = document.getElementById('success-state');
+        const errorMessage = document.getElementById('error-message');
+        const successMessage = document.getElementById('success-message');
+        
+        // Check if token exists
+        if (!token) {
+            loadingState.classList.add('hidden');
+            errorState.classList.remove('hidden');
+            document.getElementById('error-state-message').textContent = 
+                'No invitation token provided. Please use the invitation link from your email.';
+        } else {
+            // Load invitation details
+            loadInvitationDetails();
+        }
+        
+        async function loadInvitationDetails() {
+            try {
+                // For now, just show the form
+                // In production, you would validate the token first
+                setTimeout(() => {
+                    loadingState.classList.add('hidden');
+                    invitationForm.classList.remove('hidden');
+                    
+                    // Set placeholder info (will be replaced by actual API call)
+                    document.getElementById('user-name').textContent = 'User';
+                    document.getElementById('user-email').textContent = 'Loading...';
+                    document.getElementById('user-role').textContent = 'Loading...';
+                }, 500);
+            } catch (error) {
+                loadingState.classList.add('hidden');
+                errorState.classList.remove('hidden');
+            }
+        }
+        
+        // Handle form submission
+        document.getElementById('accept-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirm-password').value;
+            const submitBtn = document.getElementById('submit-btn');
+            
+            // Clear previous messages
+            errorMessage.style.display = 'none';
+            successMessage.style.display = 'none';
+            
+            // Validate passwords match
+            if (password !== confirmPassword) {
+                errorMessage.textContent = 'Passwords do not match';
+                errorMessage.style.display = 'block';
+                return;
+            }
+            
+            // Validate password strength
+            if (password.length < 8) {
+                errorMessage.textContent = 'Password must be at least 8 characters long';
+                errorMessage.style.display = 'block';
+                return;
+            }
+            
+            // Disable submit button
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Setting up your account...';
+            
+            try {
+                const response = await fetch('/api/users/accept-invite', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        token: token,
+                        password: password
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to accept invitation');
+                }
+                
+                // Success! Store session token and redirect
+                if (data.session && data.session.token) {
+                    localStorage.setItem('session_token', data.session.token);
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                }
+                
+                // Show success state
+                invitationForm.classList.add('hidden');
+                successState.classList.remove('hidden');
+                
+                // Redirect to dashboard after 2 seconds
+                setTimeout(() => {
+                    window.location.href = '/dashboard.html';
+                }, 2000);
+                
+            } catch (error) {
+                errorMessage.textContent = error.message;
+                errorMessage.style.display = 'block';
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Complete Setup';
+            }
+        });
+    </script>
+</body>
+</html>
