@@ -213,13 +213,14 @@ async function getAIResponseV2(tenantId, userQuery, opts = {}) {
     // (c) Product context via your existing function
     const productContext = await getContextFromDB(tenantId, rawQuery || userQuery);
 
-    // (c2) Website chunks (best-effort)
+    // (c2) Website chunks - ALWAYS search website for context (not just product queries)
+    // This ensures AI can reference website docs, features, and sales info for ANY query
     let websiteContext = '';
     try {
-      if (rawQuery && isProductInfoQuery(rawQuery)) {
+      if (rawQuery) {
         const website = await searchWebsiteForQuery(rawQuery, tenantId);
         if (website?.found && website?.context) {
-          websiteContext = `\n--- WEBSITE CHUNKS ---\n${String(website.context).slice(0, 3000)}\n--- END WEBSITE CHUNKS ---\n`;
+          websiteContext = `\n--- WEBSITE/DOCS CONTEXT ---\n${String(website.context).slice(0, 3000)}\n--- END WEBSITE/DOCS CONTEXT ---\n`;
         }
       }
     } catch (e) {

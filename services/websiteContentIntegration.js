@@ -87,16 +87,20 @@ Sources: ${websiteContext.sources.map(s => `${s.title} (${s.relevance}% relevant
 }
 
 /**
- * Check if query is likely asking for product information
+ * Check if query should get website context enrichment
+ * Broadened to include ANY business-related query since we want to reference docs
  * @param {string} query - Customer query
  * @returns {boolean}
  */
 function isProductInfoQuery(query) {
+    // Broadly match ANY query that might benefit from website/docs context
     const infoKeywords = [
         'spec', 'specification', 'technical', 'details', 'feature',
         'price', 'cost', 'rate', 'pricing',
-        'about', 'information', 'tell me', 'what is',
-        'how much', 'available', 'describe'
+        'about', 'information', 'tell me', 'what is', 'how',
+        'how much', 'available', 'describe', 'learn', 'explain',
+        'develop', 'build', 'create', 'bot', 'feature', 'can',
+        'help', 'assistant', 'system', 'platform', 'service'
     ];
 
     const queryLower = query.toLowerCase();
