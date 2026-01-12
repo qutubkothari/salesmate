@@ -14,8 +14,9 @@ const EnhancedIntentClassifier = require('../../../services/core/EnhancedIntentC
 const ErrorRecoveryService = require('../../../services/core/ErrorRecoveryService');
 const ProactiveClarificationService = require('../../../services/core/ProactiveClarificationService');
 const ResponseVariationService = require('../../../services/core/ResponseVariationService');
+const ConversationLearningService = require('../../../services/conversationLearningService');
 
-console.log('[MAIN_HANDLER] Enhanced AI Intelligence System loaded with human-like capabilities');
+console.log('[MAIN_HANDLER] Enhanced AI Intelligence System loaded with human-like capabilities + Learning');
 
 // Helper function to send message and save to database
 async function sendAndSaveMessage(to, messageBody, conversationId, tenantId) {

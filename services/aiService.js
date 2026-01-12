@@ -332,9 +332,34 @@ Your Answer (in ${botLanguage}):
         system: systemPrompt,
         user: finalPrompt,
         mode: opts.mode || 'fast',
-        temperature: typeof opts.temperature === 'number' ? opts.temperature : 0.2
+        temperature: typeof opts.temperature === 'number' ? opts.temperature : 0.7  // Higher temp for natural variation
       });
-      return answer || `Sorry, I couldn't generate a response right now.`;
+      
+      // ✨ HUMAN-LIKE ENHANCEMENT: Add response variation and emotional intelligence
+      let humanizedResponse = answer || `Sorry, I couldn't generate a response right now.`;
+      
+      // Apply response variation to avoid robotic repetition
+      try {
+        const ResponseVariationService = require('./core/ResponseVariationService');
+        
+        // Detect sentiment from conversation history (are they frustrated?)
+        const frustrationKeywords = ['again', 'still', 'not working', 'problem', 'issue', 'frustrated'];
+        const conversationText = conversationContext.toLowerCase();
+        const frustrationLevel = frustrationKeywords.filter(kw => conversationText.includes(kw)).length / frustrationKeywords.length;
+        
+        // Adjust tone based on detected sentiment
+        const sentimentContext = {
+          sentiment: frustrationLevel > 0.3 ? 'negative' : 'neutral',
+          frustrationLevel: frustrationLevel
+        };
+        
+        humanizedResponse = ResponseVariationService.adjustTone(humanizedResponse, sentimentContext);
+        console.log('[AI_V2][HUMANIZED] Applied emotional intelligence, frustration:', frustrationLevel.toFixed(2));
+      } catch (err) {
+        console.warn('[AI_V2][HUMANIZE] Failed to apply response variation:', err.message);
+      }
+      
+      return humanizedResponse;
     } catch (err) {
       // Never 500 your webhook because of AI hiccups
       console.error('[AI][V2] chat failed:', err?.response?.data || err?.message || err);
