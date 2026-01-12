@@ -657,25 +657,43 @@ async function handleCustomerMessage(req, res, tenant, from, userQuery, conversa
             }
         }
 
-        // STEP 4: Fallback to AI response
-        console.log('[MAIN_HANDLER] STEP 4: AI Fallback');
-        const { openai } = require('../../../services/config');
+        // STEP 4: Fallback to AI response WITH WEBSITE CONTEXT
+        console.log('[MAIN_HANDLER] STEP 4: AI Fallback with website context');
+        const { getAIResponseV2 } = require('../../../services/aiService');
 
-        const aiResponse = await openai.chat.completions.create({
-            model: 'gpt-4o-mini',
-            messages: [{
-                role: 'system',
-                content: 'You are a helpful sales assistant. Provide a friendly response to customer inquiries.'
-            }, {
-                role: 'user',
-                content: userQuery
-            }]
+        // Build AI prompt with conversation history
+        const { dbClient } = require('../../../services/config');
+        
+        // Get conversation history for context
+        const { data: messages } = await dbClient
+            .from('messages')
+            .select('type, body, created_at')
+            .eq('conversation_id', conversation?.id)
+            .order('created_at', { ascending: false })
+            .limit(10);
+
+        let conversationContext = '';
+        if (messages && messages.length > 0) {
+            conversationContext = messages
+                .reverse()
+                .map(m => `${m.type === 'incoming' ? 'Customer' : 'You'}: ${m.body}`)
+                .join('\n');
+        }
+
+        const aiPrompt = conversationContext ? 
+            `Previous messages:\n${conversationContext}\n\nCustomer just said: ${userQuery}` :
+            userQuery;
+
+        console.log('[MAIN_HANDLER] Calling getAIResponseV2 for tenant:', tenant.id);
+        const aiResponse = await getAIResponseV2(tenant.id, aiPrompt, {
+            phoneNumber: from,
+            tenantId: tenant.id,
+            conversationId: conversation?.id
         });
 
-        const response = aiResponse.choices[0].message.content;
-        console.log('[MAIN_HANDLER] AI Response generated:', response);
-        await sendAndSaveMessage(from, response, conversation.id, tenant.id);
-        return res.status(200).json({ ok: true, type: 'ai_fallback' });
+        console.log('[MAIN_HANDLER] AI Response generated:', aiResponse ? 'SUCCESS' : 'FAILED');
+        await sendAndSaveMessage(from, aiResponse, conversation.id, tenant.id);
+        return res.status(200).json({ ok: true, type: 'ai_response_v2' });
 
     } catch (error) {
         console.error('[MAIN_HANDLER] CRITICAL ERROR in modular handler:', error.message);

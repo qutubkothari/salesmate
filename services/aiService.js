@@ -189,6 +189,11 @@ async function chatComplete({ system, user, mode = 'fast', temperature = 0.2 }) 
 // 5) V2 response path (non-breaking, uses your existing DB helpers)
 async function getAIResponseV2(tenantId, userQuery, opts = {}) {
   try {
+    console.log('[AI_V2] ===== START getAIResponseV2 =====');
+    console.log('[AI_V2] Tenant:', tenantId);
+    console.log('[AI_V2] Query:', userQuery.slice(0, 100));
+    console.log('[AI_V2] Options:', { conversationId: opts.conversationId, phoneNumber: opts.phoneNumber });
+    
     // (a) Load tenant business/profile fields just like your V1 path
     const { data: tenant, error: tenantError } = await dbClient
       .from('tenants')
@@ -197,6 +202,7 @@ async function getAIResponseV2(tenantId, userQuery, opts = {}) {
       .single();
 
     if (tenantError) throw tenantError;
+    console.log('[AI_V2] Tenant loaded:', tenant.business_name);
 
     const rawQuery = String(opts.originalUserQuery || userQuery || '').trim();
 
@@ -218,13 +224,20 @@ async function getAIResponseV2(tenantId, userQuery, opts = {}) {
     let websiteContext = '';
     try {
       if (rawQuery) {
+        console.log('[AI_V2][WEBSITE_SEARCH] Searching website for query:', rawQuery.slice(0, 100));
         const website = await searchWebsiteForQuery(rawQuery, tenantId);
+        console.log('[AI_V2][WEBSITE_RESULT] Found:', website?.found, 'Items:', website?.items?.length || 0);
         if (website?.found && website?.context) {
           websiteContext = `\n--- WEBSITE/DOCS CONTEXT ---\n${String(website.context).slice(0, 3000)}\n--- END WEBSITE/DOCS CONTEXT ---\n`;
+          console.log('[AI_V2][WEBSITE_CONTEXT_ADDED] Context added, length:', websiteContext.length);
+        } else {
+          console.log('[AI_V2][WEBSITE_NO_MATCH] No relevant website chunks found');
         }
+      } else {
+        console.log('[AI_V2][WEBSITE_SKIPPED] No rawQuery provided, skipping website search');
       }
     } catch (e) {
-      // best-effort
+      console.error('[AI_V2][WEBSITE_ERROR] Website search failed:', e?.message || String(e));
       _dbgAI('website search failed', e?.message || String(e));
     }
 
@@ -291,9 +304,7 @@ Do not make up details. Keep your answers concise and clear.`;
 
     // (f) Chat call using env-driven models with graceful failure handling
     try {
-      const answer = await chatComplete({
-        system: systemPrompt,
-        user: `
+      const finalPrompt = `
 ${businessProfileContext}
 
 --- PRODUCT INFORMATION ---
@@ -304,7 +315,22 @@ ${conversationContext}
 Customer Message: "${rawQuery || userQuery}"
 
 Your Answer (in ${botLanguage}):
-`,
+`;
+      
+      console.log('[AI_V2][PROMPT_BUILDING] ===== FINAL PROMPT =====');
+      console.log('[AI_V2][CONTEXT] Product context length:', productContext.length);
+      console.log('[AI_V2][CONTEXT] Website context length:', websiteContext.length);
+      console.log('[AI_V2][CONTEXT] Conversation context length:', conversationContext.length);
+      console.log('[AI_V2][CONTEXT] Total prompt length:', finalPrompt.length);
+      if (websiteContext) {
+        console.log('[AI_V2][CONTEXT] ✅ WEBSITE CONTEXT IS INCLUDED');
+      } else {
+        console.log('[AI_V2][CONTEXT] ⚠️ WEBSITE CONTEXT IS EMPTY');
+      }
+      
+      const answer = await chatComplete({
+        system: systemPrompt,
+        user: finalPrompt,
         mode: opts.mode || 'fast',
         temperature: typeof opts.temperature === 'number' ? opts.temperature : 0.2
       });

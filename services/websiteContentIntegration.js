@@ -13,18 +13,22 @@ const { searchWebsiteContent, findProductInfo } = require('./websiteSearchServic
  * @returns {Promise<Object>} Search results and formatted context
  */
 async function searchWebsiteForQuery(query, tenantId, productCode = null) {
+    console.log('[WebsiteContentIntegration] searchWebsiteForQuery called for:', query);
     try {
         let results = [];
 
         // If product code is known, search for that specific product
         if (productCode) {
+            console.log('[WebsiteContentIntegration] Searching for product code:', productCode);
             results = await findProductInfo(productCode, tenantId);
         } else {
-            // General semantic search
+            // General semantic search - ALWAYS search, not just for product queries
+            console.log('[WebsiteContentIntegration] Performing semantic search for:', query);
             results = await searchWebsiteContent(query, tenantId, {
                 limit: 3,
                 minSimilarity: 0.25  // Lower threshold for better recall (25%)
             });
+            console.log('[WebsiteContentIntegration] Found', results ? results.length : 0, 'results');
         }
 
         if (!results || results.length === 0) {

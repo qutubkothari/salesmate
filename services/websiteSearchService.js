@@ -65,8 +65,12 @@ async function searchWebsiteContent(query, tenantId, options = {}) {
 
     try {
         // --- Semantic path (preferred) ---
+        console.log('[WebsiteSearch] Generating embedding for query');
         const queryEmbedding = await generateEmbedding(query);
+        console.log('[WebsiteSearch] Query embedding generated, dimensions:', queryEmbedding?.length);
+        
         const candidates = await fetchCandidates(50);
+        console.log('[WebsiteSearch] Found', candidates.length, 'total candidates in database');
 
         const resultsWithSimilarity = candidates
             .filter((item) => item && item.embedding)
@@ -80,6 +84,7 @@ async function searchWebsiteContent(query, tenantId, options = {}) {
                 if (!Array.isArray(itemEmbedding) || !itemEmbedding.length) return null;
 
                 let similarity = cosineSimilarity(queryEmbedding, itemEmbedding);
+                console.log('[WebsiteSearch] Candidate:', item.page_title, 'similarity:', similarity.toFixed(3));
 
                 const queryLower = query.toLowerCase();
                 const urlLower = String(item.url || '').toLowerCase();
@@ -107,7 +112,7 @@ async function searchWebsiteContent(query, tenantId, options = {}) {
                 relevanceScore: Math.round(item.similarity * 100)
             }));
 
-        console.log(`[WebsiteSearch] Found ${results.length} relevant chunks (semantic)`);
+        console.log(`[WebsiteSearch] Filtered to ${results.length} relevant chunks (semantic) with min similarity ${minSimilarity}`);
         return results;
     } catch (error) {
         // --- Lexical fallback (works without embeddings) ---

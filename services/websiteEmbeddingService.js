@@ -88,9 +88,14 @@ async function generateEmbedding(text, model = null) {
         const useOpenAI = String(process.env.USE_OPENAI_EMBEDDINGS || '').toLowerCase() === 'true';
 
         if (!useOpenAI) {
-            const embedding = await generateSmartEmbedding(text);
-            if (Array.isArray(embedding) && embedding.length) {
-                return embedding;
+            try {
+                const embedding = await generateSmartEmbedding(text);
+                if (Array.isArray(embedding) && embedding.length) {
+                    return embedding;
+                }
+            } catch (freeErr) {
+                console.warn('[EmbeddingService] Free embedding failed, falling back to OpenAI:', freeErr?.message);
+                // Fall through to OpenAI backup
             }
         }
 
@@ -121,9 +126,14 @@ async function generateEmbeddingsBatch(texts, model = null) {
     try {
         const useOpenAI = String(process.env.USE_OPENAI_EMBEDDINGS || '').toLowerCase() === 'true';
         if (!useOpenAI) {
-            const embeddings = await generateFreeEmbeddingsBatch(texts);
-            console.log(`[EmbeddingService] Generated ${embeddings.length} free embeddings`);
-            return embeddings;
+            try {
+                const embeddings = await generateFreeEmbeddingsBatch(texts);
+                console.log(`[EmbeddingService] Generated ${embeddings.length} free embeddings`);
+                return embeddings;
+            } catch (freeErr) {
+                console.warn('[EmbeddingService] Free batch embeddings failed, falling back to OpenAI:', freeErr?.message);
+                // Fall through to OpenAI backup
+            }
         }
 
         // OpenAI fallback (sequential)
