@@ -613,13 +613,9 @@ async function handleCustomerMessage(req, res, tenant, from, userQuery, conversa
             }
         }
 
-        // STEP 3: Route ALL queries through Smart Response Router before AI fallback
-        const { handleSmartResponse } = require('./smartResponseHandler');
-        const smartResponse = await handleSmartResponse(req, res, tenant, from, userQuery, intentResult, conversation);
-        if (smartResponse && smartResponse.response) {
-            await sendAndSaveMessage(from, smartResponse.response, conversation?.id, tenant.id);
-            return res.status(200).json({ ok: true, type: smartResponse.source || intentResult?.intent || 'smart_response' });
-        }
+        // STEP 3: SKIPPED - Smart Response Router deprecated in favor of AI
+        // Use AI for all general queries instead of hardcoded smart responses
+        console.log('[MAIN_HANDLER] STEP 3: Skipping Smart Response Router (deprecated), moving directly to AI');
         
         // STEP 3.5: Check if we need clarification (low confidence or ambiguous input)
         console.log('[MAIN_HANDLER] STEP 3.5: Proactive Clarification Check');
