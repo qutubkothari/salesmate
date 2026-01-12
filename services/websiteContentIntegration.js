@@ -25,8 +25,8 @@ async function searchWebsiteForQuery(query, tenantId, productCode = null) {
             // General semantic search - ALWAYS search, not just for product queries
             console.log('[WebsiteContentIntegration] Performing semantic search for:', query);
             results = await searchWebsiteContent(query, tenantId, {
-                limit: 3,
-                minSimilarity: 0.25  // Lower threshold for better recall (25%)
+                limit: 5,  // Increased from 3 to get more results
+                minSimilarity: 0.15  // Lowered from 0.25 to catch more relevant results
             });
             console.log('[WebsiteContentIntegration] Found', results ? results.length : 0, 'results');
         }
