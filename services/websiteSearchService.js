@@ -89,10 +89,18 @@ async function searchWebsiteContent(query, tenantId, options = {}) {
                 const queryLower = query.toLowerCase();
                 const urlLower = String(item.url || '').toLowerCase();
                 const titleLower = String(item.page_title || '').toLowerCase();
+                const contentLower = String(item.chunk_text || item.content || '').toLowerCase();
 
+                // Keyword boosting for better relevance
                 if (queryLower.includes('product') && (urlLower.includes('/products') || titleLower.includes('range'))) similarity *= 1.3;
                 if (queryLower.includes('about') && (urlLower.includes('/about') || titleLower.includes('about'))) similarity *= 1.3;
                 if (queryLower.includes('contact') && (urlLower.includes('/contact') || titleLower.includes('contact'))) similarity *= 1.3;
+                
+                // Document management boosting
+                if ((queryLower.includes('document') || queryLower.includes('scan') || queryLower.includes('arabic') || queryLower.includes('pdf')) && 
+                    (urlLower.includes('document') || titleLower.includes('document') || contentLower.includes('document management'))) {
+                    similarity *= 1.5;
+                }
 
                 return { ...item, similarity };
             })
