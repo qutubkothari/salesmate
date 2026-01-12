@@ -5,6 +5,7 @@ const express = require('express');
 const router = express.Router();
 const { dbClient } = require('../../services/config');
 const crypto = require('crypto');
+const bcrypt = require('bcryptjs');
 
 /**
  * POST /api/tenants/register
@@ -108,6 +109,26 @@ router.post('/register', async (req, res) => {
         }
 
         console.log('[TENANT_REGISTER] New tenant created:', tenant.id, tenant.business_name);
+
+        // Best-effort: create a default CRM OWNER user for this tenant.
+        // Password is set later via /api/tenants/update-password.
+        try {
+            const ownerPhoneDigits = normalizePhoneDigits(normalizedPhoneNumber);
+            await supabase
+                .from('crm_users')
+                .insert({
+                    tenant_id: tenant.id,
+                    role: 'OWNER',
+                    full_name: `${business_name} Owner`,
+                    email: email ? String(email).trim().toLowerCase() : null,
+                    phone: ownerPhoneDigits || null,
+                    is_active: true,
+                    password_hash: null
+                });
+        } catch (e) {
+            // Do not fail tenant registration if CRM table isn't migrated yet.
+            console.warn('[TENANT_REGISTER] CRM owner creation skipped/failed:', e?.message || e);
+        }
 
         // Return success with tenant details
         return res.status(201).json({
@@ -493,6 +514,55 @@ router.post('/update-password', async (req, res) => {
         }
 
         console.log('[UPDATE_PASSWORD] Password set for tenant:', tenantId);
+
+        // Best-effort: sync CRM OWNER password hash to match tenant password.
+        // This allows CRM login using the same credentials as dashboard login.
+        try {
+            const { data: tenant } = await supabase
+                .from('tenants')
+                .select('id, business_name, owner_whatsapp_number, phone_number, email')
+                .eq('id', tenantId)
+                .single();
+
+            if (tenant) {
+                const normalizePhoneDigits = (value) => {
+                    if (!value) return '';
+                    const withoutSuffix = String(value).replace(/@c\.us$/i, '');
+                    return withoutSuffix.replace(/\D/g, '');
+                };
+
+                const ownerDigits = normalizePhoneDigits(tenant.phone_number || tenant.owner_whatsapp_number);
+                const hash = bcrypt.hashSync(String(password), 10);
+
+                const { data: existingUser } = await supabase
+                    .from('crm_users')
+                    .select('id')
+                    .eq('tenant_id', tenantId)
+                    .eq('role', 'OWNER')
+                    .maybeSingle();
+
+                if (existingUser?.id) {
+                    await supabase
+                        .from('crm_users')
+                        .update({ password_hash: hash, phone: ownerDigits || null, is_active: true })
+                        .eq('id', existingUser.id);
+                } else {
+                    await supabase
+                        .from('crm_users')
+                        .insert({
+                            tenant_id: tenantId,
+                            role: 'OWNER',
+                            full_name: `${tenant.business_name || 'Tenant'} Owner`,
+                            email: tenant.email ? String(tenant.email).trim().toLowerCase() : null,
+                            phone: ownerDigits || null,
+                            is_active: true,
+                            password_hash: hash
+                        });
+                }
+            }
+        } catch (e) {
+            console.warn('[UPDATE_PASSWORD] CRM password sync skipped/failed:', e?.message || e);
+        }
 
         res.json({
             success: true,
