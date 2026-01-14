@@ -7,7 +7,7 @@ const { sendMessage } = require('../../services/whatsappService');
 const multer = require('multer');
 const DocumentIngestionService = require('../../services/documentIngestionService');
 const { writeAuditLog } = require('../../services/auditLogService');
-const { authenticateToken } = require('../../middleware/auth');
+const { requireAuth } = require('../../middleware/authMiddleware');
 
 const upload = multer({
     storage: multer.memoryStorage(),
@@ -3121,7 +3121,7 @@ const managerDashboardService = require('../../services/managerDashboardService'
  * GET /api/dashboard/manager/overview
  * Get team overview (visits, orders, targets today)
  */
-router.get('/manager/overview', authenticateToken, async (req, res) => {
+router.get('/manager/overview', requireAuth, async (req, res) => {
   try {
     const { tenantId } = req.user;
     
@@ -3152,7 +3152,7 @@ router.get('/manager/overview', authenticateToken, async (req, res) => {
  * Get performance analytics for specified days
  * Query params: days=7 (default)
  */
-router.get('/manager/analytics', authenticateToken, async (req, res) => {
+router.get('/manager/analytics', requireAuth, async (req, res) => {
   try {
     const { tenantId } = req.user;
     
@@ -3188,7 +3188,7 @@ router.get('/manager/analytics', authenticateToken, async (req, res) => {
  * GET /api/dashboard/manager/salesman/:salesman_id
  * Get detailed view for specific salesman
  */
-router.get('/manager/salesman/:salesman_id', authenticateToken, async (req, res) => {
+router.get('/manager/salesman/:salesman_id', requireAuth, async (req, res) => {
   try {
     const { tenantId } = req.user;
     
@@ -3220,7 +3220,7 @@ router.get('/manager/salesman/:salesman_id', authenticateToken, async (req, res)
  * GET /api/dashboard/manager/alerts
  * Get real-time alerts and warnings
  */
-router.get('/manager/alerts', authenticateToken, async (req, res) => {
+router.get('/manager/alerts', requireAuth, async (req, res) => {
   try {
     const { tenantId } = req.user;
     
@@ -3253,7 +3253,7 @@ router.get('/manager/alerts', authenticateToken, async (req, res) => {
  * GET /api/dashboard/manager/report
  * Get comprehensive dashboard report
  */
-router.get('/manager/report', authenticateToken, async (req, res) => {
+router.get('/manager/report', requireAuth, async (req, res) => {
   try {
     const { tenantId } = req.user;
     
