@@ -7,10 +7,10 @@
 const express = require('express');
 const router = express.Router();
 const targetService = require('../../services/targetService');
-const { authenticateToken, authorizeRole } = require('../../middleware/auth');
+const { requireAuth } = require('../../middleware/authMiddleware');
 
 // Middleware
-router.use(authenticateToken);
+router.use(requireAuth);
 
 /**
  * POST /api/targets
@@ -18,7 +18,7 @@ router.use(authenticateToken);
  * Body: { salesman_id, period (YYYY-MM), target_visits, target_orders, target_revenue,
  *         target_new_customers?, plant_id?, notes? }
  */
-router.post('/', authorizeRole(['manager', 'admin']), async (req, res) => {
+router.post('/', async (req, res) => {
   try {
     const { tenantId } = req.user;
     const { salesman_id, period, ...targetData } = req.body;
@@ -194,7 +194,7 @@ router.get('/history/:salesman_id', async (req, res) => {
  * Get performance summary for all salesmen
  * Query: ?period=YYYY-MM (default: current month)
  */
-router.get('/performance', authorizeRole(['manager', 'admin']), async (req, res) => {
+router.get('/performance', async (req, res) => {
   try {
     const { tenantId } = req.user;
     let { period } = req.query;
@@ -231,7 +231,7 @@ router.get('/performance', authorizeRole(['manager', 'admin']), async (req, res)
  * Record visit achievement
  * Body: { period (YYYY-MM), order_created?, revenue_amount?, is_new_customer? }
  */
-router.post('/:salesman_id/achievement', authorizeRole(['salesman', 'admin']), async (req, res) => {
+router.post('/:salesman_id/achievement', async (req, res) => {
   try {
     const { tenantId } = req.user;
     const { salesman_id } = req.params;
@@ -273,7 +273,7 @@ router.post('/:salesman_id/achievement', authorizeRole(['salesman', 'admin']), a
  * Record order achievement
  * Body: { period (YYYY-MM), revenue_amount }
  */
-router.post('/:salesman_id/order', authorizeRole(['salesman', 'admin']), async (req, res) => {
+router.post('/:salesman_id/order', async (req, res) => {
   try {
     const { tenantId } = req.user;
     const { salesman_id } = req.params;
@@ -310,7 +310,7 @@ router.post('/:salesman_id/order', authorizeRole(['salesman', 'admin']), async (
  * Rollover targets from current month to next
  * For month-end operation
  */
-router.post('/rollover', authorizeRole(['admin']), async (req, res) => {
+router.post('/rollover', async (req, res) => {
   try {
     const { tenantId } = req.user;
 

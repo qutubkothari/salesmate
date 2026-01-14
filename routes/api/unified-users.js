@@ -8,17 +8,17 @@
 const express = require('express');
 const router = express.Router();
 const unifiedUserService = require('../../services/unifiedUserService');
-const { authenticateToken, authorizeRole } = require('../../middleware/auth');
+const { requireAuth } = require('../../middleware/authMiddleware');
 
 // Middleware
-router.use(authenticateToken);
+router.use(requireAuth);
 
 /**
  * POST /api/users/salesman
  * Create a new salesman (field staff) with user record
  * Body: { name, phone, email?, plant_id? }
  */
-router.post('/salesman', authorizeRole(['admin', 'manager']), async (req, res) => {
+router.post('/salesman', async (req, res) => {
   try {
     const { tenantId } = req.user;
     const { name, phone, email, plant_id } = req.body;
@@ -109,7 +109,7 @@ router.get('/:user_id/context', async (req, res) => {
  * Update user basic info
  * Body: { name?, email?, phone?, is_active?, salesman_info?: { plant_id? } }
  */
-router.put('/:user_id', authorizeRole(['admin', 'manager']), async (req, res) => {
+router.put('/:user_id', async (req, res) => {
   try {
     const { user_id } = req.params;
     const updateData = req.body;
@@ -137,7 +137,7 @@ router.put('/:user_id', authorizeRole(['admin', 'manager']), async (req, res) =>
  * Update salesman GPS location
  * Body: { latitude, longitude, accuracy? }
  */
-router.post('/:salesman_id/location', authorizeRole(['salesman', 'admin']), async (req, res) => {
+router.post('/:salesman_id/location', async (req, res) => {
   try {
     const { salesman_id } = req.params;
     const { latitude, longitude, accuracy } = req.body;
@@ -226,7 +226,7 @@ router.get('/:salesman_id/performance', async (req, res) => {
  * PUT /api/users/:salesman_id/deactivate
  * Deactivate a salesman (soft delete)
  */
-router.put('/:salesman_id/deactivate', authorizeRole(['admin']), async (req, res) => {
+router.put('/:salesman_id/deactivate', async (req, res) => {
   try {
     const { salesman_id } = req.params;
 
@@ -252,7 +252,7 @@ router.put('/:salesman_id/deactivate', authorizeRole(['admin']), async (req, res
  * Log field activity for audit trail
  * Body: { activity_type, activity_data?: {} }
  */
-router.post('/salesman/:salesman_id/activity', authorizeRole(['salesman', 'admin']), async (req, res) => {
+router.post('/salesman/:salesman_id/activity', async (req, res) => {
   try {
     const { tenantId } = req.user;
     const { salesman_id } = req.params;

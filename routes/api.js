@@ -50,6 +50,28 @@ router.use('/sales-team', salesTeamRouter);
 const triageAssignmentRouter = require('./api/triageAssignment');
 router.use('/triage-assignment', triageAssignmentRouter);
 
+// Mount FSM Integration APIs (Phase 1 & 2)
+try {
+  const visitsRouter = require('./api/visits');
+  router.use('/visits', visitsRouter);
+} catch (e) {
+  console.warn('[BOOT] Warning: visits router failed to load:', e?.message);
+}
+
+try {
+  const targetsRouter = require('./api/targets');
+  router.use('/targets', targetsRouter);
+} catch (e) {
+  console.warn('[BOOT] Warning: targets router failed to load:', e?.message);
+}
+
+try {
+  const unifiedUsersRouter = require('./api/unified-users');
+  router.use('/unified-users', unifiedUsersRouter);
+} catch (e) {
+  console.warn('[BOOT] Warning: unified-users router failed to load:', e?.message);
+}
+
 // Authentication endpoints
 
 // Backup compatibility endpoint (alias for verify-token)

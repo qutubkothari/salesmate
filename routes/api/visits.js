@@ -10,10 +10,10 @@ const visitService = require('../../services/visitService');
 const orderService = require('../../services/orderService');
 const conversationLinkingService = require('../../services/conversationLinkingService');
 const targetSyncService = require('../../services/targetSyncService');
-const { authenticateToken, authorizeRole } = require('../../middleware/auth');
+const { requireAuth } = require('../../middleware/authMiddleware');
 
 // Middleware
-router.use(authenticateToken);
+router.use(requireAuth);
 
 /**
  * POST /api/visits
@@ -22,13 +22,13 @@ router.use(authenticateToken);
  *         meeting_types?, products_discussed?, potential?, competitor_name?, can_be_switched?,
  *         remarks?, next_action?, next_action_date?, gps_latitude?, gps_longitude?, plant_id? }
  */
-router.post('/', authorizeRole(['salesman', 'admin']), async (req, res) => {
+router.post('/', async (req, res) => {
   try {
     const { tenantId, userId } = req.user;
     const { salesman_id, ...visitData } = req.body;
 
     // Only salesman can create their own visits
-    if (!authorizeRole(['admin']).valid && userId !== salesman_id) {
+    if (userId !== salesman_id && req.user.role !== 'admin') {
       return res.status(403).json({ error: 'Cannot create visits for other salesmen' });
     }
 
@@ -56,7 +56,7 @@ router.post('/', authorizeRole(['salesman', 'admin']), async (req, res) => {
  * Get all visits for a salesman
  * Query: ?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD&completed_only=true&pending_only=true
  */
-router.get('/:salesman_id', authorizeRole(['salesman', 'manager', 'admin']), async (req, res) => {
+router.get('/:salesman_id', async (req, res) => {
   try {
     const { tenantId, userId, role } = req.user;
     const { salesman_id } = req.params;
@@ -122,7 +122,7 @@ router.get('/detail/:visit_id', async (req, res) => {
  * Body: { time_out?, remarks?, next_action_date?, final_status? }
  * Phase 2: Auto-creates order from products discussed, links to conversation, records achievement
  */
-router.put('/:visit_id/complete', authorizeRole(['salesman', 'admin']), async (req, res) => {
+router.put('/:visit_id/complete', async (req, res) => {
   try {
     const { visit_id } = req.params;
     const { tenantId, userId } = req.user;
@@ -205,7 +205,7 @@ router.put('/:visit_id/complete', authorizeRole(['salesman', 'admin']), async (r
  * Update GPS location during visit
  * Body: { latitude, longitude, accuracy? }
  */
-router.post('/:visit_id/location', authorizeRole(['salesman', 'admin']), async (req, res) => {
+router.post('/:visit_id/location', async (req, res) => {
   try {
     const { visit_id } = req.params;
     const { latitude, longitude, accuracy } = req.body;
@@ -237,7 +237,7 @@ router.post('/:visit_id/location', authorizeRole(['salesman', 'admin']), async (
  * Add images to visit
  * Body: { images: [{ url: string, caption?: string }] }
  */
-router.post('/:visit_id/images', authorizeRole(['salesman', 'admin']), async (req, res) => {
+router.post('/:visit_id/images', async (req, res) => {
   try {
     const { visit_id } = req.params;
     const { images } = req.body;
