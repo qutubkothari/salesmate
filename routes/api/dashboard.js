@@ -7,6 +7,7 @@ const { sendMessage } = require('../../services/whatsappService');
 const multer = require('multer');
 const DocumentIngestionService = require('../../services/documentIngestionService');
 const { writeAuditLog } = require('../../services/auditLogService');
+const { authenticateToken } = require('../../middleware/auth');
 
 const upload = multer({
     storage: multer.memoryStorage(),
@@ -3108,6 +3109,174 @@ router.post('/products/:tenantId', async (req, res) => {
         console.error('[Product Create Error]', error);
         res.status(500).json({ success: false, error: 'Internal server error' });
     }
+});
+
+/**
+ * ========== MANAGER ANALYTICS ROUTES (Phase 2) ==========
+ */
+
+const managerDashboardService = require('../../services/managerDashboardService');
+
+/**
+ * GET /api/dashboard/manager/overview
+ * Get team overview (visits, orders, targets today)
+ */
+router.get('/manager/overview', authenticateToken, async (req, res) => {
+  try {
+    const { tenantId } = req.user;
+    
+    // Check authorization
+    if (!req.user.roles || (!req.user.roles.includes('manager') && !req.user.roles.includes('admin'))) {
+      return res.status(403).json({ error: 'Manager access required' });
+    }
+
+    const result = await managerDashboardService.getTeamOverview(tenantId);
+
+    if (!result.ok) {
+      return res.status(400).json({ error: result.error });
+    }
+
+    res.json({
+      ok: true,
+      overview: result.overview
+    });
+
+  } catch (error) {
+    console.error('[DASHBOARD_API] Overview error:', error);
+    res.status(500).json({ error: 'Failed to get overview' });
+  }
+});
+
+/**
+ * GET /api/dashboard/manager/analytics
+ * Get performance analytics for specified days
+ * Query params: days=7 (default)
+ */
+router.get('/manager/analytics', authenticateToken, async (req, res) => {
+  try {
+    const { tenantId } = req.user;
+    
+    // Check authorization
+    if (!req.user.roles || (!req.user.roles.includes('manager') && !req.user.roles.includes('admin'))) {
+      return res.status(403).json({ error: 'Manager access required' });
+    }
+
+    const days = parseInt(req.query.days) || 7;
+
+    if (days < 1 || days > 90) {
+      return res.status(400).json({ error: 'Days must be between 1 and 90' });
+    }
+
+    const result = await managerDashboardService.getPerformanceAnalytics(tenantId, days);
+
+    if (!result.ok) {
+      return res.status(400).json({ error: result.error });
+    }
+
+    res.json({
+      ok: true,
+      analytics: result.analytics
+    });
+
+  } catch (error) {
+    console.error('[DASHBOARD_API] Analytics error:', error);
+    res.status(500).json({ error: 'Failed to get analytics' });
+  }
+});
+
+/**
+ * GET /api/dashboard/manager/salesman/:salesman_id
+ * Get detailed view for specific salesman
+ */
+router.get('/manager/salesman/:salesman_id', authenticateToken, async (req, res) => {
+  try {
+    const { tenantId } = req.user;
+    
+    // Check authorization
+    if (!req.user.roles || (!req.user.roles.includes('manager') && !req.user.roles.includes('admin'))) {
+      return res.status(403).json({ error: 'Manager access required' });
+    }
+
+    const { salesman_id } = req.params;
+
+    const result = await managerDashboardService.getSalesmanDetail(tenantId, salesman_id);
+
+    if (!result.ok) {
+      return res.status(400).json({ error: result.error });
+    }
+
+    res.json({
+      ok: true,
+      detail: result.detail
+    });
+
+  } catch (error) {
+    console.error('[DASHBOARD_API] Salesman detail error:', error);
+    res.status(500).json({ error: 'Failed to get salesman details' });
+  }
+});
+
+/**
+ * GET /api/dashboard/manager/alerts
+ * Get real-time alerts and warnings
+ */
+router.get('/manager/alerts', authenticateToken, async (req, res) => {
+  try {
+    const { tenantId } = req.user;
+    
+    // Check authorization
+    if (!req.user.roles || (!req.user.roles.includes('manager') && !req.user.roles.includes('admin'))) {
+      return res.status(403).json({ error: 'Manager access required' });
+    }
+
+    const result = await managerDashboardService.getAlerts(tenantId);
+
+    if (!result.ok) {
+      return res.status(400).json({ error: result.error });
+    }
+
+    res.json({
+      ok: true,
+      alerts: result.alerts,
+      critical_count: result.alerts.critical.length,
+      warning_count: result.alerts.warning.length,
+      info_count: result.alerts.info.length
+    });
+
+  } catch (error) {
+    console.error('[DASHBOARD_API] Alerts error:', error);
+    res.status(500).json({ error: 'Failed to get alerts' });
+  }
+});
+
+/**
+ * GET /api/dashboard/manager/report
+ * Get comprehensive dashboard report
+ */
+router.get('/manager/report', authenticateToken, async (req, res) => {
+  try {
+    const { tenantId } = req.user;
+    
+    // Check authorization
+    if (!req.user.roles || (!req.user.roles.includes('manager') && !req.user.roles.includes('admin'))) {
+      return res.status(403).json({ error: 'Manager access required' });
+    }
+
+    const result = await managerDashboardService.generateReport(tenantId);
+
+    if (!result.ok) {
+      return res.status(400).json({ error: result.error });
+    }
+
+    res.json({
+      ok: true,
+      report: result.report
+    });
+
+  } catch (error) {
+    console.error('[DASHBOARD_API] Report error:', error);
+    res.status(500).json({ error: 'Failed to generate report' });
+  }
 });
 
 // END OF ROUTES
