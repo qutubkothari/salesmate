@@ -374,20 +374,51 @@
                             </div>
                         </div>
 
+                        <!-- Table Controls -->
+                        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+                            <div class="flex items-center gap-2 text-white/70 text-sm">
+                                <span>Rows:</span>
+                                <select id="visitsPageSize" class="px-2 py-1 rounded-lg bg-white/10 text-white border border-white/20">
+                                    <option value="10">10</option>
+                                    <option value="25">25</option>
+                                    <option value="50">50</option>
+                                </select>
+                                <div id="visitsPageInfo" class="ml-2 text-white/60"></div>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <button id="visitsPrevPage" class="px-3 py-1.5 rounded-lg bg-white/10 text-white hover:bg-white/20">Prev</button>
+                                <button id="visitsNextPage" class="px-3 py-1.5 rounded-lg bg-white/10 text-white hover:bg-white/20">Next</button>
+                                <div class="relative">
+                                    <button id="visitsColumnToggle" class="px-3 py-1.5 rounded-lg bg-white/10 text-white hover:bg-white/20">Columns</button>
+                                    <div id="visitsColumnMenu" class="hidden absolute right-0 mt-2 w-52 rounded-lg bg-slate-900/90 backdrop-blur border border-white/10 p-3 text-white text-sm z-10">
+                                        <label class="flex items-center gap-2 py-1"><input type="checkbox" data-col="date" checked /> Date</label>
+                                        <label class="flex items-center gap-2 py-1"><input type="checkbox" data-col="customer" checked /> Customer</label>
+                                        <label class="flex items-center gap-2 py-1"><input type="checkbox" data-col="salesman" checked /> Salesman</label>
+                                        <label class="flex items-center gap-2 py-1"><input type="checkbox" data-col="branch" checked /> Branch</label>
+                                        <label class="flex items-center gap-2 py-1"><input type="checkbox" data-col="type" checked /> Type</label>
+                                        <label class="flex items-center gap-2 py-1"><input type="checkbox" data-col="duration" checked /> Duration</label>
+                                        <label class="flex items-center gap-2 py-1"><input type="checkbox" data-col="potential" checked /> Potential</label>
+                                        <label class="flex items-center gap-2 py-1"><input type="checkbox" data-col="status" checked /> Status</label>
+                                        <label class="flex items-center gap-2 py-1"><input type="checkbox" data-col="actions" checked /> Actions</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Visits Table -->
                         <div class="glass-effect rounded-xl p-6 overflow-x-auto">
                             <table class="w-full" id="visitsTable">
                                 <thead>
                                     <tr class="text-white/60 text-sm border-b border-white/10">
-                                        <th class="text-left py-3 px-4">Date</th>
-                                        <th class="text-left py-3 px-4">Customer</th>
-                                        <th class="text-left py-3 px-4">Salesman</th>
-                                        <th class="text-left py-3 px-4">Branch</th>
-                                        <th class="text-left py-3 px-4">Type</th>
-                                        <th class="text-left py-3 px-4">Duration</th>
-                                        <th class="text-left py-3 px-4">Potential</th>
-                                        <th class="text-left py-3 px-4">Status</th>
-                                        <th class="text-left py-3 px-4">Actions</th>
+                                        <th class="text-left py-3 px-4 cursor-pointer" data-sort="visit_date" data-col="date">Date</th>
+                                        <th class="text-left py-3 px-4 cursor-pointer" data-sort="customer_name" data-col="customer">Customer</th>
+                                        <th class="text-left py-3 px-4 cursor-pointer" data-sort="salesman_name" data-col="salesman">Salesman</th>
+                                        <th class="text-left py-3 px-4 cursor-pointer" data-sort="plant_name" data-col="branch">Branch</th>
+                                        <th class="text-left py-3 px-4 cursor-pointer" data-sort="visit_type" data-col="type">Type</th>
+                                        <th class="text-left py-3 px-4 cursor-pointer" data-sort="duration_minutes" data-col="duration">Duration</th>
+                                        <th class="text-left py-3 px-4 cursor-pointer" data-sort="potential" data-col="potential">Potential</th>
+                                        <th class="text-left py-3 px-4 cursor-pointer" data-sort="status" data-col="status">Status</th>
+                                        <th class="text-left py-3 px-4" data-col="actions">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody id="visitsTableBody">
@@ -1143,7 +1174,25 @@
         data: { stats: null, conversations: [], orders: [], products: [], settings: {} },
         searchQuery: '',
         isLoading: false,
-        fsmUser: null // FSM user role and access level
+        fsmUser: null, // FSM user role and access level
+        fsmVisits: {
+            all: [],
+            page: 1,
+            pageSize: 10,
+            sortKey: 'visit_date',
+            sortDir: 'desc',
+            columns: {
+                date: true,
+                customer: true,
+                salesman: true,
+                branch: true,
+                type: true,
+                duration: true,
+                potential: true,
+                status: true,
+                actions: true
+            }
+        }
     };
     // ---------- API Helpers ----------
     const api = {
@@ -7381,6 +7430,7 @@
                 
                 document.getElementById('loadingScreen').classList.add('hidden');
                 document.getElementById('dashboard').classList.remove('hidden');
+                initVisitsTableUI();
                 await loadStats();
                 switchTab('overview');
                 loadNotifications();
@@ -8014,6 +8064,10 @@
             const response = await fetch(`/api/fsm/visits?${params}`);
             const result = await response.json();
             const visits = result.data || [];
+
+            // Cache visits for client-side rendering
+            state.fsmVisits.all = visits;
+            if (state.fsmVisits.page < 1) state.fsmVisits.page = 1;
             
             // Update stats
             document.getElementById('totalVisitsCount').textContent = visits.length;
@@ -8033,46 +8087,9 @@
             
             // Populate filters
             await populateVisitFilters();
-            
-            // Populate table
-            const tbody = document.getElementById('visitsTableBody');
-            if (visits.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="9" class="text-center py-8 text-white/60">No visits found</td></tr>';
-                return;
-            }
-            
-            tbody.innerHTML = visits.map(visit => {
-                const visitDate = visit.visit_date ? new Date(visit.visit_date).toLocaleDateString() : 'N/A';
-                const status = visit.time_out 
-                    ? '<span class="text-green-400"><i class="fas fa-check-circle"></i> Complete</span>'
-                    : '<span class="text-yellow-400"><i class="fas fa-clock"></i> In Progress</span>';
-                
-                const potentialClass = visit.potential === 'High' ? 'bg-green-500/20 text-green-300' :
-                    visit.potential === 'Medium' ? 'bg-yellow-500/20 text-yellow-300' :
-                    'bg-gray-500/20 text-gray-300';
-                
-                return `
-                    <tr class="text-white border-b border-white/10 hover:bg-white/5">
-                        <td class="py-3 px-4">${visitDate}</td>
-                        <td class="py-3 px-4">${escapeHtml(visit.customer_name || 'N/A')}</td>
-                        <td class="py-3 px-4">${escapeHtml(visit.salesman_name || 'N/A')}</td>
-                        <td class="py-3 px-4">${escapeHtml(visit.plant_name || '-')}</td>
-                        <td class="py-3 px-4">
-                            <span class="px-2 py-1 rounded text-xs bg-blue-500/20 text-blue-300">${visit.visit_type || 'Regular'}</span>
-                        </td>
-                        <td class="py-3 px-4">${visit.duration_minutes || 0} min</td>
-                        <td class="py-3 px-4">
-                            <span class="px-2 py-1 rounded text-xs ${potentialClass}">${visit.potential || 'Low'}</span>
-                        </td>
-                        <td class="py-3 px-4">${status}</td>
-                        <td class="py-3 px-4">
-                            <button onclick="viewVisitDetails('${visit.id}')" class="text-blue-400 hover:text-blue-300" title="View Details">
-                                <i class="fas fa-eye"></i>
-                            </button>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
+
+            // Render table with sorting/pagination
+            renderVisitsTable();
             
         } catch (error) {
             console.error('Error loading visits:', error);
@@ -8090,12 +8107,39 @@
             if (salesmanFilter) {
                 salesmanFilter.innerHTML = '<option value="">All Salesmen</option>' + 
                     salesmen.map(s => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
+
+                if (state.fsmUser?.role === 'salesman' && state.fsmUser.salesman_id) {
+                    salesmanFilter.value = state.fsmUser.salesman_id;
+                    salesmanFilter.disabled = true;
+                } else {
+                    salesmanFilter.disabled = false;
+                }
             }
             
             // Load plants/branches for filter
             const plantsResp = await fetch('/api/fsm/plants');
             const plantsData = await plantsResp.json();
-            const plants = plantsData.data || [];
+            let plants = plantsData.data || [];
+
+            // Fallback: derive plants from salesmen or visits if endpoint returns empty
+            if (!plants.length && salesmen.length) {
+                const plantMap = new Map();
+                salesmen.forEach(s => {
+                    if (!s.plant_id) return;
+                    plantMap.set(s.plant_id, (plantMap.get(s.plant_id) || 0) + 1);
+                });
+                plants = Array.from(plantMap.entries()).map(([plant_id, salesman_count]) => ({ plant_id, salesman_count }));
+            }
+            if (!plants.length && state.fsmVisits.all.length) {
+                const plantMap = new Map();
+                state.fsmVisits.all.forEach(v => {
+                    if (!v.plant_id && !v.plant_name) return;
+                    const key = v.plant_id || v.plant_name;
+                    plantMap.set(key, (plantMap.get(key) || 0) + 1);
+                });
+                plants = Array.from(plantMap.entries()).map(([plant_id, salesman_count]) => ({ plant_id, salesman_count }));
+            }
+
             const branchFilter = document.getElementById('visitBranchFilter');
             if (branchFilter) {
                 branchFilter.innerHTML = '<option value="">All Plants/Branches</option>' + 
@@ -8103,6 +8147,152 @@
             }
         } catch (error) {
             console.error('Error populating filters:', error);
+        }
+    }
+
+    function renderVisitsTable() {
+        const tbody = document.getElementById('visitsTableBody');
+        if (!tbody) return;
+
+        const { all, page, pageSize, sortKey, sortDir } = state.fsmVisits;
+        if (!all.length) {
+            tbody.innerHTML = '<tr><td colspan="9" class="text-center py-8 text-white/60">No visits found</td></tr>';
+            updateVisitsPageInfo(0);
+            return;
+        }
+
+        const sorted = [...all].sort((a, b) => {
+            const aVal = (a[sortKey] ?? '').toString().toLowerCase();
+            const bVal = (b[sortKey] ?? '').toString().toLowerCase();
+            if (aVal < bVal) return sortDir === 'asc' ? -1 : 1;
+            if (aVal > bVal) return sortDir === 'asc' ? 1 : -1;
+            return 0;
+        });
+
+        const start = (page - 1) * pageSize;
+        const paged = sorted.slice(start, start + pageSize);
+
+        tbody.innerHTML = paged.map(visit => {
+            const visitDate = visit.visit_date ? new Date(visit.visit_date).toLocaleDateString() : 'N/A';
+            const status = visit.time_out 
+                ? '<span class="text-green-400"><i class="fas fa-check-circle"></i> Complete</span>'
+                : '<span class="text-yellow-400"><i class="fas fa-clock"></i> In Progress</span>';
+            
+            const potentialClass = visit.potential === 'High' ? 'bg-green-500/20 text-green-300' :
+                visit.potential === 'Medium' ? 'bg-yellow-500/20 text-yellow-300' :
+                'bg-gray-500/20 text-gray-300';
+            
+            return `
+                <tr class="text-white border-b border-white/10 hover:bg-white/5">
+                    <td class="py-3 px-4" data-col="date">${visitDate}</td>
+                    <td class="py-3 px-4" data-col="customer">${escapeHtml(visit.customer_name || 'N/A')}</td>
+                    <td class="py-3 px-4" data-col="salesman">${escapeHtml(visit.salesman_name || 'N/A')}</td>
+                    <td class="py-3 px-4" data-col="branch">${escapeHtml(visit.plant_name || visit.plant_id || '-')}</td>
+                    <td class="py-3 px-4" data-col="type">
+                        <span class="px-2 py-1 rounded text-xs bg-blue-500/20 text-blue-300">${visit.visit_type || 'Regular'}</span>
+                    </td>
+                    <td class="py-3 px-4" data-col="duration">${visit.duration_minutes || 0} min</td>
+                    <td class="py-3 px-4" data-col="potential">
+                        <span class="px-2 py-1 rounded text-xs ${potentialClass}">${visit.potential || 'Low'}</span>
+                    </td>
+                    <td class="py-3 px-4" data-col="status">${status}</td>
+                    <td class="py-3 px-4" data-col="actions">
+                        <button onclick="viewVisitDetails('${visit.id}')" class="text-blue-400 hover:text-blue-300" title="View Details">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+
+        updateVisitsPageInfo(all.length);
+        applyVisitsColumnVisibility();
+    }
+
+    function updateVisitsPageInfo(total) {
+        const info = document.getElementById('visitsPageInfo');
+        if (!info) return;
+        const { page, pageSize } = state.fsmVisits;
+        const start = total === 0 ? 0 : (page - 1) * pageSize + 1;
+        const end = Math.min(page * pageSize, total);
+        info.textContent = `${start}-${end} of ${total}`;
+    }
+
+    function applyVisitsColumnVisibility() {
+        const columns = state.fsmVisits.columns;
+        document.querySelectorAll('#visitsTable thead [data-col]').forEach(th => {
+            const key = th.getAttribute('data-col');
+            th.style.display = columns[key] ? '' : 'none';
+        });
+        document.querySelectorAll('#visitsTable tbody [data-col]').forEach(td => {
+            const key = td.getAttribute('data-col');
+            td.style.display = columns[key] ? '' : 'none';
+        });
+    }
+
+    function initVisitsTableUI() {
+        const pageSize = document.getElementById('visitsPageSize');
+        const prevBtn = document.getElementById('visitsPrevPage');
+        const nextBtn = document.getElementById('visitsNextPage');
+        const colToggle = document.getElementById('visitsColumnToggle');
+        const colMenu = document.getElementById('visitsColumnMenu');
+
+        if (pageSize) {
+            pageSize.value = String(state.fsmVisits.pageSize);
+            pageSize.addEventListener('change', () => {
+                state.fsmVisits.pageSize = parseInt(pageSize.value, 10) || 10;
+                state.fsmVisits.page = 1;
+                renderVisitsTable();
+            });
+        }
+
+        if (prevBtn) {
+            prevBtn.addEventListener('click', () => {
+                if (state.fsmVisits.page > 1) {
+                    state.fsmVisits.page -= 1;
+                    renderVisitsTable();
+                }
+            });
+        }
+
+        if (nextBtn) {
+            nextBtn.addEventListener('click', () => {
+                const totalPages = Math.ceil(state.fsmVisits.all.length / state.fsmVisits.pageSize) || 1;
+                if (state.fsmVisits.page < totalPages) {
+                    state.fsmVisits.page += 1;
+                    renderVisitsTable();
+                }
+            });
+        }
+
+        document.querySelectorAll('#visitsTable thead [data-sort]').forEach(th => {
+            th.addEventListener('click', () => {
+                const key = th.getAttribute('data-sort');
+                if (!key) return;
+                if (state.fsmVisits.sortKey === key) {
+                    state.fsmVisits.sortDir = state.fsmVisits.sortDir === 'asc' ? 'desc' : 'asc';
+                } else {
+                    state.fsmVisits.sortKey = key;
+                    state.fsmVisits.sortDir = 'asc';
+                }
+                renderVisitsTable();
+            });
+        });
+
+        if (colToggle && colMenu) {
+            colToggle.addEventListener('click', () => colMenu.classList.toggle('hidden'));
+            colMenu.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+                cb.addEventListener('change', () => {
+                    const key = cb.getAttribute('data-col');
+                    state.fsmVisits.columns[key] = cb.checked;
+                    applyVisitsColumnVisibility();
+                });
+            });
+            document.addEventListener('click', (e) => {
+                if (!colMenu.contains(e.target) && e.target !== colToggle) {
+                    colMenu.classList.add('hidden');
+                }
+            });
         }
     }
     
