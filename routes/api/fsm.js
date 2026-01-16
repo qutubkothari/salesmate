@@ -414,6 +414,136 @@ router.get('/targets', async (req, res) => {
   }
 });
 
+// Create new target
+router.post('/targets', async (req, res) => {
+  try {
+    const DEFAULT_TENANT_ID = process.env.FSM_DEFAULT_TENANT_ID || '112f12b8-55e9-4de8-9fda-d58e37c75796';
+    const { salesman_id, period, target_visits, target_orders, target_revenue, target_new_customers, plant_id, tenant_id } = req.body;
+    
+    if (!salesman_id || !period) {
+      return res.status(400).json({
+        success: false,
+        error: 'Salesman ID and period are required'
+      });
+    }
+    
+    const id = require('crypto').randomUUID();
+    const finalTenantId = tenant_id || DEFAULT_TENANT_ID;
+    
+    const insertQuery = `
+      INSERT INTO salesman_targets (
+        id, tenant_id, salesman_id, plant_id, period,
+        target_visits, target_orders, target_revenue, target_new_customers,
+        achieved_visits, achieved_orders, achieved_revenue, achieved_new_customers,
+        created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0.0, 0, datetime('now'), datetime('now'))
+    `;
+    
+    db.prepare(insertQuery).run(
+      id,
+      finalTenantId,
+      salesman_id,
+      plant_id || null,
+      period,
+      target_visits || 0,
+      target_orders || 0,
+      target_revenue || 0.0,
+      target_new_customers || 0
+    );
+    
+    const target = db.prepare('SELECT * FROM salesman_targets WHERE id = ?').get(id);
+    
+    res.json({
+      success: true,
+      data: target,
+      message: 'Target created successfully'
+    });
+  } catch (error) {
+    console.error('[FSM_API] Error creating target:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Update target
+router.put('/targets/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { salesman_id, period, target_visits, target_orders, target_revenue, target_new_customers, plant_id } = req.body;
+    
+    const existing = db.prepare('SELECT * FROM salesman_targets WHERE id = ?').get(id);
+    if (!existing) {
+      return res.status(404).json({
+        success: false,
+        error: 'Target not found'
+      });
+    }
+    
+    const updateQuery = `
+      UPDATE salesman_targets 
+      SET salesman_id = ?, period = ?, plant_id = ?,
+          target_visits = ?, target_orders = ?, target_revenue = ?, target_new_customers = ?,
+          updated_at = datetime('now')
+      WHERE id = ?
+    `;
+    
+    db.prepare(updateQuery).run(
+      salesman_id || existing.salesman_id,
+      period || existing.period,
+      plant_id !== undefined ? plant_id : existing.plant_id,
+      target_visits !== undefined ? target_visits : existing.target_visits,
+      target_orders !== undefined ? target_orders : existing.target_orders,
+      target_revenue !== undefined ? target_revenue : existing.target_revenue,
+      target_new_customers !== undefined ? target_new_customers : existing.target_new_customers,
+      id
+    );
+    
+    const target = db.prepare('SELECT * FROM salesman_targets WHERE id = ?').get(id);
+    
+    res.json({
+      success: true,
+      data: target,
+      message: 'Target updated successfully'
+    });
+  } catch (error) {
+    console.error('[FSM_API] Error updating target:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Delete target
+router.delete('/targets/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const existing = db.prepare('SELECT * FROM salesman_targets WHERE id = ?').get(id);
+    if (!existing) {
+      return res.status(404).json({
+        success: false,
+        error: 'Target not found'
+      });
+    }
+    
+    db.prepare('DELETE FROM salesman_targets WHERE id = ?').run(id);
+    
+    res.json({
+      success: true,
+      message: 'Target deleted successfully'
+    });
+  } catch (error) {
+    console.error('[FSM_API] Error deleting target:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 // Get target statistics
 router.get('/targets/stats', async (req, res) => {
   try {
@@ -597,27 +727,164 @@ router.get('/plants', async (req, res) => {
   try {
     const DEFAULT_TENANT_ID = process.env.FSM_DEFAULT_TENANT_ID || '112f12b8-55e9-4de8-9fda-d58e37c75796';
     const tenant_id = req.query.tenant_id || DEFAULT_TENANT_ID;
-    // Prefer plant names from plants table when available
-    const plants = db.prepare(`
-      SELECT 
-        s.plant_id as plant_id,
-        COALESCE(p.name, s.plant_id) as plant_name,
-        COUNT(*) as salesman_count
-      FROM salesmen s
-      LEFT JOIN plants p ON p.id = s.plant_id
-      WHERE s.plant_id IS NOT NULL AND s.plant_id != ''
-      ${tenant_id ? 'AND s.tenant_id = ?' : ''}
-      GROUP BY s.plant_id
-      ORDER BY plant_name
-    `).all(...(tenant_id ? [tenant_id] : []));
+    
+    let query = 'SELECT * FROM plants WHERE 1=1';
+    const params = [];
+    
+    if (tenant_id) {
+      query += ' AND tenant_id = ?';
+      params.push(tenant_id);
+    }
+    
+    query += ' ORDER BY name';
+    
+    const plants = db.prepare(query).all(...params);
+    
+    // Map to ensure consistent field names (plant_id, plant_name)
+    const mappedPlants = plants.map(p => ({
+      ...p,
+      plant_id: p.id,
+      plant_name: p.name
+    }));
     
     res.json({
       success: true,
-      data: plants,
-      count: plants.length
+      data: mappedPlants,
+      count: mappedPlants.length
     });
   } catch (error) {
     console.error('[FSM_API] Error fetching plants:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Create new plant/branch
+router.post('/plants', async (req, res) => {
+  try {
+    const DEFAULT_TENANT_ID = process.env.FSM_DEFAULT_TENANT_ID || '112f12b8-55e9-4de8-9fda-d58e37c75796';
+    const { name, location, city, state, country, timezone, tenant_id } = req.body;
+    
+    if (!name) {
+      return res.status(400).json({
+        success: false,
+        error: 'Plant name is required'
+      });
+    }
+    
+    const id = require('crypto').randomUUID();
+    const finalTenantId = tenant_id || DEFAULT_TENANT_ID;
+    
+    const insertQuery = `
+      INSERT INTO plants (id, tenant_id, name, location, city, state, country, timezone, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+    `;
+    
+    db.prepare(insertQuery).run(
+      id,
+      finalTenantId,
+      name,
+      location || null,
+      city || null,
+      state || null,
+      country || 'India',
+      timezone || 'UTC'
+    );
+    
+    const plant = db.prepare('SELECT * FROM plants WHERE id = ?').get(id);
+    
+    res.json({
+      success: true,
+      data: plant,
+      message: 'Branch created successfully'
+    });
+  } catch (error) {
+    console.error('[FSM_API] Error creating plant:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Update plant/branch
+router.put('/plants/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, location, city, state, country, timezone } = req.body;
+    
+    const existing = db.prepare('SELECT * FROM plants WHERE id = ?').get(id);
+    if (!existing) {
+      return res.status(404).json({
+        success: false,
+        error: 'Branch not found'
+      });
+    }
+    
+    const updateQuery = `
+      UPDATE plants 
+      SET name = ?, location = ?, city = ?, state = ?, country = ?, timezone = ?, updated_at = datetime('now')
+      WHERE id = ?
+    `;
+    
+    db.prepare(updateQuery).run(
+      name || existing.name,
+      location !== undefined ? location : existing.location,
+      city !== undefined ? city : existing.city,
+      state !== undefined ? state : existing.state,
+      country || existing.country,
+      timezone || existing.timezone,
+      id
+    );
+    
+    const plant = db.prepare('SELECT * FROM plants WHERE id = ?').get(id);
+    
+    res.json({
+      success: true,
+      data: plant,
+      message: 'Branch updated successfully'
+    });
+  } catch (error) {
+    console.error('[FSM_API] Error updating plant:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Delete plant/branch
+router.delete('/plants/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const existing = db.prepare('SELECT * FROM plants WHERE id = ?').get(id);
+    if (!existing) {
+      return res.status(404).json({
+        success: false,
+        error: 'Branch not found'
+      });
+    }
+    
+    // Check if any salesmen are assigned to this plant
+    const assignedSalesmen = db.prepare('SELECT COUNT(*) as count FROM salesmen WHERE plant_id = ?').get(id);
+    if (assignedSalesmen.count > 0) {
+      return res.status(400).json({
+        success: false,
+        error: `Cannot delete branch. ${assignedSalesmen.count} salesman(salesmen) are assigned to this branch.`
+      });
+    }
+    
+    db.prepare('DELETE FROM plants WHERE id = ?').run(id);
+    
+    res.json({
+      success: true,
+      message: 'Branch deleted successfully'
+    });
+  } catch (error) {
+    console.error('[FSM_API] Error deleting plant:', error);
     res.status(500).json({
       success: false,
       error: error.message

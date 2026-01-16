@@ -529,6 +529,7 @@
                                         <th class="text-left py-3 px-4">Revenue Target</th>
                                         <th class="text-left py-3 px-4">Achieved Revenue</th>
                                         <th class="text-left py-3 px-4">Progress</th>
+                                        <th class="text-left py-3 px-4">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody id="targetsTableBody">
@@ -1075,6 +1076,190 @@
                 <button type="submit" form="salesmanForm" id="salesmanFormSubmit"
                     class="px-6 py-3 bg-white hover:bg-white/90 text-purple-700 rounded-lg transition-colors font-bold shadow-lg">
                     <i class="fas fa-save mr-2"></i>Save Salesman
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit Target Modal -->
+    <div id="addEditTargetModal" class="modal hidden fixed inset-0 z-50 flex items-center justify-center p-4" onclick="if(event.target === this) closeTargetForm()">
+        <div class="modal-backdrop absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
+        <div class="modal-content relative w-full max-w-2xl bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl shadow-2xl overflow-hidden animate-slide-up" onclick="event.stopPropagation()">
+            <header class="bg-gradient-to-r from-blue-700 to-indigo-700 text-white p-6">
+                <div class="flex justify-between items-start">
+                    <div class="flex-1">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                                <i class="fas fa-bullseye text-2xl" id="targetFormIcon"></i>
+                            </div>
+                            <div>
+                                <h2 id="targetFormTitle" class="text-2xl font-bold">Add Sales Target</h2>
+                                <div class="text-white/80 text-sm mt-1">Set monthly targets for salesmen</div>
+                            </div>
+                        </div>
+                    </div>
+                    <button onclick="closeTargetForm()" class="ml-4 w-10 h-10 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center transition-colors">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+            </header>
+
+            <div class="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
+                <form id="targetForm" class="space-y-4">
+                    <input type="hidden" id="targetFormId" value="">
+                    
+                    <div>
+                        <label class="block text-white/90 text-sm font-semibold mb-2">
+                            <i class="fas fa-user-tie mr-2"></i>Salesman <span class="text-red-400">*</span>
+                        </label>
+                        <select id="targetFormSalesman" required 
+                            class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-white/40">
+                            <option value="" class="bg-blue-800">Select Salesman</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-white/90 text-sm font-semibold mb-2">
+                            <i class="fas fa-calendar mr-2"></i>Target Month <span class="text-red-400">*</span>
+                        </label>
+                        <input type="month" id="targetFormPeriod" required 
+                            class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-white/40">
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-white/90 text-sm font-semibold mb-2">
+                                <i class="fas fa-map-marker-alt mr-2"></i>Visit Target
+                            </label>
+                            <input type="number" id="targetFormVisits" min="0" placeholder="0"
+                                class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-white/40">
+                        </div>
+                        <div>
+                            <label class="block text-white/90 text-sm font-semibold mb-2">
+                                <i class="fas fa-shopping-cart mr-2"></i>Order Target
+                            </label>
+                            <input type="number" id="targetFormOrders" min="0" placeholder="0"
+                                class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-white/40">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-white/90 text-sm font-semibold mb-2">
+                            <i class="fas fa-rupee-sign mr-2"></i>Revenue Target (₹)
+                        </label>
+                        <input type="number" id="targetFormRevenue" min="0" step="0.01" placeholder="0.00"
+                            class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-white/40">
+                    </div>
+
+                    <div>
+                        <label class="block text-white/90 text-sm font-semibold mb-2">
+                            <i class="fas fa-user-plus mr-2"></i>New Customer Target
+                        </label>
+                        <input type="number" id="targetFormNewCustomers" min="0" placeholder="0"
+                            class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-white/40">
+                    </div>
+                </form>
+            </div>
+
+            <div class="p-6 bg-white/5 border-t border-white/10 flex justify-end space-x-3">
+                <button type="button" onclick="closeTargetForm()" 
+                    class="px-6 py-3 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors font-medium">
+                    <i class="fas fa-times mr-2"></i>Cancel
+                </button>
+                <button type="submit" form="targetForm"
+                    class="px-6 py-3 bg-white hover:bg-white/90 text-blue-700 rounded-lg transition-colors font-bold shadow-lg">
+                    <i class="fas fa-save mr-2"></i>Save Target
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit Branch Modal -->
+    <div id="addEditBranchModal" class="modal hidden fixed inset-0 z-50 flex items-center justify-center p-4" onclick="if(event.target === this) closeBranchForm()">
+        <div class="modal-backdrop absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
+        <div class="modal-content relative w-full max-w-2xl bg-gradient-to-br from-green-600 to-teal-600 rounded-2xl shadow-2xl overflow-hidden animate-slide-up" onclick="event.stopPropagation()">
+            <header class="bg-gradient-to-r from-green-700 to-teal-700 text-white p-6">
+                <div class="flex justify-between items-start">
+                    <div class="flex-1">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                                <i class="fas fa-building text-2xl" id="branchFormIcon"></i>
+                            </div>
+                            <div>
+                                <h2 id="branchFormTitle" class="text-2xl font-bold">Add Branch</h2>
+                                <div class="text-white/80 text-sm mt-1">Configure branch/plant details</div>
+                            </div>
+                        </div>
+                    </div>
+                    <button onclick="closeBranchForm()" class="ml-4 w-10 h-10 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center transition-colors">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+            </header>
+
+            <div class="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
+                <form id="branchForm" class="space-y-4">
+                    <input type="hidden" id="branchFormId" value="">
+                    
+                    <div>
+                        <label class="block text-white/90 text-sm font-semibold mb-2">
+                            <i class="fas fa-building mr-2"></i>Branch Name <span class="text-red-400">*</span>
+                        </label>
+                        <input type="text" id="branchFormName" required 
+                            class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-white/40"
+                            placeholder="Enter branch name">
+                    </div>
+
+                    <div>
+                        <label class="block text-white/90 text-sm font-semibold mb-2">
+                            <i class="fas fa-map-marker-alt mr-2"></i>Location/Address
+                        </label>
+                        <textarea id="branchFormLocation" rows="2"
+                            class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-white/40"
+                            placeholder="Full address"></textarea>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-white/90 text-sm font-semibold mb-2">
+                                <i class="fas fa-city mr-2"></i>City
+                            </label>
+                            <input type="text" id="branchFormCity"
+                                class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-white/40"
+                                placeholder="City name">
+                        </div>
+                        <div>
+                            <label class="block text-white/90 text-sm font-semibold mb-2">
+                                <i class="fas fa-flag mr-2"></i>State
+                            </label>
+                            <input type="text" id="branchFormState"
+                                class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-white/40"
+                                placeholder="State name">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-white/90 text-sm font-semibold mb-2">
+                            <i class="fas fa-globe mr-2"></i>Country
+                        </label>
+                        <input type="text" id="branchFormCountry" value="India"
+                            class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-white/40">
+                    </div>
+                </form>
+            </div>
+
+            <div class="p-6 bg-white/5 border-t border-white/10 flex justify-end space-x-3">
+                <button type="button" onclick="closeBranchForm()" 
+                    class="px-6 py-3 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors font-medium">
+                    <i class="fas fa-times mr-2"></i>Cancel
+                </button>
+                <button type="submit" form="branchForm"
+                    class="px-6 py-3 bg-white hover:bg-white/90 text-green-700 rounded-lg transition-colors font-bold shadow-lg">
+                    <i class="fas fa-save mr-2"></i>Save Branch
                 </button>
             </div>
         </div>
@@ -9125,6 +9310,16 @@
                             </div>
                             <span class="text-xs text-white/60">${overallProgress}%</span>
                         </td>
+                        <td class="py-3 px-4">
+                            <div class="flex gap-2">
+                                <button onclick="editTarget('${target.id}')" class="text-yellow-400 hover:text-yellow-300" title="Edit">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button onclick="deleteTarget('${target.id}', '${escapeHtml(target.salesman_name || 'this target')}')" class="text-red-400 hover:text-red-300" title="Delete">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>
                     </tr>
                 `;
             }).join('');
@@ -9135,32 +9330,330 @@
         }
     }
     
-    function showSetTargetModal() {
-        showNotification('Set target feature coming soon', 'info');
+    // Target CRUD Functions
+    async function showAddTargetModal() {
+        document.getElementById('targetFormId').value = '';
+        document.getElementById('targetFormPeriod').value = '';
+        document.getElementById('targetFormVisits').value = '';
+        document.getElementById('targetFormOrders').value = '';
+        document.getElementById('targetFormRevenue').value = '';
+        document.getElementById('targetFormNewCustomers').value = '';
+        
+        document.getElementById('targetFormTitle').textContent = 'Add Sales Target';
+        document.getElementById('targetFormIcon').className = 'fas fa-bullseye text-2xl';
+        
+        await loadSalesmenDropdown();
+        document.getElementById('addEditTargetModal').classList.remove('hidden');
     }
     
-    // Load Branches
+    async function editTarget(targetId) {
+        try {
+            const response = await fetch(`/api/fsm/targets?tenant_id=${encodeURIComponent(state.session?.tenantId || '')}`);
+            const result = await response.json();
+            const target = (result.data || []).find(t => t.id === targetId);
+            
+            if (!target) {
+                showNotification('Target not found', 'error');
+                return;
+            }
+            
+            document.getElementById('targetFormId').value = target.id;
+            document.getElementById('targetFormPeriod').value = target.period || '';
+            document.getElementById('targetFormVisits').value = target.target_visits || 0;
+            document.getElementById('targetFormOrders').value = target.target_orders || 0;
+            document.getElementById('targetFormRevenue').value = target.target_revenue || 0;
+            document.getElementById('targetFormNewCustomers').value = target.target_new_customers || 0;
+            
+            document.getElementById('targetFormTitle').textContent = 'Edit Sales Target';
+            document.getElementById('targetFormIcon').className = 'fas fa-edit text-2xl';
+            
+            await loadSalesmenDropdown(target.salesman_id);
+            document.getElementById('addEditTargetModal').classList.remove('hidden');
+            
+        } catch (error) {
+            console.error('Error loading target:', error);
+            showNotification('Error loading target data', 'error');
+        }
+    }
+    
+    async function loadSalesmenDropdown(selectedId = null) {
+        try {
+            const response = await fetch(`/api/fsm/salesmen?tenant_id=${encodeURIComponent(state.session?.tenantId || '')}&is_active=true`);
+            const result = await response.json();
+            const salesmen = result.data || [];
+            
+            const select = document.getElementById('targetFormSalesman');
+            select.innerHTML = '<option value="" class="bg-blue-800">Select Salesman</option>' + 
+                salesmen.map(s => `<option value="${s.id}" class="bg-blue-800" ${s.id === selectedId ? 'selected' : ''}>${escapeHtml(s.name)}</option>`).join('');
+        } catch (error) {
+            console.error('Error loading salesmen:', error);
+        }
+    }
+    
+    function closeTargetForm() {
+        document.getElementById('addEditTargetModal').classList.add('hidden');
+    }
+    
+    document.getElementById('targetForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const targetId = document.getElementById('targetFormId').value;
+        const salesman_id = document.getElementById('targetFormSalesman').value;
+        const period = document.getElementById('targetFormPeriod').value;
+        const target_visits = parseInt(document.getElementById('targetFormVisits').value) || 0;
+        const target_orders = parseInt(document.getElementById('targetFormOrders').value) || 0;
+        const target_revenue = parseFloat(document.getElementById('targetFormRevenue').value) || 0;
+        const target_new_customers = parseInt(document.getElementById('targetFormNewCustomers').value) || 0;
+        
+        if (!salesman_id) {
+            showNotification('Please select a salesman', 'error');
+            return;
+        }
+        
+        if (!period) {
+            showNotification('Please select target month', 'error');
+            return;
+        }
+        
+        const data = {
+            salesman_id,
+            period,
+            target_visits,
+            target_orders,
+            target_revenue,
+            target_new_customers,
+            tenant_id: state.session?.tenantId || ''
+        };
+        
+        try {
+            const url = targetId ? `/api/fsm/targets/${targetId}` : '/api/fsm/targets';
+            const method = targetId ? 'PUT' : 'POST';
+            
+            const response = await fetch(url, {
+                method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                showNotification(
+                    targetId ? 'Target updated successfully' : 'Target added successfully', 
+                    'success'
+                );
+                closeTargetForm();
+                loadTargets();
+            } else {
+                showNotification(result.error || 'Operation failed', 'error');
+            }
+        } catch (error) {
+            console.error('Error saving target:', error);
+            showNotification('Error saving target', 'error');
+        }
+    });
+    
+    async function deleteTarget(targetId, targetName) {
+        if (!confirm(`Are you sure you want to delete target for ${targetName}?`)) {
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/api/fsm/targets/${targetId}`, {
+                method: 'DELETE'
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                showNotification('Target deleted successfully', 'success');
+                loadTargets();
+            } else {
+                showNotification(result.error || 'Failed to delete target', 'error');
+            }
+        } catch (error) {
+            console.error('Error deleting target:', error);
+            showNotification('Error deleting target', 'error');
+        }
+    }
+    
+    // Branch/Plant CRUD Functions
     async function loadBranches() {
         try {
-            // For now, showing placeholder as branches table doesn't exist yet
+            const response = await fetch(`/api/fsm/plants?tenant_id=${encodeURIComponent(state.session?.tenantId || '')}`);
+            const result = await response.json();
+            const branches = result.data || [];
+            
             const tbody = document.getElementById('branchesTableBody');
-            tbody.innerHTML = `
-                <tr>
-                    <td colspan="6" class="text-center py-12 text-white/60">
-                        <i class="fas fa-building text-4xl mb-4"></i>
-                        <p class="text-lg mb-2">Multi-Branch Feature</p>
-                        <p class="text-sm">Branch management will be available in the next update</p>
-                    </td>
-                </tr>
-            `;
+            
+            if (branches.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center py-8 text-white/60">No branches found. Add your first branch!</td></tr>';
+                return;
+            }
+            
+            // Get salesman count for each branch
+            const salesmenResp = await fetch(`/api/fsm/salesmen?tenant_id=${encodeURIComponent(state.session?.tenantId || '')}`);
+            const salesmenResult = await salesmenResp.json();
+            const salesmen = salesmenResult.data || [];
+            
+            tbody.innerHTML = branches.map(branch => {
+                const branchId = branch.plant_id || branch.id;
+                const branchSalesmen = salesmen.filter(s => s.plant_id === branchId);
+                
+                return `
+                    <tr class="text-white border-b border-white/10 hover:bg-white/5">
+                        <td class="py-3 px-4">${escapeHtml(branch.plant_name || branch.name || 'N/A')}</td>
+                        <td class="py-3 px-4">${escapeHtml(branch.location || '-')}</td>
+                        <td class="py-3 px-4">${escapeHtml([branch.city, branch.state].filter(Boolean).join(', ') || '-')}</td>
+                        <td class="py-3 px-4">
+                            <span class="px-2 py-1 rounded text-xs bg-blue-500/20 text-blue-300">
+                                ${branchSalesmen.length} ${branchSalesmen.length === 1 ? 'Salesman' : 'Salesmen'}
+                            </span>
+                        </td>
+                        <td class="py-3 px-4">
+                            <span class="px-2 py-1 rounded text-xs bg-green-500/20 text-green-300">Active</span>
+                        </td>
+                        <td class="py-3 px-4">
+                            <div class="flex gap-2">
+                                <button onclick="editBranch('${branchId}')" class="text-yellow-400 hover:text-yellow-300" title="Edit">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button onclick="deleteBranch('${branchId}', '${escapeHtml(branch.plant_name || branch.name || 'this branch')}')" class="text-red-400 hover:text-red-300" title="Delete">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+            
         } catch (error) {
             console.error('Error loading branches:', error);
             showNotification('Error loading branches', 'error');
         }
     }
     
-    function showAddBranchModal() {
-        showNotification('Add branch feature coming soon', 'info');
+    async function showAddBranchModal() {
+        document.getElementById('branchFormId').value = '';
+        document.getElementById('branchFormName').value = '';
+        document.getElementById('branchFormLocation').value = '';
+        document.getElementById('branchFormCity').value = '';
+        document.getElementById('branchFormState').value = '';
+        document.getElementById('branchFormCountry').value = 'India';
+        
+        document.getElementById('branchFormTitle').textContent = 'Add Branch';
+        document.getElementById('branchFormIcon').className = 'fas fa-building text-2xl';
+        
+        document.getElementById('addEditBranchModal').classList.remove('hidden');
+    }
+    
+    async function editBranch(branchId) {
+        try {
+            const response = await fetch(`/api/fsm/plants?tenant_id=${encodeURIComponent(state.session?.tenantId || '')}`);
+            const result = await response.json();
+            const branch = (result.data || []).find(b => (b.plant_id || b.id) === branchId);
+            
+            if (!branch) {
+                showNotification('Branch not found', 'error');
+                return;
+            }
+            
+            document.getElementById('branchFormId').value = branch.plant_id || branch.id;
+            document.getElementById('branchFormName').value = branch.plant_name || branch.name || '';
+            document.getElementById('branchFormLocation').value = branch.location || '';
+            document.getElementById('branchFormCity').value = branch.city || '';
+            document.getElementById('branchFormState').value = branch.state || '';
+            document.getElementById('branchFormCountry').value = branch.country || 'India';
+            
+            document.getElementById('branchFormTitle').textContent = 'Edit Branch';
+            document.getElementById('branchFormIcon').className = 'fas fa-edit text-2xl';
+            
+            document.getElementById('addEditBranchModal').classList.remove('hidden');
+            
+        } catch (error) {
+            console.error('Error loading branch:', error);
+            showNotification('Error loading branch data', 'error');
+        }
+    }
+    
+    function closeBranchForm() {
+        document.getElementById('addEditBranchModal').classList.add('hidden');
+    }
+    
+    document.getElementById('branchForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const branchId = document.getElementById('branchFormId').value;
+        const name = document.getElementById('branchFormName').value.trim();
+        const location = document.getElementById('branchFormLocation').value.trim();
+        const city = document.getElementById('branchFormCity').value.trim();
+        const state = document.getElementById('branchFormState').value.trim();
+        const country = document.getElementById('branchFormCountry').value.trim();
+        
+        if (!name) {
+            showNotification('Please enter branch name', 'error');
+            return;
+        }
+        
+        const data = {
+            name,
+            location,
+            city,
+            state,
+            country,
+            tenant_id: state.session?.tenantId || ''
+        };
+        
+        try {
+            const url = branchId ? `/api/fsm/plants/${branchId}` : '/api/fsm/plants';
+            const method = branchId ? 'PUT' : 'POST';
+            
+            const response = await fetch(url, {
+                method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                showNotification(
+                    branchId ? 'Branch updated successfully' : 'Branch added successfully', 
+                    'success'
+                );
+                closeBranchForm();
+                loadBranches();
+            } else {
+                showNotification(result.error || 'Operation failed', 'error');
+            }
+        } catch (error) {
+            console.error('Error saving branch:', error);
+            showNotification('Error saving branch', 'error');
+        }
+    });
+    
+    async function deleteBranch(branchId, branchName) {
+        if (!confirm(`Are you sure you want to delete ${branchName}?\n\nThis will affect salesmen assigned to this branch.`)) {
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/api/fsm/plants/${branchId}`, {
+                method: 'DELETE'
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                showNotification('Branch deleted successfully', 'success');
+                loadBranches();
+            } else {
+                showNotification(result.error || 'Failed to delete branch', 'error');
+            }
+        } catch (error) {
+            console.error('Error deleting branch:', error);
+            showNotification('Error deleting branch', 'error');
+        }
     }
 
     init();
