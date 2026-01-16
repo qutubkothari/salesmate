@@ -8522,8 +8522,9 @@
             const result = await response.json();
             const salesmen = result.data || [];
             
-            // Update stats
-            document.getElementById('totalSalesmenCount').textContent = salesmen.length;
+            // Update stats (if elements exist)
+            const totalSalesmenEl = document.getElementById('totalSalesmenCount');
+            if (totalSalesmenEl) totalSalesmenEl.textContent = salesmen.length;
             
             const today = new Date().toISOString().split('T')[0];
             // Get today's active salesmen (those with visits today)
@@ -8531,7 +8532,8 @@
             const visitsResult = await visitsResp.json();
             const todayVisits = visitsResult.data || [];
             const activeTodaySet = new Set(todayVisits.map(v => v.salesman_id));
-            document.getElementById('activeTodayCount').textContent = activeTodaySet.size;
+            const activeTodayEl = document.getElementById('activeTodayCount');
+            if (activeTodayEl) activeTodayEl.textContent = activeTodaySet.size;
             
             // Get targets to calculate "on target" count
             const targetsResp = await fetch(`/api/fsm/targets?tenant_id=${encodeURIComponent(state.session?.tenantId || '')}`);
@@ -8541,7 +8543,8 @@
                 const progress = t.target_visits > 0 ? (t.achieved_visits / t.target_visits * 100) : 0;
                 return progress >= 80;
             }).length;
-            document.getElementById('onTargetCount').textContent = onTarget;
+            const onTargetEl = document.getElementById('onTargetCount');
+            if (onTargetEl) onTargetEl.textContent = onTarget;
             
             // Populate table
             const tbody = document.getElementById('salesmenTableBody');
