@@ -1,4 +1,4 @@
-﻿// Add to services/monitoringService.js
+// Add to services/monitoringService.js
 const monitoringService = {
   // Track broadcast success rates
   trackBroadcastMetrics: async (campaignId, batchSize, successCount, failureCount) => {
@@ -24,3 +24,4 @@ const monitoringService = {
     // Track OpenAI, WhatsApp API usage
   }
 };
+

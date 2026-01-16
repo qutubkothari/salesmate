@@ -1,4 +1,4 @@
-﻿// routes/api/followups.js
+// routes/api/followups.js
 const express = require('express');
 const router = express.Router();
 const { dbClient } = require('../../services/config');
@@ -91,7 +91,7 @@ router.get('/:tenantId', async (req, res) => {
         const followupsWithCustomers = await Promise.all(
             (followups || []).map(async (followup) => {
                 const { data: customer } = await dbClient
-                    .from('customer_profiles')
+                    .from('customer_profiles_new')
                     .select('phone, name, business_name')
                     .eq('phone', followup.end_user_phone)
                     .eq('tenant_id', tenantId)
@@ -193,7 +193,7 @@ router.get('/:tenantId/leads', async (req, res) => {
         const { lead_type, limit = 200 } = req.query;
 
         const { data: conversations, error } = await dbClient
-            .from('conversations')
+            .from('conversations_new')
             .select('id, end_user_phone, created_at, last_message_at, lead_type')
             .eq('tenant_id', tenantId)
             .order('last_message_at', { ascending: false })
@@ -209,7 +209,7 @@ router.get('/:tenantId/leads', async (req, res) => {
             if (c?.id && c.lead_type !== computed) {
                 try {
                     await dbClient
-                        .from('conversations')
+                        .from('conversations_new')
                         .update({ lead_type: computed })
                         .eq('id', c.id)
                         .eq('tenant_id', tenantId);
@@ -470,7 +470,7 @@ router.get('/:tenantId/suggestions', async (req, res) => {
                     customer_name: cart.conversations.customer?.business_name || cart.conversations.customer?.name,
                     reason: 'Cart abandoned for 3+ days',
                     suggested_time: new Date(Date.now() + 2 * 60 * 60 * 1000), // 2 hours from now
-                    message_template: 'ðŸ‘‹ Hi! I noticed you left some items in your cart. Would you like to complete your order?'
+                    message_template: '👋 Hi! I noticed you left some items in your cart. Would you like to complete your order?'
                 });
             });
         }
@@ -516,4 +516,5 @@ router.post('/:tenantId/trigger-intelligent', async (req, res) => {
 });
 
 module.exports = router;
+
 

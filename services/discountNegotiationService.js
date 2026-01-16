@@ -1,4 +1,4 @@
-﻿// =============================================
+// =============================================
 // FILE: services/discountNegotiationService_v2.js
 // UPGRADED VERSION - Uses AI instead of regex
 // =============================================
@@ -205,7 +205,7 @@ async function handleDiscountNegotiationV2(tenantId, phoneNumber, message, conve
                         const unitsPerCarton = it.units_per_carton || 1;
                         const perPiecePrice = unitsPerCarton > 1 ? (discountedPrice / unitsPerCarton).toFixed(2) : discountedPrice;
                         const label = it.productName || it.product_code || 'Product';
-                        return `ðŸ“¦ ${label} Ã— ${qty} ${unit}${qty !== 1 ? 's' : ''}\nâœ¨ Your Special Price:\nðŸ”¹ â‚¹${perPiecePrice}/pc per piece\nðŸ“¦ â‚¹${discountedPrice}.00/${unit}\n   (${unitsPerCarton} pcs/${unit})`;
+                        return `📦 ${label} × ${qty} ${unit}${qty !== 1 ? 's' : ''}\n✨ Your Special Price:\n🔹 ₹${perPiecePrice}/pc per piece\n📦 ₹${discountedPrice}.00/${unit}\n   (${unitsPerCarton} pcs/${unit})`;
                     })
                     .join('\n\n');
                 // WhatsApp preview for discount offer
@@ -224,7 +224,7 @@ async function handleDiscountNegotiationV2(tenantId, phoneNumber, message, conve
                 // ...existing code...
             }
             return {
-                response: "I'd love to help with a discount! Could you tell me which products and how many cartons you're looking to order? ðŸ˜Š",
+                response: "I'd love to help with a discount! Could you tell me which products and how many cartons you're looking to order? 😊",
                 nextAction: 'await_product_details'
             };
         }
@@ -260,7 +260,7 @@ async function handleDiscountNegotiationV2(tenantId, phoneNumber, message, conve
 
         // Step 5: Check if customer is returning customer (has previous orders)
         const { data: previousOrders } = await dbClient
-            .from('orders')
+            .from('orders_new')
             .select('id, created_at, discount_amount')
             .eq('tenant_id', tenantId)
             .eq('customer_phone', phoneNumber)
@@ -288,7 +288,7 @@ async function handleDiscountNegotiationV2(tenantId, phoneNumber, message, conve
             const unit = item.product?.unit || 'carton';
             const price = item.unit_price || 0;
             const discountedPrice = Math.round(price * (1 - offeredDiscount / 100));
-            return `${item.product?.name} (${qty} ${unit}${qty !== 1 ? 's' : ''}) - â‚¹${discountedPrice} per ${unit}`;
+            return `${item.product?.name} (${qty} ${unit}${qty !== 1 ? 's' : ''}) - ₹${discountedPrice} per ${unit}`;
         }).join(', ');
 
         // Step 8: Use AI to generate natural response
@@ -346,7 +346,7 @@ async function handleDiscountNegotiationV2(tenantId, phoneNumber, message, conve
             });
 
         return {
-            response: aiResponse.message || aiResponse || `Great! I can offer you ${offeredDiscount}% discount on ${cartProductsStr}! This has been applied to your cart. ðŸ˜Š`,
+            response: aiResponse.message || aiResponse || `Great! I can offer you ${offeredDiscount}% discount on ${cartProductsStr}! This has been applied to your cart. 😊`,
             discountOffered: offeredDiscount,
             offeredDiscount,
             discountPercent: offeredDiscount,
@@ -360,7 +360,7 @@ async function handleDiscountNegotiationV2(tenantId, phoneNumber, message, conve
     } catch (error) {
         console.error('[DISCOUNT_V2] Error:', error);
         return {
-            response: "I'd love to help with a discount! Let me check what I can offer for your order. ðŸ˜Š",
+            response: "I'd love to help with a discount! Let me check what I can offer for your order. 😊",
             error: error.message,
             nextAction: 'retry'
         };
@@ -418,4 +418,5 @@ module.exports = {
     isDiscountNegotiation: isDiscountNegotiationLegacy,
     extractQuantityFromMessage: extractQuantityFromMessageLegacy
 };
+
 

@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const router = express.Router();
 const { dbClient } = require('../../services/config');
 
@@ -37,7 +37,7 @@ router.get('/:tenantId', async (req, res) => {
   const limit = Math.min(Number(req.query.limit) || 200, 500);
 
   try {
-    let convQuery = dbClient.from('conversations');
+    let convQuery = dbClient.from('conversations_new');
     if (USE_LOCAL_DB) {
       // Local SQLite schemas can drift; select('*') avoids hard failures.
       convQuery = convQuery.select('*');
@@ -117,7 +117,7 @@ router.get('/:tenantId', async (req, res) => {
     }
 
     // Default ordering for Leads tab: needs-attention first, then score, then recent.
-    // (No new UI â€” just ordering.)
+    // (No new UI — just ordering.)
     leads.sort((a, b) => {
       const ka = leadSortKey(a);
       const kb = leadSortKey(b);
@@ -135,4 +135,5 @@ router.get('/:tenantId', async (req, res) => {
 });
 
 module.exports = router;
+
 

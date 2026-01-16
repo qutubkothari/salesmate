@@ -1,4 +1,4 @@
-﻿const { dbClient } = require('./config');
+const { dbClient } = require('./config');
 const { formatPersonalizedPriceDisplay, createPriceMessage } = require('./pricingDisplayService');
 
 /**
@@ -20,7 +20,7 @@ const calculateQuoteAmount = (product, quantity, unit, isPieces) => {
             cartonsEquivalent: cartonsNeeded.toFixed(2),
             pricePerUnit: pricePerPiece.toFixed(2),
             totalAmount: totalAmount.toFixed(2),
-            calculation: `${quantity} pcs Ã· ${unitsPerCarton} Ã— â‚¹${pricePerCarton} = â‚¹${totalAmount.toFixed(2)}`
+            calculation: `${quantity} pcs ÷ ${unitsPerCarton} × ₹${pricePerCarton} = ₹${totalAmount.toFixed(2)}`
         };
     } else {
         // Cartons - direct calculation
@@ -32,7 +32,7 @@ const calculateQuoteAmount = (product, quantity, unit, isPieces) => {
             piecesEquivalent: quantity * unitsPerCarton,
             pricePerUnit: pricePerCarton.toFixed(2),
             totalAmount: totalAmount.toFixed(2),
-            calculation: `${quantity} cartons Ã— â‚¹${pricePerCarton} = â‚¹${totalAmount.toFixed(2)}`
+            calculation: `${quantity} cartons × ₹${pricePerCarton} = ₹${totalAmount.toFixed(2)}`
         };
     }
 };
@@ -143,7 +143,7 @@ const handleMultiProductPriceInquiry = async (query, tenantId, phoneNumber = nul
         }
         
         // Multiple products - show compact list with per-piece pricing and personalization
-        let response = "ðŸ’° **Price Information:**\n\n";
+        let response = "💰 **Price Information:**\n\n";
         let hasAnyPersonalizedPrice = false;
         
         console.log('[MULTI_PRODUCT] Starting to process', products.length, 'products');
@@ -170,19 +170,19 @@ const handleMultiProductPriceInquiry = async (query, tenantId, phoneNumber = nul
                 console.log('[MULTI_PRODUCT] No phone number - skipping personalization');
             }
             
-            response += `ðŸ“¦ **${product.name}**\n`;
+            response += `📦 **${product.name}**\n`;
             
             // Show personalized price if customer has purchased before
             if (personalizedInfo && personalizedInfo.lastPurchasePrice) {
                 hasAnyPersonalizedPrice = true;
                 const lastPricePerPiece = (personalizedInfo.lastPurchasePrice / unitsPerCarton).toFixed(2);
-                response += `âœ¨ Your Special Price:\n`;
-                response += `ðŸ”¹ â‚¹${lastPricePerPiece}/pc per piece\n`;
-                response += `ðŸ“¦ â‚¹${personalizedInfo.lastPurchasePrice.toFixed(2)}/carton\n`;
+                response += `✨ Your Special Price:\n`;
+                response += `🔹 ₹${lastPricePerPiece}/pc per piece\n`;
+                response += `📦 ₹${personalizedInfo.lastPurchasePrice.toFixed(2)}/carton\n`;
                 response += `   (${unitsPerCarton} pcs/carton)\n`;
                 
                 if (personalizedInfo.savingsAmount > 0) {
-                    response += `ðŸ’° Saves â‚¹${personalizedInfo.savingsAmount.toFixed(2)} vs catalog\n`;
+                    response += `💰 Saves ₹${personalizedInfo.savingsAmount.toFixed(2)} vs catalog\n`;
                 }
                 
                 // Show quote for requested quantity if specified
@@ -192,20 +192,20 @@ const handleMultiProductPriceInquiry = async (query, tenantId, phoneNumber = nul
                         // Pieces calculation
                         const pricePerPiece = personalizedInfo.lastPurchasePrice / unitsPerCarton;
                         totalAmount = pricePerPiece * requestedQuantity;
-                        calculationText = `   ${requestedQuantity} pcs Ã— â‚¹${pricePerPiece.toFixed(2)} = â‚¹${totalAmount.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                        calculationText = `   ${requestedQuantity} pcs × ₹${pricePerPiece.toFixed(2)} = ₹${totalAmount.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
                     } else {
                         // Cartons calculation
                         totalAmount = personalizedInfo.lastPurchasePrice * requestedQuantity;
-                        calculationText = `   ${requestedQuantity} Ã— â‚¹${personalizedInfo.lastPurchasePrice.toFixed(2)} = â‚¹${totalAmount.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                        calculationText = `   ${requestedQuantity} × ₹${personalizedInfo.lastPurchasePrice.toFixed(2)} = ₹${totalAmount.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
                     }
                     const unitText = requestedUnit === 'pieces' ? 'pieces' : 'cartons';
-                    response += `\nðŸ“Š Quote for ${requestedQuantity} ${unitText}:\n`;
+                    response += `\n📊 Quote for ${requestedQuantity} ${unitText}:\n`;
                     response += calculationText + '\n';
                 }
             } else {
                 // Show catalog price for new products
-                response += `ðŸ”¹ â‚¹${pricePerPiece}/pc per piece\n`;
-                response += `ðŸ“¦ â‚¹${product.price}/carton\n`;
+                response += `🔹 ₹${pricePerPiece}/pc per piece\n`;
+                response += `📦 ₹${product.price}/carton\n`;
                 response += `   (${unitsPerCarton} pcs/carton)\n`;
                 
                 // Show quote for requested quantity if specified
@@ -215,14 +215,14 @@ const handleMultiProductPriceInquiry = async (query, tenantId, phoneNumber = nul
                         // Pieces calculation
                         const pricePerPiece = product.price / unitsPerCarton;
                         totalAmount = pricePerPiece * requestedQuantity;
-                        calculationText = `   ${requestedQuantity} pcs Ã— â‚¹${pricePerPiece.toFixed(2)} = â‚¹${totalAmount.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                        calculationText = `   ${requestedQuantity} pcs × ₹${pricePerPiece.toFixed(2)} = ₹${totalAmount.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
                     } else {
                         // Cartons calculation
                         totalAmount = product.price * requestedQuantity;
-                        calculationText = `   ${requestedQuantity} Ã— â‚¹${product.price.toFixed(2)} = â‚¹${totalAmount.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                        calculationText = `   ${requestedQuantity} × ₹${product.price.toFixed(2)} = ₹${totalAmount.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
                     }
                     const unitText = requestedUnit === 'pieces' ? 'pieces' : 'cartons';
-                    response += `\nðŸ“Š Quote for ${requestedQuantity} ${unitText}:\n`;
+                    response += `\n📊 Quote for ${requestedQuantity} ${unitText}:\n`;
                     response += calculationText + '\n';
                 }
             }
@@ -250,10 +250,10 @@ const handleMultiProductPriceInquiry = async (query, tenantId, phoneNumber = nul
                 }
             }
             
-            response += `â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”\n`;
-            response += `ðŸ“‹ **Total Summary:**\n`;
+            response += `━━━━━━━━━━━━━━━━━━━━\n`;
+            response += `📋 **Total Summary:**\n`;
             response += `   ${totalUnits.toFixed(1)} cartons total\n`;
-            response += `   Grand Total: â‚¹${grandTotal.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}\n\n`;
+            response += `   Grand Total: ₹${grandTotal.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}\n\n`;
         }
         
         // Only show volume discount info for new customers (no personalized pricing)
@@ -261,21 +261,21 @@ const handleMultiProductPriceInquiry = async (query, tenantId, phoneNumber = nul
             const discountPercent = totalCartons >= 100 ? '7-10%' : 
                                    totalCartons >= 51 ? '5-7%' :
                                    totalCartons >= 26 ? '3-5%' : '2-3%';
-            response += `ðŸ’¡ **Volume Discount Eligible:** ${discountPercent} off for ${totalCartons} cartons!\n\n`;
+            response += `💡 **Volume Discount Eligible:** ${discountPercent} off for ${totalCartons} cartons!\n\n`;
         } else if (!hasAnyPersonalizedPrice) {
-            response += "ðŸ’¡ **Volume Discounts Available:**\n";
-            response += "â€¢ 11-25 cartons: 2-3% off\n";
-            response += "â€¢ 26-50 cartons: 3-5% off\n";
-            response += "â€¢ 51-100 cartons: 5-7% off\n";
-            response += "â€¢ 100+ cartons: 7-10% off\n\n";
+            response += "💡 **Volume Discounts Available:**\n";
+            response += "• 11-25 cartons: 2-3% off\n";
+            response += "• 26-50 cartons: 3-5% off\n";
+            response += "• 51-100 cartons: 5-7% off\n";
+            response += "• 100+ cartons: 7-10% off\n\n";
         }
         
         response += hasMultipleQuantities ? 
-            "ðŸ›’ Ready to place this order? Just say 'yes' or 'add to cart'!" :
-            "âœ… To order any of these products, just let me know the quantities!";
+            "🛒 Ready to place this order? Just say 'yes' or 'add to cart'!" :
+            "✅ To order any of these products, just let me know the quantities!";
         
         console.log('[MULTI_PRODUCT] Returning', products.length, 'products');
-        console.log('[MULTI_PRODUCT] â­ Final return value:', {
+        console.log('[MULTI_PRODUCT] ⭐ Final return value:', {
             hasResponse: !!response,
             hasQuotedProducts: !!quotedProducts,
             quotedProductsCount: quotedProducts.length,
@@ -361,7 +361,7 @@ const handlePriceQueriesFixed = async (query, tenantId, phoneNumber = null) => {
                     quotedProductsLength: multiResult?.quotedProducts?.length || 0
                 });
                 if (multiResult && typeof multiResult === 'object' && multiResult.response) {
-                    console.log('[SMART_ROUTER] âœ… Returning structured response with quotedProducts');
+                    console.log('[SMART_ROUTER] ✅ Returning structured response with quotedProducts');
                     return multiResult; // Return structured response with quotedProducts
                 }
                 return multiResult;
@@ -398,7 +398,7 @@ const handlePriceQueriesFixed = async (query, tenantId, phoneNumber = null) => {
                     console.log(`[QUOTED_PRODUCT_SAVE] Saving quotedProduct with quantity:`, quantity, 'type:', typeof quantity);
                     
                     // Quick Test
-                    console.log('ðŸ” QUOTE DEBUG:', {
+                    console.log('🔍 QUOTE DEBUG:', {
                         quantity: quantity,
                         unit: unit,
                         isPieces: unit === 'pieces',
@@ -558,7 +558,7 @@ const getSmartResponse = async (userQuery, tenantId, phoneNumber = null) => {
 4. Quantities if mentioned (e.g., "10 ctns", "1000 pieces")
 
 IMPORTANT RULES:
-- If message contains brand names like "NFF", "Nylon Anchors", "Nylon Frame" â†’ intent should be "brand_inquiry"
+- If message contains brand names like "NFF", "Nylon Anchors", "Nylon Frame" → intent should be "brand_inquiry"
 - If the message contains multiple product codes (like "8x80 10 ctns, 8x100 5ctns"), prioritize "price_inquiry" even if discount terms are mentioned.
 - Brand inquiries should return all products in that brand/line
 
@@ -614,7 +614,7 @@ Respond in JSON format:
             if (products && products.length > 0) {
                 let priceMsg = `Here are all ${parsed.brands[0]} products and their prices:\n\n`;
                 for (const product of products) {
-                    priceMsg += `*${product.name}*: â‚¹${product.price} per ${product.packaging_unit || 'carton'}`;
+                    priceMsg += `*${product.name}*: ₹${product.price} per ${product.packaging_unit || 'carton'}`;
                     if (product.units_per_carton) priceMsg += ` (${product.units_per_carton} pcs/carton)`;
                     priceMsg += '\n';
                 }
@@ -641,7 +641,7 @@ Respond in JSON format:
                 // Single product inquiry
                 const code = productCodes[0];
                 
-                // ðŸ†• Check if this looks like a brand query (NFF, Nylon Anchors, Nylon Frame, etc.)
+                // 🆕 Check if this looks like a brand query (NFF, Nylon Anchors, Nylon Frame, etc.)
                 const brandKeywords = ['nff', 'nylon', 'anchors', 'frame', 'anchor'];
                 const isBrandQuery = brandKeywords.some(keyword => 
                     code.toLowerCase().includes(keyword) && 
@@ -664,7 +664,7 @@ Respond in JSON format:
                     if (products && products.length > 0) {
                         let priceMsg = `Here are all ${code.toUpperCase()} products and their prices:\n\n`;
                         for (const product of products) {
-                            priceMsg += `*${product.name}*: â‚¹${product.price} per ${product.packaging_unit || 'carton'}`;
+                            priceMsg += `*${product.name}*: ₹${product.price} per ${product.packaging_unit || 'carton'}`;
                             if (product.units_per_carton) priceMsg += ` (${product.units_per_carton} pcs/carton)`;
                             priceMsg += '\n';
                         }
@@ -787,18 +787,18 @@ const handleGeneralPriceInquiry = async (tenantId, query, phoneNumber = null) =>
             return "Please contact us for current pricing information.";
         }
         
-        let response = "ðŸ“‹ **Current Pricing:**\n\n";
+        let response = "📋 **Current Pricing:**\n\n";
         products.forEach(product => {
             const unitsPerCarton = parseInt(product.units_per_carton) || 1;
             const pricePerPiece = (product.price / unitsPerCarton).toFixed(2);
             
-            response += `ðŸ“¦ **${product.name}**\n`;
-            response += `ðŸ”¹ â‚¹${pricePerPiece}/pc per piece\n`;
-            response += `ðŸ“¦ *â‚¹${product.price}/${product.packaging_unit || 'carton'}*\n`;
+            response += `📦 **${product.name}**\n`;
+            response += `🔹 ₹${pricePerPiece}/pc per piece\n`;
+            response += `📦 *₹${product.price}/${product.packaging_unit || 'carton'}*\n`;
             response += `   (${unitsPerCarton} pcs/${product.packaging_unit || 'carton'})\n\n`;
         });
         
-        response += "ðŸ’¬ For specific products, ask: 'price of [product name]'";
+        response += "💬 For specific products, ask: 'price of [product name]'";
         return response;
         
     } catch (error) {
@@ -829,11 +829,11 @@ const formatProductPrice = async (product, tenantId, phoneNumber = null, origina
         
         // Check if quantity was mentioned in the original query
         const quantityMatch = originalQuery.match(/(\d+)\s*(?:pcs?|pieces?|cartons?|ctns?)/i);
-        let response = `ðŸ“¦ *${product.name}*\n\n`;
-        response += `ðŸ’µ *Price*\n`;
-        response += `â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”\n`;
-        response += `ðŸ”¹ *â‚¹${pricePerPiece}/pc* per piece\n`;
-        response += `ðŸ“¦ *â‚¹${product.price}/${product.packaging_unit || 'carton'}*\n\n`;
+        let response = `📦 *${product.name}*\n\n`;
+        response += `💵 *Price*\n`;
+        response += `━━━━━━━━━━━━━━━━━\n`;
+        response += `🔹 *₹${pricePerPiece}/pc* per piece\n`;
+        response += `📦 *₹${product.price}/${product.packaging_unit || 'carton'}*\n\n`;
         
         if (quantityMatch) {
             const quantity = parseInt(quantityMatch[1]);
@@ -847,30 +847,30 @@ const formatProductPrice = async (product, tenantId, phoneNumber = null, origina
                 finalQuantity = roundedCartons;
                 totalAmount = (roundedCartons * product.price).toFixed(2);
                 
-                response += `ðŸ“Š *Quote for ${quantity.toLocaleString('en-IN')} pieces:*\n`;
-                response += `   ${quantity.toLocaleString('en-IN')} pcs Ã· ${unitsPerCarton} pcs/carton = ${exactCartons} cartons\n`;
+                response += `📊 *Quote for ${quantity.toLocaleString('en-IN')} pieces:*\n`;
+                response += `   ${quantity.toLocaleString('en-IN')} pcs ÷ ${unitsPerCarton} pcs/carton = ${exactCartons} cartons\n`;
                 response += `   (Rounded to ${roundedCartons} carton${roundedCartons !== 1 ? 's' : ''})\n`;
-                response += `   ${roundedCartons} carton${roundedCartons !== 1 ? 's' : ''} Ã— â‚¹${product.price.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})} = *â‚¹${parseFloat(totalAmount).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}*\n\n`;
+                response += `   ${roundedCartons} carton${roundedCartons !== 1 ? 's' : ''} × ₹${product.price.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})} = *₹${parseFloat(totalAmount).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}*\n\n`;
             } else {
                 // Already in cartons
                 finalQuantity = quantity;
                 totalAmount = (quantity * product.price).toFixed(2);
                 
-                response += `ðŸ“Š *Quote for ${quantity} carton${quantity !== 1 ? 's' : ''}:*\n`;
-                response += `   ${quantity} carton${quantity !== 1 ? 's' : ''} Ã— â‚¹${product.price.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})} = *â‚¹${parseFloat(totalAmount).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}*\n\n`;
+                response += `📊 *Quote for ${quantity} carton${quantity !== 1 ? 's' : ''}:*\n`;
+                response += `   ${quantity} carton${quantity !== 1 ? 's' : ''} × ₹${product.price.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})} = *₹${parseFloat(totalAmount).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}*\n\n`;
             }
             
-            response += `ðŸ’¡ *Volume Discounts:*\n`;
-            response += `* 11-25 ctns: 2-3% â€¢ 26-50 ctns: 3-5%\n`;
-            response += `* 51-100 ctns: 5-7% â€¢ 100+ ctns: 7-10%\n\n`;
-            response += `ðŸ›’ Ready to add ${quantity.toLocaleString('en-IN')} ${unit} to your cart? Just say "yes"!`;
+            response += `💡 *Volume Discounts:*\n`;
+            response += `* 11-25 ctns: 2-3% • 26-50 ctns: 3-5%\n`;
+            response += `* 51-100 ctns: 5-7% • 100+ ctns: 7-10%\n\n`;
+            response += `🛒 Ready to add ${quantity.toLocaleString('en-IN')} ${unit} to your cart? Just say "yes"!`;
         } else {
-            response += `ðŸ“Š *Breakdown:*\n`;
-            response += `   â‚¹${pricePerPiece}/pc Ã— ${unitsPerCarton} pcs = â‚¹${product.price}/${product.packaging_unit || 'carton'}\n\n`;
-            response += `ðŸ’¡ *Volume Discounts:*\n`;
-            response += `* 11-25 ctns: 2-3% â€¢ 26-50 ctns: 3-5%\n`;
-            response += `* 51-100 ctns: 5-7% â€¢ 100+ ctns: 7-10%\n\n`;
-            response += `ðŸ›’ Ready to order? Let me know the quantity!`;
+            response += `📊 *Breakdown:*\n`;
+            response += `   ₹${pricePerPiece}/pc × ${unitsPerCarton} pcs = ₹${product.price}/${product.packaging_unit || 'carton'}\n\n`;
+            response += `💡 *Volume Discounts:*\n`;
+            response += `* 11-25 ctns: 2-3% • 26-50 ctns: 3-5%\n`;
+            response += `* 51-100 ctns: 5-7% • 100+ ctns: 7-10%\n\n`;
+            response += `🛒 Ready to order? Let me know the quantity!`;
         }
         
         return response;
@@ -878,13 +878,13 @@ const formatProductPrice = async (product, tenantId, phoneNumber = null, origina
     } catch (error) {
         console.error('[FORMAT_PRICE] Error:', error.message);
         // Fallback to simple format
-        let response = `ðŸ’° **${product.name} Pricing**\n\n`;
-        response += `Price: â‚¹${product.price}/carton\n`;
+        let response = `💰 **${product.name} Pricing**\n\n`;
+        response += `Price: ₹${product.price}/carton\n`;
         
         if (product.units_per_carton && product.units_per_carton > 1) {
             const perPiece = (product.price / product.units_per_carton).toFixed(2);
             response += `Carton contains: ${product.units_per_carton} pieces\n`;
-            response += `Per piece: â‚¹${perPiece}\n`;
+            response += `Per piece: ₹${perPiece}\n`;
         }
         
         response += `\nReady to place an order? Just let me know the quantity!`;
@@ -913,10 +913,10 @@ const handleAvailabilityQueries = async (query, tenantId) => {
             
             if (product) {
                 console.log('[AVAILABILITY] Product found:', product.name);
-                return `âœ… **Haan, ${product.name} available hai!**\n\nPrice: â‚¹${product.price}/carton\n${product.units_per_carton ? `(${product.units_per_carton} pcs/carton)\n` : ''}\nKitne cartons chahiye?`;
+                return `✅ **Haan, ${product.name} available hai!**\n\nPrice: ₹${product.price}/carton\n${product.units_per_carton ? `(${product.units_per_carton} pcs/carton)\n` : ''}\nKitne cartons chahiye?`;
             } else {
                 console.log('[AVAILABILITY] Product not found:', productCode);
-                return `âŒ Sorry, ${productCode} is not available in our current catalog. Please check other sizes.`;
+                return `❌ Sorry, ${productCode} is not available in our current catalog. Please check other sizes.`;
             }
         }
     }
@@ -939,10 +939,10 @@ const handleSpecQueries = async (query, tenantId) => {
             const product = await findProductByCode(tenantId, productCode);
             
             if (product) {
-                let response = `ðŸ“‹ **${product.name} Specifications**\n\n`;
-                response += `â€¢ Price: â‚¹${product.price}/carton\n`;
-                response += `â€¢ Carton size: ${product.units_per_carton || 1} pieces\n`;
-                response += `â€¢ Per piece: â‚¹${(product.price / (product.units_per_carton || 1)).toFixed(2)}\n`;
+                let response = `📋 **${product.name} Specifications**\n\n`;
+                response += `• Price: ₹${product.price}/carton\n`;
+                response += `• Carton size: ${product.units_per_carton || 1} pieces\n`;
+                response += `• Per piece: ₹${(product.price / (product.units_per_carton || 1)).toFixed(2)}\n`;
                 if (product.description) {
                     response += `\n${product.description}`;
                 }
@@ -956,10 +956,10 @@ const handleSpecQueries = async (query, tenantId) => {
 // Handle business queries with cached responses
 const handleBusinessQueries = async (query, tenantId) => {
     const businessPatterns = [
-        { pattern: /(?:delivery|shipping|transport)/i, response: "ðŸš› We provide delivery across major cities. Delivery time: 2-3 business days. Free delivery on orders above â‚¹10,000." },
-        { pattern: /(?:payment|pay|paisa)/i, response: "ðŸ’³ We accept bank transfer, UPI, and cash on delivery. Payment details shared after order confirmation." },
-        { pattern: /(?:minimum|min).*(?:order|quantity)/i, response: "ðŸ“¦ Minimum order: 1 carton per product. Bulk discounts available on larger quantities." },
-        { pattern: /(?:company|business|about)/i, response: "ðŸ¢ We are a leading supplier with 10+ years experience. Quality guaranteed on all products." }
+        { pattern: /(?:delivery|shipping|transport)/i, response: "🚛 We provide delivery across major cities. Delivery time: 2-3 business days. Free delivery on orders above ₹10,000." },
+        { pattern: /(?:payment|pay|paisa)/i, response: "💳 We accept bank transfer, UPI, and cash on delivery. Payment details shared after order confirmation." },
+        { pattern: /(?:minimum|min).*(?:order|quantity)/i, response: "📦 Minimum order: 1 carton per product. Bulk discounts available on larger quantities." },
+        { pattern: /(?:company|business|about)/i, response: "🏢 We are a leading supplier with 10+ years experience. Quality guaranteed on all products." }
     ];
     
     for (const { pattern, response } of businessPatterns) {
@@ -1054,4 +1054,5 @@ module.exports = {
     handleBusinessQueries,
     findProductByCode
 };
+
 

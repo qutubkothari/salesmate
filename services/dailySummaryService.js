@@ -26,7 +26,7 @@ class DailySummaryService {
 
       // Get orders created from visits today
       const ordersResult = await dbClient
-        .from('orders')
+        .from('orders_new')
         .select('*')
         .eq('tenant_id', tenantId)
         .eq('source_type', 'field_visit')
@@ -401,3 +401,4 @@ class DailySummaryService {
 }
 
 module.exports = new DailySummaryService();
+

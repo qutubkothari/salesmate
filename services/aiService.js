@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @title AI Service
  * @description This service handles interactions with the AI model (OpenAI/Gemini)
  * and the database to provide intelligent, context-aware responses.
@@ -87,8 +87,8 @@ const getAIResponse = async (tenantId, userQuery) => {
         const systemPrompt = `${defaultPersonality}
 You are a helpful sales assistant. Use the context provided below to answer questions about products and services.
 You MUST respond in ${botLanguage}.
-- For Arabic: Use Modern Standard Arabic (Ø§Ù„Ø¹Ø±Ø¨ÙŠØ©) that is widely understood
-- For Urdu: Use professional Urdu (Ø§Ø±Ø¯Ùˆ)
+- For Arabic: Use Modern Standard Arabic (العربية) that is widely understood
+- For Urdu: Use professional Urdu (اردو)
 - For Hinglish: Mix Hindi and English naturally as spoken in India
 - For other languages: Maintain professional yet friendly tone
 When customers ask about products, check if you have similar or related items in your product catalog.
@@ -315,8 +315,8 @@ RULES:
 5. If unsure, ask clarifying questions rather than guessing
 
 Examples of GOOD answers:
-- Q: "Do you support Arabic?" Context has "multilingual" and "UAE/Middle East markets" → A: "Yes, we support Arabic and multiple languages for businesses in the Middle East and globally."
-- Q: "Can I upload documents?" Context mentions "Documents: Upload docs for FAQs" → A: "Yes, you can upload documents to help our AI answer FAQs, policies, and product information."
+- Q: "Do you support Arabic?" Context has "multilingual" and "UAE/Middle East markets" ? A: "Yes, we support Arabic and multiple languages for businesses in the Middle East and globally."
+- Q: "Can I upload documents?" Context mentions "Documents: Upload docs for FAQs" ? A: "Yes, you can upload documents to help our AI answer FAQs, policies, and product information."
 
 Examples of BAD answers:
 - Don't say "We are a leading supplier with 10+ years..." unless asked about company background
@@ -344,9 +344,9 @@ Your Answer (in ${botLanguage}):
       console.log('[AI_V2][CONTEXT] Conversation context length:', conversationContext.length);
       console.log('[AI_V2][CONTEXT] Total prompt length:', finalPrompt.length);
       if (websiteContext) {
-        console.log('[AI_V2][CONTEXT] ✅ WEBSITE CONTEXT IS INCLUDED');
+        console.log('[AI_V2][CONTEXT] ? WEBSITE CONTEXT IS INCLUDED');
       } else {
-        console.log('[AI_V2][CONTEXT] ⚠️ WEBSITE CONTEXT IS EMPTY');
+        console.log('[AI_V2][CONTEXT] ?? WEBSITE CONTEXT IS EMPTY');
       }
       
       const answer = await chatComplete({
@@ -356,7 +356,7 @@ Your Answer (in ${botLanguage}):
         temperature: typeof opts.temperature === 'number' ? opts.temperature : 0.7  // Higher temp for natural variation
       });
       
-      // ✨ HUMAN-LIKE ENHANCEMENT: Add response variation and emotional intelligence
+      // ? HUMAN-LIKE ENHANCEMENT: Add response variation and emotional intelligence
       let humanizedResponse = answer || `Sorry, I couldn't generate a response right now.`;
       
       // Apply response variation to avoid robotic repetition
@@ -611,12 +611,12 @@ if (!global.__AI_SINGLETONS__.getAIResponseV3) {
         console.error('[AI] Empty content from OpenAI (chat)', {
           id: res?.id, usage: res?.usage, choices: res?.choices?.length
         });
-        return 'Sorry â€” I could not generate a response right now.';
+        return 'Sorry — I could not generate a response right now.';
       }
       return text;
     } catch (e) {
       logAIError('chat', e);
-      return 'Sorry â€” I hit an AI error. Please try again.';
+      return 'Sorry — I hit an AI error. Please try again.';
     }
   }; // end getAIResponseV3
 }
@@ -625,5 +625,6 @@ module.exports.getAIResponseDirect = global.__AI_SINGLETONS__.getAIResponseV3;
 // keep the legacy export name if not already set
 module.exports.getAIResponse = module.exports.getAIResponse || global.__AI_SINGLETONS__.getAIResponseV3;
 // --- END: singleton wrapper ---
+
 
 

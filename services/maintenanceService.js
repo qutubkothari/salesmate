@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @title Data Maintenance Service
  * @description Manages the logic for viewing and pruning old data from the database to maintain performance.
  */
@@ -15,7 +15,7 @@ const getPrunableDataSummary = async (daysOld = 90) => {
 
         // 1. Count old, inactive conversations (not updated recently)
         const { count: inactiveConversations, error: convError } = await dbClient
-            .from('conversations')
+            .from('conversations_new')
             .select('*', { count: 'exact', head: true })
             .lt('updated_at', olderThanDate);
 
@@ -23,7 +23,7 @@ const getPrunableDataSummary = async (daysOld = 90) => {
 
         // 2. Count old, completed/cancelled orders
         const { count: oldOrders, error: orderError } = await dbClient
-            .from('orders')
+            .from('orders_new')
             .select('*', { count: 'exact', head: true })
             .in('status', ['completed', 'cancelled'])
             .lt('created_at', olderThanDate);
@@ -39,7 +39,7 @@ const getPrunableDataSummary = async (daysOld = 90) => {
 
         if (scheduleError) throw scheduleError;
 
-        let summary = `ðŸ” *Data Pruning Summary (Older than ${daysOld} days)*\n\n`;
+        let summary = `🔍 *Data Pruning Summary (Older than ${daysOld} days)*\n\n`;
         summary += `- Inactive Conversations: *${inactiveConversations}*\n`;
         summary += `- Completed/Cancelled Orders: *${oldOrders}*\n`;
         summary += `- Sent Bulk Messages: *${oldSchedules}*\n\n`;
@@ -66,14 +66,14 @@ const pruneOldData = async (daysOld = 90) => {
         // Note: Thanks to CASCADE constraints in the database schema, deleting a conversation
         // will also delete its messages, cart, feedback, appointments, etc.
         const { count: deletedConversations, error: convError } = await dbClient
-            .from('conversations')
+            .from('conversations_new')
             .delete({ count: 'exact' })
             .lt('updated_at', olderThanDate);
 
         if (convError) throw convError;
 
         const { count: deletedOrders, error: orderError } = await dbClient
-            .from('orders')
+            .from('orders_new')
             .delete({ count: 'exact' })
             .in('status', ['completed', 'cancelled'])
             .lt('created_at', olderThanDate);
@@ -88,7 +88,7 @@ const pruneOldData = async (daysOld = 90) => {
 
         if (scheduleError) throw scheduleError;
 
-        let result = `âœ… *Data Pruning Complete*\n\n`;
+        let result = `✅ *Data Pruning Complete*\n\n`;
         result += `- Inactive Conversations Deleted: *${deletedConversations}*\n`;
         result += `- Old Orders Deleted: *${deletedOrders}*\n`;
         result += `- Old Bulk Messages Deleted: *${deletedSchedules}*\n`;
@@ -107,4 +107,5 @@ module.exports = {
     getPrunableDataSummary,
     pruneOldData,
 };
+
 

@@ -1,4 +1,4 @@
-﻿// services/gstService.js
+// services/gstService.js
 const { dbClient } = require('./config');
 
 /**
@@ -123,19 +123,19 @@ const formatGSTDisplay = (gstCalc, detailed = false) => {
     }
 
     if (!detailed) {
-        return `GST (${gstCalc.gstRate}%): â‚¹${gstCalc.gstAmount}`;
+        return `GST (${gstCalc.gstRate}%): ₹${gstCalc.gstAmount}`;
     }
 
     let display = `GST Breakdown (${gstCalc.gstRate}%):\n`;
     
     if (gstCalc.isInterstate) {
-        display += `IGST: â‚¹${gstCalc.igstAmount}`;
+        display += `IGST: ₹${gstCalc.igstAmount}`;
     } else {
-        display += `CGST: â‚¹${gstCalc.cgstAmount}\n`;
-        display += `SGST: â‚¹${gstCalc.sgstAmount}`;
+        display += `CGST: ₹${gstCalc.cgstAmount}\n`;
+        display += `SGST: ₹${gstCalc.sgstAmount}`;
     }
     
-    display += `\nTotal GST: â‚¹${gstCalc.gstAmount}`;
+    display += `\nTotal GST: ₹${gstCalc.gstAmount}`;
     
     return display;
 };
@@ -293,3 +293,4 @@ module.exports = {
     getGSTConfig,
     calculateReverseGST
 };
+

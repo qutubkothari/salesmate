@@ -1,4 +1,4 @@
-﻿const { bucket } = require('./config');
+const { bucket } = require('./config');
 const { dbClient } = require('./config');
 const fetch = require('node-fetch');
 const path = require('path');
@@ -90,4 +90,5 @@ module.exports = {
     uploadImageToGCS,
     saveImageMetadata
 };
+
 

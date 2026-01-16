@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @title Customer Snapshot Service
  * @description Manages the logic for generating a comprehensive summary of a single customer for a tenant.
  */
@@ -25,8 +25,8 @@ const getCustomerSnapshot = async (tenantId, endUserPhone) => {
             { data: tags, error: tagsError },
             { data: segments, error: segError }
         ] = await Promise.all([
-            dbClient.from('conversations').select('lead_score, requires_human_attention').eq('id', conversationId).single(),
-            dbClient.from('orders').select('id, status, total_amount, created_at').eq('conversation_id', conversationId).order('created_at', { ascending: false }).limit(1).single(),
+            dbClient.from('conversations_new').select('lead_score, requires_human_attention').eq('id', conversationId).single(),
+            dbClient.from('orders_new').select('id, status, total_amount, created_at').eq('conversation_id', conversationId).order('created_at', { ascending: false }).limit(1).single(),
             dbClient.from('conversation_tags').select('tag:tags (tag_name)').eq('conversation_id', conversationId),
             dbClient.from('conversation_segments').select('segment:customer_segments (segment_name)').eq('conversation_id', conversationId)
         ]);
@@ -37,7 +37,7 @@ const getCustomerSnapshot = async (tenantId, endUserPhone) => {
         if (segError) throw segError;
 
         // 2. Format the report
-        let report = `ðŸ‘¤ *Customer Snapshot for ${endUserPhone}*\n\n`;
+        let report = `👤 *Customer Snapshot for ${endUserPhone}*\n\n`;
 
         // Lead & Handover Status
         report += `*Lead Status:*\n`;
@@ -83,4 +83,5 @@ const getCustomerSnapshot = async (tenantId, endUserPhone) => {
 module.exports = {
     getCustomerSnapshot,
 };
+
 

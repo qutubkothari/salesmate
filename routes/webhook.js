@@ -1,4 +1,4 @@
-﻿// Add AI integration
+// Add AI integration
 const aiHandlerHelper = require('../services/aiHandlerHelper');
 // routes/webhook.js - Complete webhook router with fixed business info integration
 const express = require('express');
@@ -127,7 +127,7 @@ const handleTenantMessage = async (req, res) => {
       
       if (!isAdmin) {
         console.log('[WEBHOOK_LOGIN] Access denied - not an admin phone', { phone, adminPhones });
-        await sendMessage(phone, 'âŒ Access denied. Only authorized admin numbers can access the dashboard.\n\nPlease contact your system administrator.');
+        await sendMessage(phone, '❌ Access denied. Only authorized admin numbers can access the dashboard.\n\nPlease contact your system administrator.');
         return res.status(200).json({ ok: true, type: 'login_denied', reason: 'not_admin' });
       }
       
@@ -274,11 +274,11 @@ router.post('/', async (req, res) => {
 
       // If no tenant and not a registration message, inform user
       if (!tenant) {
-        const noTenantMessage = `Welcome! ðŸ‘‹
+        const noTenantMessage = `Welcome! 👋
 
 It looks like you don't have an account yet.
 
-Would you like to create one? Just send *"register"* to get started with your FREE 7-day trial! ðŸš€`;
+Would you like to create one? Just send *"register"* to get started with your FREE 7-day trial! 🚀`;
 
         await sendMessage(phoneNumber, noTenantMessage);
         return res.status(200).json({ ok: true, action: 'no_tenant_prompt' });
@@ -382,7 +382,7 @@ Would you like to create one? Just send *"register"* to get started with your FR
         try {
           const businessResult = await BusinessInfoHandler.handleBusinessInfo(
             tenant.id,
-            phoneNumber,  // âœ… FIX: Pass phoneNumber instead of conversationId UUID
+            phoneNumber,  // ✅ FIX: Pass phoneNumber instead of conversationId UUID
             messageForBusinessInfo
           );
 
@@ -511,7 +511,7 @@ Would you like to create one? Just send *"register"* to get started with your FR
         if (StateManager.isEscapeKeyword(messageText)) {
           console.log('[WEBHOOK] Escape keyword detected, resetting state');
           await StateManager.resetState(tenant.id, message.from);
-          const escapeMsg = 'âœ“ Okay, starting fresh. How can I help you today?';
+          const escapeMsg = '✓ Okay, starting fresh. How can I help you today?';
           await sendMessage(message.from, escapeMsg);
           return res.status(200).json({ ok: true, type: 'state_reset' });
         }
@@ -614,20 +614,20 @@ Would you like to create one? Just send *"register"* to get started with your FR
         // PRIORITY CHECK: Cart commands (clear, view, checkout) - handle BEFORE any pattern detection
         if (messageText.toLowerCase().trim() === '/clearcart' || 
             /^(clear|empty|reset)\s*(my\s*)?(cart|basket)$/i.test(messageText.trim())) {
-          console.log('[CUSTOMER] ðŸ›’ Clear cart command detected - routing to handler');
+          console.log('[CUSTOMER] 🛒 Clear cart command detected - routing to handler');
           await handleCustomer(req, res);
           return;
         }
 
         if (messageText.toLowerCase().trim() === '/view_cart' || 
             /^(view|show|check)\s*(my\s*)?(cart|basket)$/i.test(messageText.trim())) {
-          console.log('[CUSTOMER] ðŸ›’ View cart command detected - routing to handler');
+          console.log('[CUSTOMER] 🛒 View cart command detected - routing to handler');
           await handleCustomer(req, res);
           return;
         }
 
         if (messageText.toLowerCase().trim() === '/checkout') {
-          console.log('[CUSTOMER] ðŸ›’ Checkout command detected - routing to handler');
+          console.log('[CUSTOMER] 🛒 Checkout command detected - routing to handler');
           await handleCustomer(req, res);
           return;
         }
@@ -649,7 +649,7 @@ Would you like to create one? Just send *"register"* to get started with your FR
         }
 
         // EARLY CHECK: Detect simple quantity patterns and discount requests that should skip AI
-        console.log('[CUSTOMER] ðŸ” Testing patterns for:', messageText);
+        console.log('[CUSTOMER] 🔍 Testing patterns for:', messageText);
         const hasLacPattern = /\d+\s*(?:lac|lakh)\s*(?:ctns?|cartons?|pcs?|pieces?)/i.test(messageText);
         console.log('[CUSTOMER] hasLacPattern result:', hasLacPattern);
         const hasQuantityOnly = /^\d+\s*(?:ctns?|cartons?|pcs?|pieces?)$/i.test(messageText);
@@ -667,7 +667,7 @@ Would you like to create one? Just send *"register"* to get started with your FR
                                 quickIntent.intent === 'checkout';
         
         if (isCartOperation) {
-          console.log('[CUSTOMER] âœ… Cart operation detected:', quickIntent.intent, '- routing directly to handler');
+          console.log('[CUSTOMER] ✅ Cart operation detected:', quickIntent.intent, '- routing directly to handler');
           await handleCustomer(req, res);
           return;
         }
@@ -678,8 +678,8 @@ Would you like to create one? Just send *"register"* to get started with your FR
                                    /\d+\s*(?:%|percent|percentage)/i.test(messageText) ||
                                    /^(?:give\s*me\s*)?more$/i.test(messageText) || // "more" or "give me more"
                                    /^(?:aur|zyada)$/i.test(messageText) || // Hindi: more
-                                   /(?:give|make|can you do|do)\s*(?:me|it|for)?\s*(?:at|for|@)?\s*(?:â‚¹|rs\.?)?\s*\d+(?:\.\d+)?/i.test(messageText) || // "give me for 2.90"
-                                   /\d+(?:\.\d+)?\s*(?:â‚¹|rs\.?|rupees?)/i.test(messageText) || // "2.90 rupees"
+                                   /(?:give|make|can you do|do)\s*(?:me|it|for)?\s*(?:at|for|@)?\s*(?:₹|rs\.?)?\s*\d+(?:\.\d+)?/i.test(messageText) || // "give me for 2.90"
+                                   /\d+(?:\.\d+)?\s*(?:₹|rs\.?|rupees?)/i.test(messageText) || // "2.90 rupees"
                                    /can\s+(?:i|we|you)\s+(?:get|have|give\s+me)\s+(?:a|any|some)?\s*discount/i.test(messageText) || // "can i get a discount"
                                    /\b(?:any|koi|some)\s+discount/i.test(messageText) || // "any discount?" or "koi discount?"
                                    /discount\s+(?:milega|chahiye|do|dena|de\s+do)/i.test(messageText); // "discount milega?" "discount chahiye" "discount do"
@@ -710,7 +710,7 @@ Would you like to create one? Just send *"register"* to get started with your FR
                              hasEachPattern ? 'each_pattern' : 
                              hasDiscountRequest ? 'discount_request' : 
                              hasPriceInquiry ? 'price_inquiry' : 'product_code_with_quantity';
-          console.log('[CUSTOMER] âœ… Detected', patternType, '- skipping AI, routing directly to handler');
+          console.log('[CUSTOMER] ✅ Detected', patternType, '- skipping AI, routing directly to handler');
           await handleCustomer(req, res);
           return;
         }
@@ -780,7 +780,7 @@ Would you like to create one? Just send *"register"* to get started with your FR
             try {
               // Get or create conversation
               const { data: conversations } = await dbClient
-                .from('conversations')
+                .from('conversations_new')
                 .select('*')
                 .eq('tenant_id', tenant.id)
                 .eq('end_user_phone', message.from)
@@ -793,7 +793,7 @@ Would you like to create one? Just send *"register"* to get started with your FR
               } else {
                 // Create new conversation
                 const { data: newConv } = await dbClient
-                  .from('conversations')
+                  .from('conversations_new')
                   .insert({
                     tenant_id: tenant.id,
                     phone_number: message.from,
@@ -829,7 +829,7 @@ Would you like to create one? Just send *"register"* to get started with your FR
                 });
                 
                 // Update conversation timestamp
-                await dbClient.from('conversations')
+                await dbClient.from('conversations_new')
                   .update({ 
                     last_message_at: new Date().toISOString(),
                     updated_at: new Date().toISOString()
@@ -925,7 +925,7 @@ async function ensureConversationByPhone(phone, tenantId) {
   try {
     // First, try exact match
     const { data: conv, error: convErr } = await dbClient
-      .from('conversations')
+      .from('conversations_new')
       .select('id, end_user_phone')
       .eq('tenant_id', tenantId)
       .eq('end_user_phone', phoneToUse)  // Exact match with @c.us
@@ -936,7 +936,7 @@ async function ensureConversationByPhone(phone, tenantId) {
     }
     
     if (conv && conv.id) {
-      console.log('[ensureConversationByPhone] âœ… Found existing conversation:', conv.id);
+      console.log('[ensureConversationByPhone] ✅ Found existing conversation:', conv.id);
       return conv.id;
     }
     
@@ -944,7 +944,7 @@ async function ensureConversationByPhone(phone, tenantId) {
     console.log('[ensureConversationByPhone] Creating new conversation');
     
     const { data: newConv, error: insertErr } = await dbClient
-      .from('conversations')
+      .from('conversations_new')
       .insert({
         tenant_id: tenantId,
         phone_number: phoneToUse,
@@ -966,7 +966,7 @@ async function ensureConversationByPhone(phone, tenantId) {
       return null;
     }
     
-    console.log('[ensureConversationByPhone] âœ… Created conversation:', newConv.id);
+    console.log('[ensureConversationByPhone] ✅ Created conversation:', newConv.id);
     return newConv.id;
     
   } catch (err) {
@@ -1002,3 +1002,4 @@ async function persistInboundMessage(conversationId, text, messageType = 'text',
 }
 
 module.exports = router;
+

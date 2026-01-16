@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @title Support Ticket Service
  * @description Manages the logic for creating and viewing tenant support tickets.
  */
@@ -53,7 +53,7 @@ const listOpenTickets = async () => {
             return 'There are no open support tickets at the moment. Great job!';
         }
 
-        let report = 'ðŸŽ« *Open Support Tickets*\n\n';
+        let report = '🎫 *Open Support Tickets*\n\n';
         data.forEach(ticket => {
             const ticketId = ticket.id.substring(0, 8);
             const date = new Date(ticket.created_at).toLocaleString();
@@ -88,7 +88,7 @@ const getTicketDetails = async (ticketId) => {
 
         const fullId = data.id.substring(0, 8);
         const date = new Date(data.created_at).toLocaleString();
-        let details = `ðŸŽ« *Ticket Details for #${fullId}*\n\n`;
+        let details = `🎫 *Ticket Details for #${fullId}*\n\n`;
         details += `*From:* ${data.tenant.phone_number}\n`;
         details += `*Status:* ${data.status}\n`;
         details += `*Received:* ${date}\n`;
@@ -137,5 +137,6 @@ module.exports = {
     getTicketDetails,
     closeTicket,
 };
+
 
 

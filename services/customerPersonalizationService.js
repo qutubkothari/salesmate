@@ -1,4 +1,4 @@
-﻿// services/customerPersonalizationService.js
+// services/customerPersonalizationService.js
 
 const { dbClient } = require('./config');
 
@@ -12,7 +12,7 @@ async function getCustomerInfo(tenantId, phoneNumber) {
 
         // Check customer_profiles table - use 'phone' column (not 'phone_number')
         const { data: profile } = await dbClient
-            .from('customer_profiles')
+            .from('customer_profiles_new')
             .select('id, first_name, last_name, company, gst_number, business_verified')
             .eq('tenant_id', tenantId)
             .eq('phone', cleanPhone)
@@ -122,3 +122,4 @@ module.exports = {
     extractNameFromBusinessInfo,
     getPersonalizedGreeting
 };
+

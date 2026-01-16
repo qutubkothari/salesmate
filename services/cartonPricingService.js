@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @title Carton-Level Pricing Service for NFF Products
  * @description Handles quantity breaks, bulk pricing, and carton-based discounts
  */
@@ -203,11 +203,11 @@ const addCartonProductToCart = async (tenantId, endUserPhone, productName, quant
         }
         if (pricing.discountAmount > 0) {
             message += `Quantity break applied!\n`;
-            message += `Base price: â‚¹${pricing.baseUnitPrice}/carton\n`;
-            message += `Your price: â‚¹${pricing.finalUnitPrice.toFixed(2)}/carton\n`;
-            message += `You save: â‚¹${pricing.discountAmount.toFixed(2)} (${pricing.discountPercentage.toFixed(1)}%)\n`;
+            message += `Base price: ₹${pricing.baseUnitPrice}/carton\n`;
+            message += `Your price: ₹${pricing.finalUnitPrice.toFixed(2)}/carton\n`;
+            message += `You save: ₹${pricing.discountAmount.toFixed(2)} (${pricing.discountPercentage.toFixed(1)}%)\n`;
         }
-        message += `Total for this item: â‚¹${pricing.totalPrice.toFixed(2)}`;
+        message += `Total for this item: ₹${pricing.totalPrice.toFixed(2)}`;
 
         return message;
 
@@ -246,7 +246,7 @@ const viewCartonCart = async (tenantId, endUserPhone) => {
             return "Your shopping cart is empty.";
         }
 
-        let cartMessage = "ðŸ“¦ **Your Carton Cart**\n\n";
+        let cartMessage = "📦 **Your Carton Cart**\n\n";
         let totalAmount = 0;
         let totalSavings = 0;
 
@@ -267,12 +267,12 @@ const viewCartonCart = async (tenantId, endUserPhone) => {
             }
             
             if (itemDiscount > 0) {
-                cartMessage += `  - Base: â‚¹${product.price}/unit x ${quantity} = â‚¹${(product.price * quantity).toFixed(2)}\n`;
-                cartMessage += `  - Discount: -â‚¹${itemDiscount.toFixed(2)}\n`;
-                cartMessage += `  - Final: â‚¹${itemTotal.toFixed(2)}\n`;
+                cartMessage += `  - Base: ₹${product.price}/unit x ${quantity} = ₹${(product.price * quantity).toFixed(2)}\n`;
+                cartMessage += `  - Discount: -₹${itemDiscount.toFixed(2)}\n`;
+                cartMessage += `  - Final: ₹${itemTotal.toFixed(2)}\n`;
                 totalSavings += itemDiscount;
             } else {
-                cartMessage += `  - Price: â‚¹${unitPrice} x ${quantity} = â‚¹${itemTotal.toFixed(2)}\n`;
+                cartMessage += `  - Price: ₹${unitPrice} x ${quantity} = ₹${itemTotal.toFixed(2)}\n`;
             }
             
             cartMessage += '\n';
@@ -281,10 +281,10 @@ const viewCartonCart = async (tenantId, endUserPhone) => {
 
         cartMessage += `**Cart Summary:**\n`;
         if (totalSavings > 0) {
-            cartMessage += `Subtotal: â‚¹${(totalAmount + totalSavings).toFixed(2)}\n`;
-            cartMessage += `Bulk Savings: -â‚¹${totalSavings.toFixed(2)}\n`;
+            cartMessage += `Subtotal: ₹${(totalAmount + totalSavings).toFixed(2)}\n`;
+            cartMessage += `Bulk Savings: -₹${totalSavings.toFixed(2)}\n`;
         }
-        cartMessage += `**Total: â‚¹${totalAmount.toFixed(2)}**\n\n`;
+        cartMessage += `**Total: ₹${totalAmount.toFixed(2)}**\n\n`;
         cartMessage += `To checkout: /checkout`;
 
         return cartMessage;
@@ -356,9 +356,9 @@ const setupCartonPricing = async (tenantId, productName, cartonConfig) => {
                 .insert(breaksToInsert);
         }
 
-        return `âœ… Carton pricing setup for "${product.name}"\n` +
+        return `✅ Carton pricing setup for "${product.name}"\n` +
                `Units per carton: ${unitsPerCarton}\n` +
-               `Carton price: â‚¹${cartonPrice}\n` +
+               `Carton price: ₹${cartonPrice}\n` +
                `Quantity breaks: ${quantityBreaks.length} configured`;
 
     } catch (error) {
@@ -389,8 +389,8 @@ const getCartonPricingInfo = async (tenantId, productName) => {
             return `Product "${productName}" not found.`;
         }
 
-        let message = `ðŸ“¦ **Carton Pricing Info: ${product.name}**\n\n`;
-        message += `Base price: â‚¹${product.price}/carton\n`;
+        let message = `📦 **Carton Pricing Info: ${product.name}**\n\n`;
+        message += `Base price: ₹${product.price}/carton\n`;
         message += `Units per carton: ${product.units_per_carton || 'Not set'}\n`;
         message += `Packaging: ${product.packaging_unit || 'piece'}\n`;
         message += `Min carton qty: ${product.min_carton_qty || 1}\n\n`;
@@ -402,7 +402,7 @@ const getCartonPricingInfo = async (tenantId, productName) => {
                 .forEach(qb => {
                     const savings = product.price - qb.unit_price;
                     const savingsPercent = ((savings / product.price) * 100).toFixed(1);
-                    message += `${qb.min_quantity}+ cartons: â‚¹${qb.unit_price}/carton (${savingsPercent}% off)\n`;
+                    message += `${qb.min_quantity}+ cartons: ₹${qb.unit_price}/carton (${savingsPercent}% off)\n`;
                 });
         } else {
             message += `No quantity breaks configured.`;
@@ -497,10 +497,10 @@ const bulkSetupNFFCartonPricing = async (tenantId, standardBreaks = null) => {
             }
         }
 
-        let message = `ðŸš€ **Bulk NFF Setup Complete!**\n\n`;
-        message += `âœ… Successfully configured: ${setupCount} products\n`;
+        let message = `🚀 **Bulk NFF Setup Complete!**\n\n`;
+        message += `✅ Successfully configured: ${setupCount} products\n`;
         if (errorCount > 0) {
-            message += `âš ï¸ Errors: ${errorCount} products\n`;
+            message += `⚠️ Errors: ${errorCount} products\n`;
         }
         message += `\n**Standard quantity breaks applied:**\n`;
         defaultBreaks.forEach(qb => {
@@ -539,17 +539,17 @@ const testCartonPricing = async (tenantId, productName, quantity = 1) => {
         // Calculate pricing
         const pricing = await calculateCartonPricing(product.id, quantity);
         
-        let message = `ðŸ§ª **Carton Pricing Test**\n\n`;
+        let message = `🧪 **Carton Pricing Test**\n\n`;
         message += `Product: ${pricing.product.name}\n`;
         message += `Requested: ${quantity} cartons\n`;
         message += `Total pieces: ${pricing.pieceQuantity}\n`;
-        message += `Base price: â‚¹${pricing.baseUnitPrice}/carton\n`;
-        message += `Final price: â‚¹${pricing.finalUnitPrice}/carton\n`;
-        message += `Total: â‚¹${pricing.totalPrice.toFixed(2)}\n`;
+        message += `Base price: ₹${pricing.baseUnitPrice}/carton\n`;
+        message += `Final price: ₹${pricing.finalUnitPrice}/carton\n`;
+        message += `Total: ₹${pricing.totalPrice.toFixed(2)}\n`;
         
         if (pricing.discountAmount > 0) {
-            message += `\nðŸ’° **Savings Applied:**\n`;
-            message += `Discount: â‚¹${pricing.discountAmount.toFixed(2)} (${pricing.discountPercentage.toFixed(1)}%)\n`;
+            message += `\n💰 **Savings Applied:**\n`;
+            message += `Discount: ₹${pricing.discountAmount.toFixed(2)} (${pricing.discountPercentage.toFixed(1)}%)\n`;
             message += `Break applied: ${pricing.applicableBreak.min_quantity}+ cartons\n`;
         } else {
             message += `\nNo quantity breaks applied.`;
@@ -604,11 +604,11 @@ const addQuantityBreaks = async (tenantId, productName, breaks) => {
             .from('product_quantity_breaks')
             .insert(breaksToInsert);
 
-        let message = `âœ… **Quantity breaks updated for "${product.name}":**\n\n`;
+        let message = `✅ **Quantity breaks updated for "${product.name}":**\n\n`;
         breaks.forEach(qb => {
             const savings = product.price - qb.unitPrice;
             const savingsPercent = ((savings / product.price) * 100).toFixed(1);
-            message += `${qb.minQuantity}+ cartons: â‚¹${qb.unitPrice}/carton (Save â‚¹${savings.toFixed(2)} or ${savingsPercent}%)\n`;
+            message += `${qb.minQuantity}+ cartons: ₹${qb.unitPrice}/carton (Save ₹${savings.toFixed(2)} or ${savingsPercent}%)\n`;
         });
 
         return message;
@@ -630,3 +630,4 @@ module.exports = {
     testCartonPricing,
     addQuantityBreaks
 };
+

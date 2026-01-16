@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @title Simplified Broadcast Service with Enforced Rate Limiting
  * @description Uses direct SQL for lock management, compatible with all PostgreSQL versions
  */
@@ -126,7 +126,7 @@ const personalizeMessage = async (messageTemplate, phoneNumber, tenantId) => {
         let contactName = null;
         try {
             const { data: conversation } = await dbClient
-                .from('conversations')
+                .from('conversations_new')
                 .select('end_user_name')
                 .eq('tenant_id', tenantId)
                 .eq('end_user_phone', phoneNumber)
@@ -181,8 +181,8 @@ const getRandomGreeting = async (tenantId) => {
         if (error || !templates || templates.length === 0) {
             // Fallback greetings if database query fails
             const fallbackGreetings = [
-                'Hi {name}! ðŸ‘‹',
-                'Hello {name}! ðŸ˜Š',
+                'Hi {name}! 👋',
+                'Hello {name}! 😊',
                 'Hey {name}!',
                 'Good day {name}!',
                 'Hi there {name}!',
@@ -190,7 +190,7 @@ const getRandomGreeting = async (tenantId) => {
                 'Hey {name}, how are you?',
                 'Hi {name}, hope this message finds you well!',
                 'Hello dear {name}!',
-                'Hi {name}! ðŸŒŸ'
+                'Hi {name}! 🌟'
             ];
             return fallbackGreetings[Math.floor(Math.random() * fallbackGreetings.length)];
         }
@@ -235,8 +235,8 @@ const humanizeMessage = async (messageTemplate, phoneNumber, tenantId) => {
         // Add random variations
         const variations = [
             '', // No variation
-            ' ðŸ˜Š',
-            ' ðŸ™‚',
+            ' 😊',
+            ' 🙂',
             '!',
             '.',
         ];
@@ -478,9 +478,9 @@ const processBroadcastQueue = async () => {
             .from('bulk_schedules')
             .select('*')
             .eq('status', 'pending')
-            .lte('scheduled_at', new Date().toISOString())  // âœ… Correct
+            .lte('scheduled_at', new Date().toISOString())  // ✅ Correct
             .lt('retry_count', MAX_RETRIES)
-            .order('scheduled_at')  // âœ… Correct
+            .order('scheduled_at')  // ✅ Correct
             .order('sequence_number')
             .limit(BATCH_SIZE);
             
@@ -931,16 +931,16 @@ const scheduleMultiDayBroadcast = async (tenantId, campaignName, message, startA
         const schedule = dailyBatches.map((batch, index) => {
             const date = batch.sendAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
             const time = batch.sendAt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-            return `  ðŸ“… Day ${batch.dayNumber}: ${batch.recipients.length} contacts on ${date} at ${time}`;
+            return `  📅 Day ${batch.dayNumber}: ${batch.recipients.length} contacts on ${date} at ${time}`;
         }).join('\n');
         
-        return `âœ… Multi-Day Broadcast Scheduled Successfully!\n\n` +
-               `ðŸ“Š Campaign: ${campaignName}\n` +
-               `ðŸ‘¥ Total Recipients: ${validRecipients.length}\n` +
-               `ðŸ“ˆ Daily Limit: ${dailyLimit} messages/day\n` +
-               `ðŸ“† Schedule: ${totalDays} days\n\n` +
+        return `✅ Multi-Day Broadcast Scheduled Successfully!\n\n` +
+               `📊 Campaign: ${campaignName}\n` +
+               `👥 Total Recipients: ${validRecipients.length}\n` +
+               `📈 Daily Limit: ${dailyLimit} messages/day\n` +
+               `📆 Schedule: ${totalDays} days\n\n` +
                `${schedule}\n\n` +
-               `â„¹ï¸ The system will automatically send each batch on its scheduled day. You don't need to do anything else!`;
+               `ℹ️ The system will automatically send each batch on its scheduled day. You don't need to do anything else!`;
         
     } catch (error) {
         BroadcastLogger.error('Multi-day scheduling failed', error, { operationId });
@@ -1292,3 +1292,4 @@ module.exports = {
     processBroadcastQueue,
     BroadcastLogger
 };
+

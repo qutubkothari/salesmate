@@ -1,4 +1,4 @@
-﻿// services/zohoInvoiceService.js - Updated for Tenant-Based Authentication
+// services/zohoInvoiceService.js - Updated for Tenant-Based Authentication
 const { dbClient } = require('./config');
 const zohoTenantAuth = require('./zohoTenantAuthService');
 const fetch = require('node-fetch');
@@ -420,3 +420,4 @@ module.exports = {
     listInvoices,
     updateInvoiceStatus
 };
+

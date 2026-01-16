@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @title Abandoned Cart Service
  * @description Manages the logic for detecting and sending recovery messages for abandoned shopping carts.
  */
@@ -80,5 +80,6 @@ const processAbandonedCarts = async () => {
 module.exports = {
     processAbandonedCarts,
 };
+
 
 

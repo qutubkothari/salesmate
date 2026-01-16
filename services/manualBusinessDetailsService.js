@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Manual Business Details Collection Service
  * Handles conversational collection of business information when GST verification fails
  */
@@ -84,7 +84,7 @@ async function saveBusinessDetails(tenantId, phoneNumber, details) {
 
         // Get customer profile
         const { data: profile, error: fetchError } = await dbClient
-            .from('customer_profiles')
+            .from('customer_profiles_new')
             .select('id')
             .eq('tenant_id', tenantId)
             .eq('phone', normalizedPhone)
@@ -110,7 +110,7 @@ async function saveBusinessDetails(tenantId, phoneNumber, details) {
         if (details.shipping_address) updateData.shipping_address = details.shipping_address;
 
         const { error: updateError } = await dbClient
-            .from('customer_profiles')
+            .from('customer_profiles_new')
             .update(updateData)
             .eq('id', profile.id);
 
@@ -131,7 +131,7 @@ async function saveBusinessDetails(tenantId, phoneNumber, details) {
  * Send confirmation after saving business details
  */
 async function sendBusinessDetailsConfirmation(phoneNumber, details) {
-    let message = `âœ… *Business Details Saved*\n\n`;
+    let message = `✅ *Business Details Saved*\n\n`;
     message += `*Company:* ${details.company_name}\n`;
     if (details.contact_person) message += `*Contact Person:* ${details.contact_person}\n`;
     if (details.mobile) message += `*Mobile:* ${details.mobile}\n`;
@@ -139,7 +139,7 @@ async function sendBusinessDetailsConfirmation(phoneNumber, details) {
     if (details.shipping_address && details.shipping_address !== details.address) {
         message += `*Shipping Address:* ${details.shipping_address}\n`;
     }
-    message += `\nYour information has been saved. You can now proceed with your order! ðŸŽ‰`;
+    message += `\nYour information has been saved. You can now proceed with your order! 🎉`;
 
     await sendMessage(phoneNumber, message);
 }
@@ -155,10 +155,10 @@ async function handleBusinessDetailsSubmission(tenantId, phoneNumber, message) {
 
         if (!parsed.isValid) {
             // Missing required fields - ask for them
-            let errorMsg = `âš ï¸ *Missing Information*\n\n`;
+            let errorMsg = `⚠️ *Missing Information*\n\n`;
             errorMsg += `Please provide the following details:\n`;
             parsed.missingFields.forEach(field => {
-                errorMsg += `â€¢ ${field}\n`;
+                errorMsg += `• ${field}\n`;
             });
             errorMsg += `\nPlease use this format:\n`;
             errorMsg += `Company Name: [Your Company]\n`;
@@ -179,7 +179,7 @@ async function handleBusinessDetailsSubmission(tenantId, phoneNumber, message) {
         const saveResult = await saveBusinessDetails(tenantId, phoneNumber, parsed.details);
 
         if (!saveResult.success) {
-            await sendMessage(phoneNumber, 'âŒ Failed to save your details. Please try again or contact support.');
+            await sendMessage(phoneNumber, '❌ Failed to save your details. Please try again or contact support.');
             return {
                 handled: true,
                 success: false,
@@ -213,4 +213,5 @@ module.exports = {
     sendBusinessDetailsConfirmation,
     handleBusinessDetailsSubmission
 };
+
 

@@ -1,4 +1,4 @@
-﻿const gstVerificationService = require('./gstVerificationService');
+const gstVerificationService = require('./gstVerificationService');
 // services/businessInfoCaptureService.js
 const { dbClient } = require('./config');
 const { aiService } = require('./aiService');
@@ -76,7 +76,7 @@ class BusinessInfoCaptureService {
             // Get or create customer
             if (!customerId) {
                 const { data: conversation } = await dbClient
-                    .from('conversations')
+                    .from('conversations_new')
                     .select('end_user_phone')
                     .eq('id', conversationId)
                     .single();
@@ -305,14 +305,14 @@ class BusinessInfoCaptureService {
                     console.warn('[BusinessInfo] GST verification failed:', gstVerification?.error);
                     return {
                         success: false,
-                        error: `âŒ Invalid GST Number\n\nThe GST number ${cleanGST} could not be verified in government records.\n\nPlease check and provide a valid GST number, or reply "No GST" if you don't have GST registration.`
+                        error: `❌ Invalid GST Number\n\nThe GST number ${cleanGST} could not be verified in government records.\n\nPlease check and provide a valid GST number, or reply "No GST" if you don't have GST registration.`
                     };
                 }
             } catch (vErr) {
                 console.warn('[BusinessInfo] GST verification check failed:', vErr?.message || vErr);
                 return {
                     success: false,
-                    error: `âŒ GST Verification Failed\n\nUnable to verify GST number ${cleanGST}. Please ensure:\nâ€¢ The GST number is correct (15 characters)\nâ€¢ Your GST registration is active\n\nOr reply "No GST" to proceed without GST billing.`
+                    error: `❌ GST Verification Failed\n\nUnable to verify GST number ${cleanGST}. Please ensure:\n• The GST number is correct (15 characters)\n• Your GST registration is active\n\nOr reply "No GST" to proceed without GST billing.`
                 };
             }
 
@@ -594,12 +594,12 @@ class BusinessInfoCaptureService {
                         console.log('[DEBUG_PHONE]   extractedFields:', extractedFields);
                         
                         let customerPhone = documentData.sender || documentData.from || null;
-                        console.log('ðŸ” [PHONE_DEBUG] Extracted customerPhone:', customerPhone);
+                        console.log('🔍 [PHONE_DEBUG] Extracted customerPhone:', customerPhone);
                         
                         await this.updateCustomerProfile(customerId, extractedFields, customerPhone);
-                        console.log('[PROFILE_UPDATE] âœ… Customer profile updated successfully');
+                        console.log('[PROFILE_UPDATE] ✅ Customer profile updated successfully');
                     } else {
-                        console.warn('[PROFILE_UPDATE] âŒ Skipping profile update:', {
+                        console.warn('[PROFILE_UPDATE] ❌ Skipping profile update:', {
                             hasCustomerId: !!customerId,
                             hasGST: !!extractedFields.gst_number,
                             hasUpdateFunction: typeof this.updateCustomerProfile === 'function'
@@ -633,7 +633,7 @@ class BusinessInfoCaptureService {
                             
                             // Save Zoho customer ID to database
                             await dbClient
-                                .from('customer_profiles')
+                                .from('customer_profiles_new')
                                 .update({ zoho_customer_id: zohoResult.customerId })
                                 .eq('id', customerId);
                             
@@ -650,7 +650,7 @@ class BusinessInfoCaptureService {
                 // Return consistent structured result (no undefined)
                 return {
                     success: true,
-                    extracted_fields: extractedFields, // âœ… Add this
+                    extracted_fields: extractedFields, // ✅ Add this
                     confidence_score: gstDetails.confidence_score || gstFlowResult.detection?.confidence || 0,
                     customer_id: customerId,
                     dbRecord: savedRecord,
@@ -871,25 +871,25 @@ class BusinessInfoCaptureService {
      * Update customer profile with extracted information
      */
     async updateCustomerProfile(customerId, extractedFields, phoneNumber = null) {
-        console.log('ðŸ” [PHONE_DEBUG_3] updateCustomerProfile received:');
-        console.log('ðŸ” [PHONE_DEBUG_3] customerId:', customerId);
-        console.log('ðŸ” [PHONE_DEBUG_3] phoneNumber param:', phoneNumber);
-        console.log('ðŸ” [PHONE_DEBUG_3] typeof phoneNumber:', typeof phoneNumber);
+        console.log('🔍 [PHONE_DEBUG_3] updateCustomerProfile received:');
+        console.log('🔍 [PHONE_DEBUG_3] customerId:', customerId);
+        console.log('🔍 [PHONE_DEBUG_3] phoneNumber param:', phoneNumber);
+        console.log('🔍 [PHONE_DEBUG_3] typeof phoneNumber:', typeof phoneNumber);
         const updateData = {};
         // ADD THIS DEBUG BEFORE THE IF:
-        console.log('ðŸ” [PHONE_DEBUG_3] Checking phoneNumber...');
-        console.log('ðŸ” [PHONE_DEBUG_3] phoneNumber truthy?:', !!phoneNumber);
-        console.log('ðŸ” [PHONE_DEBUG_3] phoneNumber === null?:', phoneNumber === null);
-        console.log('ðŸ” [PHONE_DEBUG_3] phoneNumber === undefined?:', phoneNumber === undefined);
+        console.log('🔍 [PHONE_DEBUG_3] Checking phoneNumber...');
+        console.log('🔍 [PHONE_DEBUG_3] phoneNumber truthy?:', !!phoneNumber);
+        console.log('🔍 [PHONE_DEBUG_3] phoneNumber === null?:', phoneNumber === null);
+        console.log('🔍 [PHONE_DEBUG_3] phoneNumber === undefined?:', phoneNumber === undefined);
         if (phoneNumber) {
             const normalizedPhone = phoneNumber.replace('@c.us', '').replace(/\D/g, '');
-            console.log('ðŸ” [PHONE_DEBUG_3] Normalized to:', normalizedPhone);
+            console.log('🔍 [PHONE_DEBUG_3] Normalized to:', normalizedPhone);
             if (normalizedPhone) {
                 updateData.phone = normalizedPhone;
-                console.log('ðŸ” [PHONE_DEBUG_3] âœ… Set updateData.phone =', normalizedPhone);
+                console.log('🔍 [PHONE_DEBUG_3] ✅ Set updateData.phone =', normalizedPhone);
             }
         } else {
-            console.log('ðŸ” [PHONE_DEBUG_3] âŒ phoneNumber is falsy!');
+            console.log('🔍 [PHONE_DEBUG_3] ❌ phoneNumber is falsy!');
         }
         // Company/Business information
         if (extractedFields.company_name) {
@@ -968,7 +968,7 @@ class BusinessInfoCaptureService {
             if (isUUID) {
                 // If it's a UUID, query by ID or phone
                 updateQuery = dbClient
-                    .from('customer_profiles')
+                    .from('customer_profiles_new')
                     .update(updateData)
                     .or(`id.eq.${customerId},phone.eq.${updateData.phone || customerId}`)
                     .select();
@@ -976,7 +976,7 @@ class BusinessInfoCaptureService {
                 // If it's a phone number (e.g., "96567709452@c.us"), query with full format as stored in DB
                 console.log('[DEBUG_PHONE_UPDATE] Querying by phone (full format):', customerId);
                 updateQuery = dbClient
-                    .from('customer_profiles')
+                    .from('customer_profiles_new')
                     .update(updateData)
                     .eq('phone', customerId)  // Use customerId directly - it already has @c.us format
                     .select();
@@ -984,9 +984,9 @@ class BusinessInfoCaptureService {
             
             const { data, error } = await updateQuery;
             if (error) {
-                console.error('[DEBUG_PHONE_UPDATE] âŒ Update failed:', error);
+                console.error('[DEBUG_PHONE_UPDATE] ❌ Update failed:', error);
             } else {
-                console.log('[DEBUG_PHONE_UPDATE] âœ… Update succeeded');
+                console.log('[DEBUG_PHONE_UPDATE] ✅ Update succeeded');
                 console.log('[DEBUG_PHONE_UPDATE] Updated record:', data);
             }
         }
@@ -1004,7 +1004,7 @@ class BusinessInfoCaptureService {
                 return null;
             }
 
-            // ðŸ”§ CRITICAL FIX: Use toWhatsAppFormat to ensure @c.us suffix matches database
+            // 🔧 CRITICAL FIX: Use toWhatsAppFormat to ensure @c.us suffix matches database
             const { toWhatsAppFormat } = require('../utils/phoneUtils');
             const formattedPhone = toWhatsAppFormat(phoneNumber);
 
@@ -1015,7 +1015,7 @@ class BusinessInfoCaptureService {
             console.log('[BusinessInfo] Looking for customer with phone:', formattedPhone);
             // Method 1: Find by phone number
             const findByPhone = await dbClient
-                .from('customer_profiles')
+                .from('customer_profiles_new')
                 .select('id, phone, gst_number')
                 .eq('tenant_id', tenantId)
                 .eq('phone', formattedPhone)
@@ -1030,7 +1030,7 @@ class BusinessInfoCaptureService {
             if (gstNumber) {
                 console.log('[BusinessInfo] Phone lookup failed, trying GST:', gstNumber);
                 const findByGST = await dbClient
-                    .from('customer_profiles')
+                    .from('customer_profiles_new')
                     .select('id, phone, gst_number')
                     .eq('tenant_id', tenantId)
                     .eq('gst_number', gstNumber)
@@ -1042,7 +1042,7 @@ class BusinessInfoCaptureService {
                     if (findByGST.data.phone === 'unknown' || !findByGST.data.phone) {
                         console.log('[BusinessInfo] Updating phone from "unknown" to', formattedPhone);
                         await dbClient
-                            .from('customer_profiles')
+                            .from('customer_profiles_new')
                             .update({ phone: formattedPhone, updated_at: new Date().toISOString() })
                             .eq('id', findByGST.data.id);
                     }
@@ -1052,7 +1052,7 @@ class BusinessInfoCaptureService {
             // Method 3: Create new customer
             console.log('[BusinessInfo] Creating new customer with phone:', formattedPhone);
             const insertResp = await dbClient
-                .from('customer_profiles')
+                .from('customer_profiles_new')
                 .insert({
                     tenant_id: tenantId,
                     phone: formattedPhone,
@@ -1181,7 +1181,7 @@ class BusinessInfoCaptureService {
             if (zohoResult.success) {
                 // Update customer with Zoho ID
                 await dbClient
-                    .from('customer_profiles')
+                    .from('customer_profiles_new')
                     .update({ zoho_customer_id: zohoResult.customerId })
                     .eq('id', pending.customer_id);
                 // Mark as approved
@@ -1215,7 +1215,7 @@ class BusinessInfoCaptureService {
         // Send WhatsApp message to admin
         const adminPhone = process.env.ADMIN_PHONE;
         if (!adminPhone) return;
-        const message = `ðŸ”” New Zoho Sync Approval Required\n\n` +
+        const message = `🔔 New Zoho Sync Approval Required\n\n` +
             `Customer: ${pendingSync.sync_data.company_name}\n` +
             `GST: ${pendingSync.sync_data.gst_no}\n` +
             `Phone: ${pendingSync.sync_data.phone}\n\n` +
@@ -1226,3 +1226,4 @@ class BusinessInfoCaptureService {
 }
 
 module.exports = new BusinessInfoCaptureService();
+

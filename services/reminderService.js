@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @title Manual Reminder Service
  * @description Handles the logic for setting and sending manual conversation reminders for tenants.
  */
@@ -17,7 +17,7 @@ const setManualReminder = async (tenantId, endUserPhone, reminderText) => {
     try {
         // 1. Find the conversation to set the reminder on.
         const { data: conversation, error: convError } = await dbClient
-            .from('conversations')
+            .from('conversations_new')
             .select('id')
             .eq('tenant_id', tenantId)
             .eq('end_user_phone', endUserPhone)
@@ -35,7 +35,7 @@ const setManualReminder = async (tenantId, endUserPhone, reminderText) => {
 
         // 3. Update the conversation with the reminder details.
         const { error: updateError } = await dbClient
-            .from('conversations')
+            .from('conversations_new')
             .update({
                 reminder_at: parsedDate.toISOString(),
                 reminder_message: reminderText
@@ -60,7 +60,7 @@ const sendDueManualReminders = async () => {
     try {
         const now = new Date().toISOString();
         const { data: dueReminders, error } = await dbClient
-            .from('conversations')
+            .from('conversations_new')
             .select('id, tenant_id, end_user_phone, reminder_message, reminder_at')
             .not('reminder_at', 'is', null)
             .lte('reminder_at', now);
@@ -75,14 +75,14 @@ const sendDueManualReminders = async () => {
                 if (!tenant?.phone_number) continue;
                 const tenantPhoneNumber = tenant.phone_number;
                 const customerPhoneNumber = reminder.end_user_phone;
-                const reminderMessage = `ðŸ”” *Reminder for your chat with ${customerPhoneNumber}*\n\nYou asked me to remind you: "${reminder.reminder_message}"`;
+                const reminderMessage = `🔔 *Reminder for your chat with ${customerPhoneNumber}*\n\nYou asked me to remind you: "${reminder.reminder_message}"`;
 
                 // Send the reminder message to the tenant.
                 await sendMessage(tenantPhoneNumber, reminderMessage);
 
                 // Clear the reminder fields so it doesn't send again.
                 await dbClient
-                    .from('conversations')
+                    .from('conversations_new')
                     .update({ reminder_at: null, reminder_message: null })
                     .eq('id', reminder.id);
 
@@ -98,4 +98,5 @@ module.exports = {
     setManualReminder,
     sendDueManualReminders,
 };
+
 

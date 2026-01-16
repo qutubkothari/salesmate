@@ -1,4 +1,4 @@
-﻿// services/gstValidationService.js
+// services/gstValidationService.js
 // Validates customer GST status before checkout and handles GST collection flow
 
 const { dbClient } = require('./config');
@@ -17,7 +17,7 @@ const checkGSTStatus = async (tenantId, phoneNumber) => {
         console.log('[GST_VALIDATION] Checking GST status for:', normalizedPhone);
 
         const { data: profile, error } = await dbClient
-            .from('customer_profiles')
+            .from('customer_profiles_new')
             .select('id, gst_preference, gst_number')
             .eq('tenant_id', tenantId)
             .eq('phone', normalizedPhone)
@@ -60,19 +60,19 @@ const requestGSTDetails = async (phoneNumber, orderSummary = '') => {
     try {
         console.log('[GST_REQUEST] Requesting GST details from:', phoneNumber);
 
-        const message = `ðŸ“‹ *GST Details Required*
+        const message = `📋 *GST Details Required*
 
 Before we process your order${orderSummary ? ` of ${orderSummary}` : ''}, we need to know your GST preference:
 
-*Option 1: WITH GST* ðŸ“„
-â€¢ Upload your GST certificate PDF, OR
-â€¢ Reply with your GST number (15 digits)
-â€¢ You'll receive GST invoice
+*Option 1: WITH GST* 📄
+• Upload your GST certificate PDF, OR
+• Reply with your GST number (15 digits)
+• You'll receive GST invoice
 
-*Option 2: NO GST* ðŸª
-â€¢ Reply: "No GST" or "Retail customer"
-â€¢ Standard billing without GST
-â€¢ This preference will be saved for future orders
+*Option 2: NO GST* 🏪
+• Reply: "No GST" or "Retail customer"
+• Standard billing without GST
+• This preference will be saved for future orders
 
 Please choose one option to proceed with your order.`;
 
@@ -103,7 +103,7 @@ const saveGSTPreference = async (tenantId, phoneNumber, preference) => {
 
         // Get customer profile
         const { data: profile, error: fetchError } = await dbClient
-            .from('customer_profiles')
+            .from('customer_profiles_new')
             .select('id')
             .eq('tenant_id', tenantId)
             .eq('phone', normalizedPhone)
@@ -121,7 +121,7 @@ const saveGSTPreference = async (tenantId, phoneNumber, preference) => {
 
         // Update GST preference
         const { error: updateError } = await dbClient
-            .from('customer_profiles')
+            .from('customer_profiles_new')
             .update({
                 gst_preference: preference,
                 updated_at: new Date().toISOString()
@@ -187,25 +187,25 @@ const sendGSTConfirmation = async (phoneNumber, preference) => {
         let message = '';
 
         if (preference === 'no_gst') {
-            message = `âœ… *Preference Saved*
+            message = `✅ *Preference Saved*
 
 You've been marked as a *retail customer without GST*.
 
-â€¢ All future orders will be processed without GST invoice
-â€¢ Standard billing will apply
-â€¢ You can update this anytime by uploading your GST certificate
+• All future orders will be processed without GST invoice
+• Standard billing will apply
+• You can update this anytime by uploading your GST certificate
 
-Your order will now proceed. Thank you! ðŸŽ‰`;
+Your order will now proceed. Thank you! 🎉`;
         } else if (preference === 'with_gst') {
-            message = `âœ… *GST Details Saved*
+            message = `✅ *GST Details Saved*
 
 Your GST information has been saved successfully!
 
-â€¢ Future orders will include GST invoice
-â€¢ GST billing will be applied
-â€¢ You'll receive tax-compliant invoices
+• Future orders will include GST invoice
+• GST billing will be applied
+• You'll receive tax-compliant invoices
 
-Your order will now proceed. Thank you! ðŸŽ‰`;
+Your order will now proceed. Thank you! 🎉`;
         }
 
         await sendMessage(phoneNumber, message);
@@ -261,7 +261,7 @@ const handleGSTResponse = async (tenantId, phoneNumber, message) => {
                 
                 // Send detailed confirmation with extracted company details
                 const details = verificationResult.businessDetails;
-                let confirmMsg = `âœ… *GST Details Verified & Saved*\n\n`;
+                let confirmMsg = `✅ *GST Details Verified & Saved*\n\n`;
                 confirmMsg += `*Company Name:* ${details.company_name}\n`;
                 if (details.legal_name && details.legal_name !== details.company_name) {
                     confirmMsg += `*Legal Name:* ${details.legal_name}\n`;
@@ -272,7 +272,7 @@ const handleGSTResponse = async (tenantId, phoneNumber, message) => {
                 }
                 confirmMsg += `*Status:* ${details.business_status || 'Active'}\n\n`;
                 confirmMsg += `Your GST information has been saved for all future orders.\n\n`;
-                confirmMsg += `ðŸ“„ *Available option:* You can also upload your GST certificate PDF anytime for instant verification.`;
+                confirmMsg += `📄 *Available option:* You can also upload your GST certificate PDF anytime for instant verification.`;
                 
                 await sendMessage(phoneNumber, confirmMsg);
 
@@ -287,13 +287,13 @@ const handleGSTResponse = async (tenantId, phoneNumber, message) => {
                 // Verification failed - request business details or GST certificate
                 console.log('[GST_HANDLER] GST verification failed, requesting alternative options');
                 
-                const alternativeMsg = `âŒ *GST Verification Failed*\n\n` +
+                const alternativeMsg = `❌ *GST Verification Failed*\n\n` +
                     `The GST number ${gstNumber} could not be verified in government records.\n\n` +
                     `*Please choose one of these options:*\n\n` +
-                    `*Option 1: Upload GST Certificate* ðŸ“Ž\n` +
-                    `â€¢ Send your GST certificate PDF\n` +
-                    `â€¢ Instant verification from document\n\n` +
-                    `*Option 2: Provide Business Details* ðŸ“\n` +
+                    `*Option 1: Upload GST Certificate* 📎\n` +
+                    `• Send your GST certificate PDF\n` +
+                    `• Instant verification from document\n\n` +
+                    `*Option 2: Provide Business Details* 📝\n` +
                     `Reply with your business information in this format:\n` +
                     `Company Name: [Your Company]\n` +
                     `Contact Person: [Name]\n` +
@@ -332,4 +332,5 @@ module.exports = {
     sendGSTConfirmation,
     handleGSTResponse
 };
+
 

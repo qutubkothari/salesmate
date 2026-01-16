@@ -1,4 +1,4 @@
-﻿// ...existing code...
+// ...existing code...
 // --- Outbound send guard: digits-only, payload normalize, provider logging ---
 try {
   const { initOutbound } = require('./services/outboundGuard');
@@ -1075,7 +1075,7 @@ app.get('/api/desktop-agent/status/:tenantId', async (req, res) => {
       });
 
       if (response.data && response.data.status === 'running') {
-        console.log(`[DESKTOP_AGENT_STATUS] âœ… Agent online for tenant ${tenantId}`);
+        console.log(`[DESKTOP_AGENT_STATUS] ✅ Agent online for tenant ${tenantId}`);
         return res.json({
           online: true,
           status: 'running',
@@ -1084,7 +1084,7 @@ app.get('/api/desktop-agent/status/:tenantId', async (req, res) => {
         });
       }
     } catch (agentError) {
-      console.log(`[DESKTOP_AGENT_STATUS] âš ï¸  Agent offline for tenant ${tenantId}`);
+      console.log(`[DESKTOP_AGENT_STATUS] ⚠️  Agent offline for tenant ${tenantId}`);
     }
 
     // Agent not reachable
@@ -1323,7 +1323,7 @@ app.get('/metrics', async (req, res) => {
     try {
       const [tenants, conversations, broadcasts, products] = await Promise.all([
         dbClient.from('tenants').select('count(*)'),
-        dbClient.from('conversations').select('count(*)').gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()),
+        dbClient.from('conversations_new').select('count(*)').gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()),
         dbClient.from('bulk_schedules').select('status, count(*)').gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()),
         dbClient.from('products').select('count(*)')
       ]);
@@ -1508,7 +1508,7 @@ app.get('/api/debug/env/openai', (req, res) => {
     project_set: !!proj,
     model_fast: fast,
     model_smart: smart,
-    key_mask: key ? `${key.slice(0,6)}â€¦${key.slice(-4)}` : null
+    key_mask: key ? `${key.slice(0,6)}…${key.slice(-4)}` : null
   });
 });
 
@@ -1736,7 +1736,7 @@ app.get('/api/test/lead-score/:phone', async (req, res) => {
   
   try {
     const { data: conversation } = await dbClient
-      .from('conversations')
+      .from('conversations_new')
       .select('lead_score, context_analysis, follow_up_at, follow_up_count')
       .eq('tenant_id', tenantId)
       .eq('end_user_phone', phone)
@@ -2006,7 +2006,7 @@ app.post('/api/test/preview-full-response', async (req, res) => {
       if (products.length) {
         response += 'Products I found:\n';
         for (const p of products) {
-          response += `- ${p.name}${p.price ? ` (â‚¹${p.price})` : ''}${p.description ? `: ${String(p.description).slice(0, 120)}` : ''}\n`;
+          response += `- ${p.name}${p.price ? ` (₹${p.price})` : ''}${p.description ? `: ${String(p.description).slice(0, 120)}` : ''}\n`;
         }
         response += '\n';
       }
@@ -2015,7 +2015,7 @@ app.post('/api/test/preview-full-response', async (req, res) => {
         docs.forEach((d, i) => {
           const name = d.original_name || d.filename || `document ${i + 1}`;
           const snippet = String(d.extracted_text || '').trim().slice(0, 300);
-          response += `- ${name}: ${snippet}${snippet ? 'â€¦' : ''}\n`;
+          response += `- ${name}: ${snippet}${snippet ? '…' : ''}\n`;
         });
         response += '\n';
       }
@@ -2023,7 +2023,7 @@ app.post('/api/test/preview-full-response', async (req, res) => {
         response += 'From website indexing:\n';
         pages.forEach((p, i) => {
           const snippet = String(p.content || '').trim().slice(0, 300);
-          response += `- Source ${i + 1}: ${snippet}${snippet ? 'â€¦' : ''}${p.source_url ? `\n  ${p.source_url}` : ''}\n`;
+          response += `- Source ${i + 1}: ${snippet}${snippet ? '…' : ''}${p.source_url ? `\n  ${p.source_url}` : ''}\n`;
         });
         response += '\n';
       }
@@ -2086,7 +2086,7 @@ app.post('/api/test/score-lead', async (req, res) => {
     await scoreLead(resolvedTenantId, String(phone));
 
     const { data: conversation } = await dbClient
-      .from('conversations')
+      .from('conversations_new')
       .select('id, lead_score')
       .eq('tenant_id', resolvedTenantId)
       .eq('end_user_phone', String(phone))
@@ -2335,7 +2335,7 @@ app.get('/api/status', async (req, res) => {
 
     // Get order count
     const { data: orders, error: orderError } = await dbClient
-      .from('orders')
+      .from('orders_new')
       .select('id', { count: 'exact', head: true })
       .eq('tenant_id', tenantId);
 
@@ -2414,7 +2414,7 @@ const server = app.listen(PORT, async () => {
     }
 });
 
-console.log('ðŸ§ª Test endpoints loaded:');
+console.log('🧪 Test endpoints loaded:');
 console.log('  GET  /api/test/realtime-status');
 console.log('  POST /api/test/simulate-customer-message');
 console.log('  POST /api/test/simulate-bot-response'); 
@@ -2430,9 +2430,9 @@ try {
   const shipmentTrackingCron = require('./schedulers/shipmentTrackingCron');
   console.log('[SHIPMENT_TRACKING] Initializing cron job...');
   shipmentTrackingCron.start();
-  console.log('[SHIPMENT_TRACKING] âœ… Cron job started - checking daily at 9 AM');
+  console.log('[SHIPMENT_TRACKING] ✅ Cron job started - checking daily at 9 AM');
 } catch (error) {
-  console.error('[SHIPMENT_TRACKING] âŒ Failed to start cron:', error.message);
+  console.error('[SHIPMENT_TRACKING] ❌ Failed to start cron:', error.message);
   console.error('[SHIPMENT_TRACKING] Stack:', error.stack);
 }
 
@@ -2534,5 +2534,6 @@ try {
 } catch (e) {
   console.warn('[INIT] Follow-up schedulers failed to load:', e?.message || e);
 }
+
 
 

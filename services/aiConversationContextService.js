@@ -1,4 +1,4 @@
-﻿const { openai, dbClient } = require('./config');
+const { openai, dbClient } = require('./config');
 
 /**
  * AI-Powered Conversation Context Analyzer
@@ -51,10 +51,10 @@ CRITICAL RULES:
 5. If bot just asked a question, customer's response answers that question
 
 Examples:
-- Bot: "0% for 1 carton. Ready?" â†’ User: "i need 100 cartons" = QUANTITY_UPDATE
-- Bot: "3% discount okay?" â†’ User: "yes go ahead" = ORDER_CONFIRMATION
-- Bot: "Price â‚¹1.67/pc" â†’ User: "best price?" = DISCOUNT_REQUEST
-- Bot: "3% discount: â‚¹1.62/pc. Okay?" â†’ User: "give me more" = DISCOUNT_REQUEST`;
+- Bot: "0% for 1 carton. Ready?" → User: "i need 100 cartons" = QUANTITY_UPDATE
+- Bot: "3% discount okay?" → User: "yes go ahead" = ORDER_CONFIRMATION
+- Bot: "Price ₹1.67/pc" → User: "best price?" = DISCOUNT_REQUEST
+- Bot: "3% discount: ₹1.62/pc. Okay?" → User: "give me more" = DISCOUNT_REQUEST`;
 
         const response = await openai.chat.completions.create({
             model: 'gpt-4o-mini',
@@ -151,7 +151,7 @@ async function buildContextPrompt(currentMessage, conversationHistory, conversat
                 cart.cart_items.forEach(item => {
                     if (item.product) {
                         const pieces = item.quantity * (item.product.units_per_carton || 1500);
-                        prompt += `- ${item.product.name}: ${item.quantity} carton(s) (${pieces} pieces) @ â‚¹${item.product.price}/pc\n`;
+                        prompt += `- ${item.product.name}: ${item.quantity} carton(s) (${pieces} pieces) @ ₹${item.product.price}/pc\n`;
                     }
                 });
             }
@@ -266,7 +266,7 @@ async function getLearningInsights() {
         // Analyze patterns
         const patterns = {};
         incorrectAnalyses.forEach(analysis => {
-            const key = `${analysis.ai_intent} â†’ ${analysis.actual_intent}`;
+            const key = `${analysis.ai_intent} → ${analysis.actual_intent}`;
             patterns[key] = (patterns[key] || 0) + 1;
         });
         
@@ -363,4 +363,5 @@ module.exports = {
     generateRecommendations: generateRecommendations,
     fallbackContextAnalysis: fallbackContextAnalysis
 };
+
 

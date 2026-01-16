@@ -1,4 +1,4 @@
-﻿// services/retailCustomerCaptureService.js
+// services/retailCustomerCaptureService.js
 const { dbClient } = require('./config');
 const { sendMessage } = require('./whatsappService');
 
@@ -16,7 +16,7 @@ const handleRetailConnection = async (tenantId, phoneNumber, billNumber = null, 
 
     // 1. Check if customer already exists
     const { data: existingCustomer, error: fetchError} = await dbClient
-      .from('customer_profiles')
+      .from('customer_profiles_new')
       .select('*')
       .eq('tenant_id', tenantId)
       .eq('phone', phoneNumber)
@@ -33,7 +33,7 @@ const handleRetailConnection = async (tenantId, phoneNumber, billNumber = null, 
       const newVisitCount = (existingCustomer.retail_visit_count || 0) + 1;
 
       await dbClient
-        .from('customer_profiles')
+        .from('customer_profiles_new')
         .update({
           last_retail_visit: new Date().toISOString(),
           retail_visit_count: newVisitCount,
@@ -57,12 +57,12 @@ const handleRetailConnection = async (tenantId, phoneNumber, billNumber = null, 
         isNew: false,
         customerId: existingCustomer.id,
         visitCount: newVisitCount,
-        message: `Welcome back! ðŸŽ‰ This is your visit #${newVisitCount}.\n\nI'll keep you updated on:\nâœ… Restock reminders\nâœ… Exclusive deals\nâœ… New arrivals\n\nReply STOP anytime to unsubscribe.`
+        message: `Welcome back! 🎉 This is your visit #${newVisitCount}.\n\nI'll keep you updated on:\n✅ Restock reminders\n✅ Exclusive deals\n✅ New arrivals\n\nReply STOP anytime to unsubscribe.`
       };
     } else {
       // New customer - create profile
       const { data: newCustomer, error: insertError } = await dbClient
-        .from('customer_profiles')
+        .from('customer_profiles_new')
         .insert({
           tenant_id: tenantId,
           phone: phoneNumber,
@@ -92,7 +92,7 @@ const handleRetailConnection = async (tenantId, phoneNumber, billNumber = null, 
         isNew: true,
         customerId: newCustomer.id,
         visitCount: 1,
-        message: `Welcome! ðŸ‘‹ Great to have you connected.\n\nâœ… You'll get:\nâ€¢ Restock reminders when you need supplies\nâ€¢ Exclusive deals & offers\nâ€¢ Quick reorders via WhatsApp\nâ€¢ New product alerts\n\nReply STOP anytime to unsubscribe.`
+        message: `Welcome! 👋 Great to have you connected.\n\n✅ You'll get:\n• Restock reminders when you need supplies\n• Exclusive deals & offers\n• Quick reorders via WhatsApp\n• New product alerts\n\nReply STOP anytime to unsubscribe.`
       };
     }
   } catch (error) {
@@ -100,7 +100,7 @@ const handleRetailConnection = async (tenantId, phoneNumber, billNumber = null, 
     return {
       success: false,
       error: error.message,
-      message: `Thanks for connecting! We've saved your details and will send you updates soon. ðŸ˜Š`
+      message: `Thanks for connecting! We've saved your details and will send you updates soon. 😊`
     };
   }
 };
@@ -119,7 +119,7 @@ const linkBillToCustomer = async (tenantId, phoneNumber, billNumber, purchaseDat
 
     // Create order record from retail purchase
     const { data: order, error } = await dbClient
-      .from('orders')
+      .from('orders_new')
       .insert({
         tenant_id: tenantId,
         customer_phone: phoneNumber,
@@ -249,4 +249,5 @@ module.exports = {
   parseRetailMessage,
   generateRetailQRLink
 };
+
 

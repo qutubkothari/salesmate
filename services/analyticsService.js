@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @title Campaign Analytics Service
  * @description Handles fetching and processing data to provide tenants with campaign performance analytics.
  */
@@ -41,7 +41,7 @@ const getCampaignAnalytics = async (tenantId) => {
         }, {});
 
         // 3. Format the aggregated data into a user-friendly message.
-        let analyticsMessage = 'ðŸ“Š *Campaign Analytics Report*\n\n';
+        let analyticsMessage = '📊 *Campaign Analytics Report*\n\n';
         if (Object.keys(campaigns).length === 0) {
             return 'No campaign data is available yet. Statuses will update as they are received.';
         }
@@ -67,4 +67,5 @@ const getCampaignAnalytics = async (tenantId) => {
 module.exports = {
     getCampaignAnalytics,
 };
+
 

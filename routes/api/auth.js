@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const router = express.Router();
 const { dbClient } = require('../../services/config');
 const crypto = require('crypto');
@@ -355,4 +355,5 @@ router.post('/logout', async (req, res) => {
 });
 
 module.exports = router;
+
 

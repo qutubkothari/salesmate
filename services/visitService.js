@@ -137,7 +137,7 @@ class VisitService {
       // Update customer profile with visit info
       if (visit.customer_id) {
         await dbClient
-          .from('customer_profiles')
+          .from('customer_profiles_new')
           .update({
             last_visit_date: visit.visit_date,
             assigned_salesman_id: visit.salesman_id,
@@ -579,3 +579,4 @@ class VisitService {
 }
 
 module.exports = new VisitService();
+

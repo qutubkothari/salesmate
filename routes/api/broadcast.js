@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const router = express.Router();
 const { dbClient } = require('../../services/config');
 const { sendMessage, sendMessageWithImage } = require('../../services/whatsappService');
@@ -193,7 +193,7 @@ function applyRecipientTemplateToInteractivePayload(payload, recipient) {
  * POST /api/broadcast/send
  * Send or schedule a broadcast message to multiple recipients
  * 
- * PRIORITY: User Preference (Waha/Desktop) â†’ Desktop Agent (FREE) â†’ Maytapi (PAID FALLBACK)
+ * PRIORITY: User Preference (Waha/Desktop) → Desktop Agent (FREE) → Maytapi (PAID FALLBACK)
  */
 router.post('/send', async (req, res) => {
     try {
@@ -451,7 +451,7 @@ router.post('/send', async (req, res) => {
 
         // Priority 0: Check user preference for cloud bot (Waha 24/7)
         if (botDeliveryMethod === 'cloud' && forceMethod !== 'desktop_agent' && forceMethod !== 'maytapi') {
-            console.log('[BROADCAST_API] â˜ï¸ User selected Cloud Bot (Waha 24/7) - Using Waha!');
+            console.log('[BROADCAST_API] ☁️ User selected Cloud Bot (Waha 24/7) - Using Waha!');
             
             try {
                 const campaignId = `campaign_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
@@ -570,7 +570,7 @@ router.post('/send', async (req, res) => {
                     });
                 }
             } catch (wahaError) {
-                console.log('[BROADCAST_API] âš ï¸ Waha failed:', wahaError.message);
+                console.log('[BROADCAST_API] ⚠️ Waha failed:', wahaError.message);
                 // Fall through to desktop agent or Maytapi
             }
         }
@@ -580,7 +580,7 @@ router.post('/send', async (req, res) => {
         if (scheduleType === 'now' && forceMethod !== 'maytapi' && forceMethod !== 'waha') {
             const waWebStatus = getClientStatus(tenantId);
             if (waWebStatus?.status === 'ready' && waWebStatus?.hasClient) {
-                console.log('[BROADCAST_API] âœ… WhatsApp Web READY - sending directly');
+                console.log('[BROADCAST_API] ✅ WhatsApp Web READY - sending directly');
 
                 const batchSz = Math.max(1, parseInt(batchSize || 10, 10) || 10);
                 const msgDelay = Math.max(0, parseInt(messageDelay || 0, 10) || 0);
@@ -753,12 +753,12 @@ router.post('/send', async (req, res) => {
 
         // Priority 1: Try Desktop Agent (FREE!)
         if (forceMethod !== 'maytapi' && forceMethod !== 'waha') {
-            console.log('[BROADCAST_API] ðŸ” Checking desktop agent availability...');
+            console.log('[BROADCAST_API] 🔍 Checking desktop agent availability...');
             
             const agentOnline = await isDesktopAgentOnline(tenantId);
             
             if (agentOnline) {
-                console.log('[BROADCAST_API] âœ… Desktop Agent ONLINE - Using FREE local WhatsApp!');
+                console.log('[BROADCAST_API] ✅ Desktop Agent ONLINE - Using FREE local WhatsApp!');
 
                 const campaignId = `campaign_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
@@ -869,7 +869,7 @@ router.post('/send', async (req, res) => {
                     if (insertError) {
                         console.error('[BROADCAST_API] Warning: Failed to save broadcast history:', insertError);
                     } else {
-                        console.log('[BROADCAST_API] âœ… Broadcast history saved successfully');
+                        console.log('[BROADCAST_API] ✅ Broadcast history saved successfully');
                     }
 
                     // Save per-contact report rows
@@ -895,15 +895,15 @@ router.post('/send', async (req, res) => {
                         }
                     });
                 } else {
-                    console.log('[BROADCAST_API] âš ï¸ Desktop Agent failed, falling back to Maytapi...');
+                    console.log('[BROADCAST_API] ⚠️ Desktop Agent failed, falling back to Maytapi...');
                 }
             } else {
-                console.log('[BROADCAST_API] âš ï¸ Desktop Agent OFFLINE - Falling back to Maytapi (PAID)');
+                console.log('[BROADCAST_API] ⚠️ Desktop Agent OFFLINE - Falling back to Maytapi (PAID)');
             }
         }
 
         // Priority 2: Fallback to Maytapi (PAID)
-        console.log('[BROADCAST_API] ðŸ’° Using Maytapi (PAID service)');
+        console.log('[BROADCAST_API] 💰 Using Maytapi (PAID service)');
         
         const phoneNumberId = tenant.phone_number;
 
@@ -1990,5 +1990,6 @@ router.get('/daily-limit/:tenantId', async (req, res) => {
 });
 
 module.exports = router;
+
 
 

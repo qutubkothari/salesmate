@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @title Conversation History Service
  * @description Manages logging messages and retrieving conversation transcripts.
  */
@@ -14,7 +14,7 @@ const getConversationId = async (tenantId, endUserPhone) => {
     try {
         // First, try to find an existing conversation
         let { data: conversation, error: findError } = await dbClient
-            .from('conversations')
+            .from('conversations_new')
             .select('id')
             .eq('tenant_id', tenantId)
             .eq('end_user_phone', endUserPhone)
@@ -31,7 +31,7 @@ const getConversationId = async (tenantId, endUserPhone) => {
 
         // If not found, create a new one
         const { data: newConversation, error: createError } = await dbClient
-            .from('conversations')
+            .from('conversations_new')
             .insert({
                 tenant_id: tenantId,
                 phone_number: endUserPhone,
@@ -134,5 +134,6 @@ module.exports = {
     getConversationHistory,
     getConversationId
 };
+
 
 

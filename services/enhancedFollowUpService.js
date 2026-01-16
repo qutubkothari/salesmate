@@ -1,4 +1,4 @@
-﻿// services/enhancedFollowUpService.js
+// services/enhancedFollowUpService.js
 const { dbClient, openai } = require('./config');
 const { sendMessage } = require('./whatsappService');
 const { detectLanguage, translateMessage } = require('./multiLanguageService');
@@ -127,9 +127,9 @@ const generateSmartFollowUp = async (context, leadScore, followUpCount, language
         "Would you mind sharing what your budget range is? I might have alternatives."
       ],
       hi: [
-        "à¤®à¥ˆà¤‚ à¤¸à¤®à¤ à¤¸à¤•à¤¤à¤¾ à¤¹à¥‚à¤‚ à¤•à¤¿ à¤†à¤ªà¤•à¥€ à¤•à¥à¤› à¤šà¤¿à¤‚à¤¤à¤¾à¤à¤‚ à¤¹à¥‹ à¤¸à¤•à¤¤à¥€ à¤¹à¥ˆà¤‚à¥¤ à¤•à¥à¤¯à¤¾ à¤†à¤ª à¤¬à¤¤à¤¾ à¤¸à¤•à¤¤à¥‡ à¤¹à¥ˆà¤‚ à¤•à¤¿ à¤•à¥à¤¯à¤¾ à¤¸à¤®à¤¸à¥à¤¯à¤¾ à¤¹à¥ˆ?",
-        "à¤•à¥à¤¯à¤¾ à¤¹à¤®à¤¾à¤°à¥‡ à¤ªà¥à¤°à¥‹à¤¡à¤•à¥à¤Ÿ à¤®à¥‡à¤‚ à¤•à¥à¤› à¤à¤¸à¤¾ à¤¹à¥ˆ à¤œà¥‹ à¤†à¤ªà¤•à¥€ à¤œà¤°à¥‚à¤°à¤¤ à¤•à¥‡ à¤…à¤¨à¥à¤¸à¤¾à¤° à¤¨à¤¹à¥€à¤‚ à¤¹à¥ˆ?",
-        "à¤•à¥à¤¯à¤¾ à¤†à¤ª à¤…à¤ªà¤¨à¤¾ à¤¬à¤œà¤Ÿ à¤¬à¤¤à¤¾ à¤¸à¤•à¤¤à¥‡ à¤¹à¥ˆà¤‚? à¤¹à¥‹ à¤¸à¤•à¤¤à¤¾ à¤¹à¥ˆ à¤®à¥‡à¤°à¥‡ à¤ªà¤¾à¤¸ à¤•à¥‹à¤ˆ à¤”à¤° à¤µà¤¿à¤•à¤²à¥à¤ª à¤¹à¥‹à¥¤"
+        "मैं समझ सकता हूं कि आपकी कुछ चिंताएं हो सकती हैं। क्या आप बता सकते हैं कि क्या समस्या है?",
+        "क्या हमारे प्रोडक्ट में कुछ ऐसा है जो आपकी जरूरत के अनुसार नहीं है?",
+        "क्या आप अपना बजट बता सकते हैं? हो सकता है मेरे पास कोई और विकल्प हो।"
       ],
       hinglish: [
         "Main samajh sakta hun ki aapki kuch concerns ho sakti hain. Kya aap bata sakte hain ki kya problem hai?",
@@ -146,9 +146,9 @@ const generateSmartFollowUp = async (context, leadScore, followUpCount, language
         "Are you comparing with other products? I'd love to show you our value proposition."
       ],
       hi: [
-        "à¤®à¥ˆà¤‚ à¤¸à¤®à¤à¤¤à¤¾ à¤¹à¥‚à¤‚ à¤•à¤¿ à¤•à¥€à¤®à¤¤ à¤®à¤¹à¤¤à¥à¤µà¤ªà¥‚à¤°à¥à¤£ à¤¹à¥ˆà¥¤ à¤†à¤ªà¤•à¥‡ à¤²à¤¿à¤ à¤•à¥Œà¤¨ à¤¸à¥€ à¤°à¥‡à¤‚à¤œ à¤ à¥€à¤• à¤¹à¥‹à¤—à¥€?",
-        "à¤•à¥à¤¯à¤¾ à¤†à¤ª EMI à¤¯à¤¾ à¤…à¤²à¤— à¤ªà¥ˆà¤•à¥‡à¤œ à¤®à¥‡à¤‚ interested à¤¹à¥‹à¤‚à¤—à¥‡?",
-        "à¤•à¥à¤¯à¤¾ à¤†à¤ª à¤¦à¥‚à¤¸à¤°à¥‡ products à¤¸à¥‡ compare à¤•à¤° à¤°à¤¹à¥‡ à¤¹à¥ˆà¤‚? à¤®à¥ˆà¤‚ à¤†à¤ªà¤•à¥‹ à¤¹à¤®à¤¾à¤°à¤¾ value à¤¦à¤¿à¤–à¤¾à¤¨à¤¾ à¤šà¤¾à¤¹à¥‚à¤‚à¤—à¤¾à¥¤"
+        "मैं समझता हूं कि कीमत महत्वपूर्ण है। आपके लिए कौन सी रेंज ठीक होगी?",
+        "क्या आप EMI या अलग पैकेज में interested होंगे?",
+        "क्या आप दूसरे products से compare कर रहे हैं? मैं आपको हमारा value दिखाना चाहूंगा।"
       ],
       hinglish: [
         "Main samajhta hun ki price important hai. Aapke liye kaun si range comfortable hogi?",
@@ -165,9 +165,9 @@ const generateSmartFollowUp = async (context, leadScore, followUpCount, language
         "Would a demo help you see how our product addresses your needs?"
       ],
       hi: [
-        "à¤†à¤ªà¤•à¥‡ à¤²à¤¿à¤ à¤•à¥Œà¤¨ à¤¸à¥‡ features à¤¸à¤¬à¤¸à¥‡ à¤œà¤°à¥‚à¤°à¥€ à¤¹à¥ˆà¤‚?",
-        "à¤•à¥à¤¯à¤¾ à¤•à¥‹à¤ˆ à¤–à¤¾à¤¸ capabilities à¤šà¤¾à¤¹à¤¿à¤ à¤œà¤¿à¤¸à¤•à¥‡ à¤¬à¤¾à¤°à¥‡ à¤®à¥‡à¤‚ à¤¹à¤®à¤¨à¥‡ à¤¬à¤¾à¤¤ à¤¨à¤¹à¥€à¤‚ à¤•à¥€?",
-        "à¤•à¥à¤¯à¤¾ demo à¤¸à¥‡ à¤†à¤ªà¤•à¥‹ à¤¸à¤®à¤ à¤†à¤à¤—à¤¾ à¤•à¤¿ à¤¹à¤®à¤¾à¤°à¤¾ product à¤†à¤ªà¤•à¥€ à¤œà¤°à¥‚à¤°à¤¤à¥‹à¤‚ à¤•à¥‹ à¤•à¥ˆà¤¸à¥‡ à¤ªà¥‚à¤°à¤¾ à¤•à¤°à¤¤à¤¾ à¤¹à¥ˆ?"
+        "आपके लिए कौन से features सबसे जरूरी हैं?",
+        "क्या कोई खास capabilities चाहिए जिसके बारे में हमने बात नहीं की?",
+        "क्या demo से आपको समझ आएगा कि हमारा product आपकी जरूरतों को कैसे पूरा करता है?"
       ],
       hinglish: [
         "Aapke liye kaun se features sabse important hain?",
@@ -193,7 +193,7 @@ const getConversationHistory = async (phone) => {
   try {
     // Use dbClient to get conversation history with correct column name: end_user_phone
     const { data: messages, error } = await dbClient
-      .from('conversations')
+      .from('conversations_new')
       .select(`
         message_content, is_from_customer, created_at, message_type,
         messages (sender, message_body, created_at)
@@ -246,7 +246,7 @@ const saveFollowUpToDatabase = async (followUpData) => {
 const saveBasicFollowUp = async (followUpData) => {
   try {
     const { data, error } = await dbClient
-      .from('conversations')
+      .from('conversations_new')
       .update({
         follow_up_at: followUpData.scheduledFor,
         context_analysis: JSON.stringify(followUpData.context || {})
@@ -300,7 +300,7 @@ const processEnhancedFollowUps = async () => {
 const getConversationId = async (tenantId, endUserPhone) => {
   try {
     const { data, error } = await dbClient
-      .from('conversations')
+      .from('conversations_new')
       .select('id')
       .eq('tenant_id', tenantId)
       .eq('end_user_phone', endUserPhone) // Use correct column name
@@ -322,7 +322,7 @@ const sendDueFollowUpReminders = async () => {
     console.log('[FOLLOWUP] Starting enhanced follow-up processing...');
     
     const { data: conversations, error } = await dbClient
-      .from('conversations')
+      .from('conversations_new')
       .select('id, tenant_id, end_user_phone, lead_score, follow_up_count, last_follow_up_at, follow_up_at, context_analysis')
       .not('follow_up_at', 'is', null)
       .lte('follow_up_at', new Date().toISOString());
@@ -369,7 +369,7 @@ const sendDueFollowUpReminders = async () => {
         context = await analyzeConversationContext(conversationHistory);
         if (context) {
           await dbClient
-            .from('conversations')
+            .from('conversations_new')
             .update({ context_analysis: JSON.stringify(context) })
             .eq('id', conv.id);
         }
@@ -400,7 +400,7 @@ const sendDueFollowUpReminders = async () => {
 
       // Update conversation
       await dbClient
-        .from('conversations')
+        .from('conversations_new')
         .update({
           follow_up_count: follow_up_count + 1,
           last_follow_up_at: new Date().toISOString(),
@@ -409,7 +409,7 @@ const sendDueFollowUpReminders = async () => {
         .eq('id', conv.id);
 
       // Notify admin
-      const adminMessage = `ðŸ”„ Auto follow-up #${follow_up_count + 1} sent to ${conv.end_user_phone} (${lead_score} lead)\n\nMessage: "${followUpMessage}"`;
+      const adminMessage = `🔄 Auto follow-up #${follow_up_count + 1} sent to ${conv.end_user_phone} (${lead_score} lead)\n\nMessage: "${followUpMessage}"`;
       await sendMessage(tenant.owner_whatsapp_number, adminMessage);
 
       console.log(`[FOLLOWUP] Sent follow-up #${follow_up_count + 1} to ${conv.end_user_phone} (${lead_score})`);
@@ -427,7 +427,7 @@ const processFollowUpResponse = async (tenantId, endUserPhone, userMessage) => {
   // Detect negative responses
   const negativePatterns = {
     en: /not interested|don't want|no thanks|stop|remove me/i,
-    hi: /à¤¦à¤¿à¤²à¤šà¤¸à¥à¤ªà¥€ à¤¨à¤¹à¥€à¤‚|à¤¨à¤¹à¥€à¤‚ à¤šà¤¾à¤¹à¤¿à¤|à¤°à¥à¤•à¥‹|à¤¹à¤Ÿà¤¾ à¤¦à¥‹/i,
+    hi: /दिलचस्पी नहीं|नहीं चाहिए|रुको|हटा दो/i,
     hinglish: /interest nahi|nahi chahiye|band karo|remove kar do/i
   };
 
@@ -442,7 +442,7 @@ const processFollowUpResponse = async (tenantId, endUserPhone, userMessage) => {
     });
 
     await dbClient
-      .from('conversations')
+      .from('conversations_new')
       .update({ follow_up_at: null })
       .eq('tenant_id', tenantId)
       .eq('end_user_phone', endUserPhone);
@@ -457,17 +457,17 @@ const generateRegularFollowUp = async (leadScore, context, language) => {
   const templates = {
     Hot: {
       en: ["Hi! Are you ready to move forward with your order?", "Just checking - do you need any help completing your purchase?"],
-      hi: ["à¤¹à¤¾à¤¯! à¤•à¥à¤¯à¤¾ à¤†à¤ª à¤…à¤ªà¤¨à¤¾ à¤‘à¤°à¥à¤¡à¤° à¤•à¤°à¤¨à¥‡ à¤•à¥‡ à¤²à¤¿à¤ à¤¤à¥ˆà¤¯à¤¾à¤° à¤¹à¥ˆà¤‚?", "à¤¬à¤¸ à¤ªà¥‚à¤› à¤°à¤¹à¤¾ à¤¥à¤¾ - à¤•à¥à¤¯à¤¾ à¤†à¤ªà¤•à¥‹ à¤…à¤ªà¤¨à¥€ à¤–à¤°à¥€à¤¦à¤¾à¤°à¥€ à¤ªà¥‚à¤°à¥€ à¤•à¤°à¤¨à¥‡ à¤®à¥‡à¤‚ à¤•à¥‹à¤ˆ à¤®à¤¦à¤¦ à¤šà¤¾à¤¹à¤¿à¤?"],
+      hi: ["हाय! क्या आप अपना ऑर्डर करने के लिए तैयार हैं?", "बस पूछ रहा था - क्या आपको अपनी खरीदारी पूरी करने में कोई मदद चाहिए?"],
       hinglish: ["Hi! Kya aap apna order karne ke liye ready hain?", "Just checking - kya aapko apni purchase complete karne mein help chahiye?"]
     },
     Warm: {
       en: ["Hi! I wanted to follow up on our conversation. Do you have any questions?", "How are you thinking about our discussion? Any concerns I can address?"],
-      hi: ["à¤¨à¤®à¤¸à¥à¤¤à¥‡! à¤®à¥ˆà¤‚ à¤¹à¤®à¤¾à¤°à¥€ à¤¬à¤¾à¤¤à¤šà¥€à¤¤ à¤•à¥‡ à¤¬à¤¾à¤°à¥‡ à¤®à¥‡à¤‚ à¤ªà¥‚à¤›à¤¨à¤¾ à¤šà¤¾à¤¹à¤¤à¤¾ à¤¥à¤¾à¥¤ à¤•à¥à¤¯à¤¾ à¤•à¥‹à¤ˆ à¤¸à¤µà¤¾à¤² à¤¹à¥ˆ?", "à¤¹à¤®à¤¾à¤°à¥€ à¤šà¤°à¥à¤šà¤¾ à¤•à¥‡ à¤¬à¤¾à¤°à¥‡ à¤®à¥‡à¤‚ à¤†à¤ª à¤•à¥à¤¯à¤¾ à¤¸à¥‹à¤š à¤°à¤¹à¥‡ à¤¹à¥ˆà¤‚? à¤•à¥‹à¤ˆ à¤ªà¤°à¥‡à¤¶à¤¾à¤¨à¥€ à¤œà¤¿à¤¸à¤•à¤¾ à¤®à¥ˆà¤‚ à¤¸à¤®à¤¾à¤§à¤¾à¤¨ à¤•à¤° à¤¸à¤•à¥‚à¤‚?"],
+      hi: ["नमस्ते! मैं हमारी बातचीत के बारे में पूछना चाहता था। क्या कोई सवाल है?", "हमारी चर्चा के बारे में आप क्या सोच रहे हैं? कोई परेशानी जिसका मैं समाधान कर सकूं?"],
       hinglish: ["Hi! Main humari conversation ke baare mein follow up karna chahta tha. Koi questions hain?", "Humari discussion ke baare mein kya soch rahe hain? Koi concerns jo main address kar sakun?"]
     },
     Cold: {
       en: ["Hope you're doing well! Just wanted to see if you're still interested in learning more.", "Hi! Thought I'd check in. Is this still something you might be interested in?"],
-      hi: ["à¤‰à¤®à¥à¤®à¥€à¤¦ à¤¹à¥ˆ à¤†à¤ª à¤ à¥€à¤• à¤¹à¥‹à¤‚à¤—à¥‡! à¤¬à¤¸ à¤¦à¥‡à¤–à¤¨à¤¾ à¤šà¤¾à¤¹à¤¤à¤¾ à¤¥à¤¾ à¤•à¤¿ à¤•à¥à¤¯à¤¾ à¤†à¤ª à¤…à¤­à¥€ à¤­à¥€ à¤”à¤° à¤œà¤¾à¤¨à¤¨à¥‡ à¤®à¥‡à¤‚ à¤°à¥à¤šà¤¿ à¤°à¤–à¤¤à¥‡ à¤¹à¥ˆà¤‚à¥¤", "à¤¨à¤®à¤¸à¥à¤¤à¥‡! à¤¸à¥‹à¤šà¤¾ à¤¥à¤¾ à¤•à¤¿ à¤ªà¥‚à¤› à¤²à¥‚à¤‚à¥¤ à¤•à¥à¤¯à¤¾ à¤¯à¤¹ à¤…à¤­à¥€ à¤­à¥€ à¤•à¥à¤› à¤à¤¸à¤¾ à¤¹à¥ˆ à¤œà¤¿à¤¸à¤®à¥‡à¤‚ à¤†à¤ªà¤•à¥€ à¤°à¥à¤šà¤¿ à¤¹à¥‹ à¤¸à¤•à¤¤à¥€ à¤¹à¥ˆ?"],
+      hi: ["उम्मीद है आप ठीक होंगे! बस देखना चाहता था कि क्या आप अभी भी और जानने में रुचि रखते हैं।", "नमस्ते! सोचा था कि पूछ लूं। क्या यह अभी भी कुछ ऐसा है जिसमें आपकी रुचि हो सकती है?"],
       hinglish: ["Hope aap well hain! Just dekhna chahta tha ki kya aap abhi bhi more janne mein interested hain.", "Hi! Socha tha ki check kar lun. Kya yeh abhi bhi kuch aisa hai jismein aapki interest ho sakti hai?"]
     }
   };
@@ -515,3 +515,4 @@ module.exports = {
   getConversationId,
   cleanJsonResponse
 };
+

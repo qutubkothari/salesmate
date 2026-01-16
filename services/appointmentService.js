@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @title Appointment Booking Service
  * @description Manages the multi-step logic for booking appointments.
  */
@@ -32,7 +32,7 @@ const handleAppointmentBooking = async (tenant, conversation, userMessage) => {
             tempStorage.date = parsedDate.toISOString().split('T')[0]; // Store date as YYYY-MM-DD
 
             await dbClient
-                .from('conversations')
+                .from('conversations_new')
                 .update({
                     state: 'awaiting_appointment_time',
                     temp_storage: JSON.stringify(tempStorage)
@@ -64,7 +64,7 @@ const handleAppointmentBooking = async (tenant, conversation, userMessage) => {
                 .eq('conversation_id', conversation.id);
 
             await dbClient
-                .from('conversations')
+                .from('conversations_new')
                 .update({
                     state: 'awaiting_appointment_notes',
                     temp_storage: null // Clear temp storage
@@ -86,7 +86,7 @@ const handleAppointmentBooking = async (tenant, conversation, userMessage) => {
 
             // Clear the state to end the booking flow.
             await dbClient
-                .from('conversations')
+                .from('conversations_new')
                 .update({ state: null })
                 .eq('id', conversation.id);
 
@@ -97,7 +97,7 @@ const handleAppointmentBooking = async (tenant, conversation, userMessage) => {
             const { data: finalAppointment } = await dbClient.from('appointments').select('appointment_datetime').eq('conversation_id', conversation.id).single();
             const finalDateTime = new Date(finalAppointment.appointment_datetime).toLocaleString();
 
-            const tenantNotification = `ðŸ—“ï¸ *New Appointment Booked!*\n\nA new appointment has been booked with ${endUserPhone} for *${finalDateTime}*.`;
+            const tenantNotification = `🗓️ *New Appointment Booked!*\n\nA new appointment has been booked with ${endUserPhone} for *${finalDateTime}*.`;
             await sendMessage(tenant.phone_number, tenantNotification);
             break;
     }
@@ -125,7 +125,7 @@ const startAppointmentBooking = async (tenantId, endUserPhone) => {
 
     // Set the initial state for the conversation
     await dbClient
-        .from('conversations')
+        .from('conversations_new')
         .update({ state: 'awaiting_appointment_date' })
         .eq('id', conversationId);
 
@@ -138,4 +138,5 @@ module.exports = {
     handleAppointmentBooking,
     startAppointmentBooking,
 };
+
 

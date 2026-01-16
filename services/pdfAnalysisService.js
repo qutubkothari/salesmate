@@ -1,4 +1,4 @@
-﻿// services/pdfAnalysisService.js
+// services/pdfAnalysisService.js
 const { openai } = require('./config');
 const { dbClient } = require('./config');
 const fetch = require('node-fetch');
@@ -328,3 +328,4 @@ module.exports = {
     generatePDFResponse,
     analyzePDF
 };
+

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @title Quick Reply Service
  * @description Manages keyword-based quick replies for common, simple user interactions.
  */
@@ -119,4 +119,5 @@ module.exports = {
     deleteQuickReply,
     listQuickReplies,
 };
+
 

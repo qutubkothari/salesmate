@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @title AI Customer Segmentation Service
  * @description Manages the logic for creating custom segments and automatically assigning them to customers.
  */
@@ -193,4 +193,5 @@ module.exports = {
     segmentConversation,
     listConversationSegments,
 };
+
 

@@ -1,4 +1,4 @@
-﻿// services/customerProfileService.js
+// services/customerProfileService.js
 const { dbClient } = require('./config');
 const { normalizePhone, toWhatsAppFormat } = require('../utils/phoneUtils');
 
@@ -21,7 +21,7 @@ function normalizeCustomerRow(row) {
 async function searchCustomers(params) {
     const { tenantId, phone, name, minSpent, maxSpent, minOrderDate, maxOrderDate } = params;
     let query = dbClient
-        .from('customer_profiles')
+        .from('customer_profiles_new')
         .select('*')
         .eq('tenant_id', tenantId);
 
@@ -49,7 +49,7 @@ async function getCustomerByPhone(tenantId, rawPhone) {
     if (!tenantId || !normalizedPhone) return { customer: null, error: null };
 
     const { data, error } = await dbClient
-        .from('customer_profiles')
+        .from('customer_profiles_new')
         .select('*')
         .eq('tenant_id', tenantId)
         .eq(CUSTOMER_PHONE_COL, normalizedPhone)
@@ -89,7 +89,7 @@ async function upsertCustomerByPhone(tenantId, rawPhone, profileData) {
 
     if (existing && existing.id) {
         const { data, error } = await dbClient
-            .from('customer_profiles')
+            .from('customer_profiles_new')
             .update({ ...allowed, updated_at: now })
             .eq('tenant_id', tenantId)
             .eq('id', existing.id)
@@ -109,7 +109,7 @@ async function upsertCustomerByPhone(tenantId, rawPhone, profileData) {
     };
 
     const { data, error } = await dbClient
-        .from('customer_profiles')
+        .from('customer_profiles_new')
         .insert(insertPayload)
         .select('*')
         .single();
@@ -135,10 +135,10 @@ async function getCustomerProfile(tenantId, rawPhone) {
     });
     
     const { data: profile, error } = await dbClient
-        .from('customer_profiles')
+        .from('customer_profiles_new')
         .select('*')
         .eq('tenant_id', tenantId)
-        .eq(CUSTOMER_PHONE_COL, normalizedPhone)  // âœ… Use normalized phone
+        .eq(CUSTOMER_PHONE_COL, normalizedPhone)  // ✅ Use normalized phone
         .maybeSingle();
     
     if (error && error.code !== 'PGRST116') {
@@ -167,9 +167,9 @@ async function upsertCustomerProfile(tenantId, rawPhone, profileData) {
     });
     
     // dbClient has upsert; local SQLite wrapper does not.
-    if (!USE_LOCAL_DB && typeof dbClient.from('customer_profiles').upsert === 'function') {
+    if (!USE_LOCAL_DB && typeof dbClient.from('customer_profiles_new').upsert === 'function') {
         const { data, error } = await dbClient
-            .from('customer_profiles')
+            .from('customer_profiles_new')
             .upsert({
                 tenant_id: tenantId,
                 [CUSTOMER_PHONE_COL]: normalizedPhone,
@@ -210,7 +210,7 @@ const syncCustomerProfile = async (tenantId, phoneNumber, whatsappProfile = null
 
         // Get existing conversation
         const { data: conversation, error: convErr } = await dbClient
-            .from('conversations')
+            .from('conversations_new')
             .select('id, customer_name, customer_name_updated_at')
             .eq('tenant_id', tenantId)
             .eq('end_user_phone', phoneNumber)
@@ -231,7 +231,7 @@ const syncCustomerProfile = async (tenantId, phoneNumber, whatsappProfile = null
                 updated_at: new Date().toISOString()
             };
             const { data: profile, error } = await dbClient
-                .from('customer_profiles')
+                .from('customer_profiles_new')
                 .upsert(profileData, { onConflict: 'tenant_id,phone' })
                 .select()
                 .single();
@@ -245,7 +245,7 @@ const syncCustomerProfile = async (tenantId, phoneNumber, whatsappProfile = null
         // Conversation exists - ensure customer_profiles record exists too
         const whatsappPhone = toWhatsAppFormat(phoneNumber);
         const { data: existingProfile, error: profileCheckError } = await dbClient
-            .from('customer_profiles')
+            .from('customer_profiles_new')
             .select('id')
             .eq('tenant_id', tenantId)
             .eq('phone', whatsappPhone)
@@ -260,7 +260,7 @@ const syncCustomerProfile = async (tenantId, phoneNumber, whatsappProfile = null
                 updated_at: new Date().toISOString()
             };
             const { error: createError } = await dbClient
-                .from('customer_profiles')
+                .from('customer_profiles_new')
                 .insert(profileData);
             
             if (createError) {
@@ -296,7 +296,7 @@ const syncCustomerProfile = async (tenantId, phoneNumber, whatsappProfile = null
 
         // Update customer name
         const { data: updated, error } = await dbClient
-            .from('conversations')
+            .from('conversations_new')
             .update({
                 customer_name: newName,
                 customer_name_updated_at: new Date().toISOString(),
@@ -465,7 +465,7 @@ const batchSyncCustomerProfiles = async (tenantId, batchSize = 10) => {
         // Get conversations that need profile updates
         // Priority: conversations without names or old updates
         const { data: conversations, error } = await dbClient
-            .from('conversations')
+            .from('conversations_new')
             .select('id, end_user_phone, customer_name, customer_name_updated_at')
             .eq('tenant_id', tenantId)
             .or(`customer_name.is.null,customer_name_updated_at.lt.${new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()}`)
@@ -534,7 +534,7 @@ const cleanupCustomerNames = async (tenantId) => {
 
         // Find conversations with potentially invalid names
         const { data: conversations, error } = await dbClient
-            .from('conversations')
+            .from('conversations_new')
             .select('id, customer_name')
             .eq('tenant_id', tenantId)
             .not('customer_name', 'is', null);
@@ -554,7 +554,7 @@ const cleanupCustomerNames = async (tenantId) => {
                 
                 if (cleanedName !== name) {
                     const { error: updateError } = await dbClient
-                        .from('conversations')
+                        .from('conversations_new')
                         .update({ 
                             customer_name: cleanedName,
                             customer_name_updated_at: new Date().toISOString()
@@ -624,7 +624,7 @@ module.exports = {
     fetchWhatsAppProfile,
     extractNameFromProfile,
     getCustomerProfile,
-    upsertCustomerProfile,  // âœ… Export new function
+    upsertCustomerProfile,  // ✅ Export new function
     getCustomerByPhone,
     upsertCustomerByPhone,
     batchSyncCustomerProfiles,
@@ -632,4 +632,5 @@ module.exports = {
     shouldUpdateCustomerName,
     searchCustomers
 };
+
 

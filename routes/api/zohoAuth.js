@@ -1,4 +1,4 @@
-﻿// routes/api/zohoAuth.js - Tenant-Based Zoho Authorization Routes
+// routes/api/zohoAuth.js - Tenant-Based Zoho Authorization Routes
 const express = require('express');
 const router = express.Router();
 const zohoTenantAuth = require('../../services/zohoTenantAuthService');
@@ -123,7 +123,7 @@ router.get('/callback', async (req, res) => {
                         </style>
                     </head>
                     <body>
-                        <h1 class="success">âœ… Zoho Authorization Successful!</h1>
+                        <h1 class="success">✅ Zoho Authorization Successful!</h1>
                         <div class="info">
                             <h3>Authorization Details:</h3>
                             <p><strong>Organization:</strong> ${result.organizationName}</p>
@@ -333,7 +333,7 @@ router.get('/whatsapp-command/:tenantId', async (req, res) => {
         const redirectUri = `${req.protocol}://${req.get('host')}/api/zoho-auth/callback`;
         const authResult = zohoTenantAuth.generateAuthorizationURL(tenantId, redirectUri);
         
-        const whatsappMessage = `ðŸ” *Zoho Books Authorization Required*
+        const whatsappMessage = `🔐 *Zoho Books Authorization Required*
 
 Hi ${tenant.business_name}! To enable invoice generation and sales order management, please authorize your Zoho Books account.
 
@@ -341,11 +341,11 @@ Hi ${tenant.business_name}! To enable invoice generation and sales order managem
 ${authResult.authUrl}
 
 *What this enables:*
-âœ… Automatic invoice generation
-âœ… Sales order creation
-âœ… Customer sync with Zoho Books
-âœ… Product price synchronization
-âœ… PDF delivery to customers
+✅ Automatic invoice generation
+✅ Sales order creation
+✅ Customer sync with Zoho Books
+✅ Product price synchronization
+✅ PDF delivery to customers
 
 *Security Note:*
 - This link is secure and specific to your account
@@ -372,3 +372,4 @@ After authorization, your WhatsApp sales bot will be fully integrated with Zoho 
 });
 
 module.exports = router;
+

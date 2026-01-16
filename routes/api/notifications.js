@@ -105,3 +105,4 @@ router.post('/:tenantId/read-all', requireTenantAuth(), async (req, res) => {
 });
 
 module.exports = router;
+

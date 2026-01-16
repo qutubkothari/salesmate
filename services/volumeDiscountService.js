@@ -1,4 +1,4 @@
-﻿const { dbClient } = require('./config');
+const { dbClient } = require('./config');
 
 /**
  * Volume-based discount tiers
@@ -82,19 +82,19 @@ function formatDiscountMessage(discountInfo, totalCartons) {
     const { slab, discountPercent, discountAmount, subtotal, finalAmount } = discountInfo;
     
     if (discountPercent === 0) {
-        return `ðŸ“¦ Volume: ${totalCartons} cartons (no bulk discount for 1-10 cartons)`;
+        return `📦 Volume: ${totalCartons} cartons (no bulk discount for 1-10 cartons)`;
     }
     
-    let message = `\nðŸ’° Volume Discount Applied!\n`;
-    message += `â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”\n`;
-    message += `ðŸ“¦ Total Cartons: ${totalCartons}\n`;
-    message += `ðŸŽ¯ Discount Slab: ${slab.minQty}-${slab.maxQty} cartons\n`;
-    message += `ðŸ’µ Discount Range: ${slab.minDiscount}% - ${slab.maxDiscount}%\n`;
-    message += `âœ¨ Your Discount: ${discountPercent}%\n\n`;
-    message += `ðŸ’¸ Subtotal: â‚¹${subtotal.toFixed(2)}\n`;
-    message += `ðŸŽ Discount: -â‚¹${discountAmount.toFixed(2)}\n`;
-    message += `â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”\n`;
-    message += `ðŸ’° Final Amount: â‚¹${finalAmount.toFixed(2)}`;
+    let message = `\n💰 Volume Discount Applied!\n`;
+    message += `━━━━━━━━━━━━━━━━━\n`;
+    message += `📦 Total Cartons: ${totalCartons}\n`;
+    message += `🎯 Discount Slab: ${slab.minQty}-${slab.maxQty} cartons\n`;
+    message += `💵 Discount Range: ${slab.minDiscount}% - ${slab.maxDiscount}%\n`;
+    message += `✨ Your Discount: ${discountPercent}%\n\n`;
+    message += `💸 Subtotal: ₹${subtotal.toFixed(2)}\n`;
+    message += `🎁 Discount: -₹${discountAmount.toFixed(2)}\n`;
+    message += `━━━━━━━━━━━━━━━━━\n`;
+    message += `💰 Final Amount: ₹${finalAmount.toFixed(2)}`;
     
     return message;
 }
@@ -114,7 +114,7 @@ function getNextTierMessage(currentCartons) {
         const nextSlab = DISCOUNT_SLABS[currentIndex + 1];
         const cartonsNeeded = nextSlab.minQty - currentCartons;
         
-        return `\nðŸ’¡ Tip: Order ${cartonsNeeded} more carton${cartonsNeeded > 1 ? 's' : ''} to get ${nextSlab.minDiscount}%-${nextSlab.maxDiscount}% discount!`;
+        return `\n💡 Tip: Order ${cartonsNeeded} more carton${cartonsNeeded > 1 ? 's' : ''} to get ${nextSlab.minDiscount}%-${nextSlab.maxDiscount}% discount!`;
     }
     
     return ''; // Already at highest tier
@@ -163,18 +163,18 @@ function formatPriceWithPotentialDiscount(product, quantity, unit = 'cartons') {
     const discountInfo = calculateDiscount(subtotal, cartons);
     const slab = discountInfo.slab;
     
-    let message = `ðŸ“¦ ${product.name}\n\n`;
-    message += `ðŸ’° Price: â‚¹${price.toFixed(2)}/${unit === 'pieces' ? 'pc' : 'carton'}\n`;
-    message += `ðŸ“Š Quantity: ${quantity} ${unit}\n`;
-    message += `ðŸ’µ Subtotal: â‚¹${subtotal.toFixed(2)}\n`;
+    let message = `📦 ${product.name}\n\n`;
+    message += `💰 Price: ₹${price.toFixed(2)}/${unit === 'pieces' ? 'pc' : 'carton'}\n`;
+    message += `📊 Quantity: ${quantity} ${unit}\n`;
+    message += `💵 Subtotal: ₹${subtotal.toFixed(2)}\n`;
     
     if (discountInfo.discountPercent > 0) {
-        message += `\nðŸŽ Bulk Discount: ${discountInfo.discountPercent}%\n`;
-        message += `ðŸ’¸ Discount: -â‚¹${discountInfo.discountAmount.toFixed(2)}\n`;
-        message += `â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”\n`;
-        message += `âœ¨ Final Price: â‚¹${discountInfo.finalAmount.toFixed(2)}`;
+        message += `\n🎁 Bulk Discount: ${discountInfo.discountPercent}%\n`;
+        message += `💸 Discount: -₹${discountInfo.discountAmount.toFixed(2)}\n`;
+        message += `━━━━━━━━━━━━━━━━━\n`;
+        message += `✨ Final Price: ₹${discountInfo.finalAmount.toFixed(2)}`;
     } else {
-        message += `\nðŸ“ Current Slab: ${slab.minQty}-${slab.maxQty} cartons (${slab.minDiscount}%-${slab.maxDiscount}% discount)`;
+        message += `\n📍 Current Slab: ${slab.minQty}-${slab.maxQty} cartons (${slab.minDiscount}%-${slab.maxDiscount}% discount)`;
         message += getNextTierMessage(cartons);
     }
     
@@ -248,4 +248,5 @@ module.exports = {
     loadDiscountConfig,
     DISCOUNT_SLABS
 };
+
 

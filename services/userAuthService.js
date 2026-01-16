@@ -471,3 +471,4 @@ module.exports = {
   sanitizeUser,
   cleanupExpiredSessions
 };
+

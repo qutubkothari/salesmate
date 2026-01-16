@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @title Platform Analytics Service
  * @description Manages the logic for generating a high-level analytics dashboard for the platform administrator.
  */
@@ -25,7 +25,7 @@ const getPlatformDashboard = async () => {
             dbClient.from('tenants').select('*', { count: 'exact', head: true }),
             dbClient.from('tenants').select('*', { count: 'exact', head: true }).eq('subscription_status', 'active'),
             dbClient.from('tenants').select('*', { count: 'exact', head: true }).gt('created_at', sevenDaysAgo),
-            dbClient.from('orders').select('total_amount'),
+            dbClient.from('orders_new').select('total_amount'),
             dbClient.from('support_tickets').select('*', { count: 'exact', head: true }).eq('status', 'open')
         ]);
 
@@ -34,7 +34,7 @@ const getPlatformDashboard = async () => {
         const totalOrders = totalOrdersData.length;
 
         // Format the report
-        let report = `ðŸš€ *Platform Analytics Dashboard*\n\n`;
+        let report = `🚀 *Platform Analytics Dashboard*\n\n`;
         report += `*--- Tenants ---*\n`;
         report += `- Total Registered Tenants: *${totalTenants}*\n`;
         report += `- Active Subscriptions: *${activeSubscriptions}*\n`;
@@ -58,4 +58,5 @@ const getPlatformDashboard = async () => {
 module.exports = {
     getPlatformDashboard,
 };
+
 

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Dashboard API Routes for Website Content Management
  * Handles crawling, embedding, and searching website content
  */
@@ -457,4 +457,5 @@ router.get('/website-content/product/:tenantId/:productCode', async (req, res) =
 });
 
 module.exports = router;
+
 

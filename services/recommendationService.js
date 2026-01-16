@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @title AI Product Recommendation Service
  * @description Manages the logic for providing AI-powered product recommendations based on user queries.
  */
@@ -41,4 +41,5 @@ const getProductRecommendations = async (tenantId, userQuery) => {
 module.exports = {
     getProductRecommendations,
 };
+
 

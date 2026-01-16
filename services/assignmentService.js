@@ -376,3 +376,4 @@ module.exports = {
   assignSkillsBased,
   assignGeographic
 };
+

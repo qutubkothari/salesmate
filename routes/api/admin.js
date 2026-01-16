@@ -1,4 +1,4 @@
-﻿// routes/api/admin.js
+// routes/api/admin.js
 const express = require('express');
 const router = express.Router();
 const { dbClient } = require('../../services/config');
@@ -109,7 +109,7 @@ router.post('/reprocess-message/:messageId', isAdminGuard, async (req, res) => {
     }
 
     if (!resolvedProcessFn || typeof resolvedProcessFn.fn !== 'function') {
-      // No processing fn found â€” give operator actionable info
+      // No processing fn found — give operator actionable info
       logger.warn('[admin.reprocess] no processing function found. Searched candidates.');
       return res.status(500).json({
         success: false,
@@ -163,19 +163,19 @@ router.get('/zoho/sync-stats', async (req, res) => {
     const { dbClient } = require('../../services/config');
         
     const { count: pendingOrders } = await dbClient
-      .from('orders')
+      .from('orders_new')
       .select('id', { count: 'exact', head: true })
       .eq('tenant_id', tenantId)
       .eq('zoho_sync_status', 'pending');
             
     const { count: syncedOrders } = await dbClient
-      .from('orders')
+      .from('orders_new')
       .select('id', { count: 'exact', head: true })
       .eq('tenant_id', tenantId)
       .eq('zoho_sync_status', 'synced');
             
     const { count: failedOrders } = await dbClient
-      .from('orders')
+      .from('orders_new')
       .select('id', { count: 'exact', head: true })
       .eq('tenant_id', tenantId)
       .eq('zoho_sync_status', 'failed');
@@ -202,7 +202,7 @@ router.post('/zoho/retry-failed-syncs', async (req, res) => {
     const { processOrderToZoho } = require('../../services/zohoSalesOrderService');
         
     const { data: failedOrders } = await dbClient
-      .from('orders')
+      .from('orders_new')
       .select('id')
       .eq('tenant_id', tenantId)
       .eq('zoho_sync_status', 'failed')
@@ -231,4 +231,5 @@ router.post('/zoho/retry-failed-syncs', async (req, res) => {
 });
 
 module.exports = router;
+
 

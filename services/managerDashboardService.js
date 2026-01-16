@@ -37,7 +37,7 @@ class ManagerDashboardService {
 
       // 3. Get today's orders
       const { data: orders } = await dbClient
-        .from('orders')
+        .from('orders_new')
         .select('salesman_id, status, actual_amount, created_at')
         .eq('tenant_id', tenantId)
         .like('created_at', `${today}%`);
@@ -184,7 +184,7 @@ class ManagerDashboardService {
 
       // Get orders over period
       const { data: orders } = await dbClient
-        .from('orders')
+        .from('orders_new')
         .select('salesman_id, status, actual_amount, created_at')
         .eq('tenant_id', tenantId)
         .gte('created_at', startStr)
@@ -302,7 +302,7 @@ class ManagerDashboardService {
 
       // Get orders this month
       const { data: orders } = await dbClient
-        .from('orders')
+        .from('orders_new')
         .select('*')
         .eq('tenant_id', tenantId)
         .eq('salesman_id', salesmanId)
@@ -519,3 +519,4 @@ class ManagerDashboardService {
 }
 
 module.exports = new ManagerDashboardService();
+

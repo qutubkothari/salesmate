@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @title Subscription Tier Service
  * @description Manages feature access and permissions based on a tenant's subscription tier.
  */
@@ -72,4 +72,5 @@ const hasTierAccess = async (tenantId, featureName) => {
 module.exports = {
     hasTierAccess,
 };
+
 

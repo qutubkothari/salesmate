@@ -1,10 +1,10 @@
-﻿/**
+/**
  * Desktop Agent Bridge Service
  * 
  * This service routes broadcast requests from the dashboard to the local desktop agent
  * instead of using Maytapi (paid service).
  * 
- * Flow: Dashboard â†’ Cloud Server â†’ Desktop Agent â†’ WhatsApp Web (FREE!)
+ * Flow: Dashboard → Cloud Server → Desktop Agent → WhatsApp Web (FREE!)
  */
 
 const axios = require('axios');
@@ -115,7 +115,7 @@ async function sendViaDesktopAgent(tenantId, broadcastData) {
         });
 
         if (response.data.ok) {
-            console.log(`[DESKTOP_AGENT_BRIDGE] âœ… Success: ${response.data.totalSent} sent, ${response.data.totalFailed} failed`);
+            console.log(`[DESKTOP_AGENT_BRIDGE] ✅ Success: ${response.data.totalSent} sent, ${response.data.totalFailed} failed`);
             return {
                 success: true,
                 totalSent: response.data.totalSent,
@@ -130,7 +130,7 @@ async function sendViaDesktopAgent(tenantId, broadcastData) {
         }
 
     } catch (error) {
-        console.error('[DESKTOP_AGENT_BRIDGE] âŒ Error:', error.message);
+        console.error('[DESKTOP_AGENT_BRIDGE] ❌ Error:', error.message);
         
         // If desktop agent is not reachable, return error with helpful message
         if (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT') {
@@ -183,4 +183,5 @@ module.exports = {
     sendViaDesktopAgent,
     isDesktopAgentOnline
 };
+
 

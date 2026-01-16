@@ -1,4 +1,4 @@
-﻿// services/followUpSchedulerService.js
+// services/followUpSchedulerService.js
 const { dbClient } = require('./config');
 const { sendMessage } = require('./whatsappService');
 const { sendWebMessage, getClientStatus } = require('./whatsappWebService');
@@ -287,15 +287,15 @@ const generateFollowUpConfirmation = (followUpData, userLanguage = 'english') =>
     });
     
     if (userLanguage === 'hinglish') {
-        return `âœ… **Follow-up scheduled!**\n\n` +
+        return `✅ **Follow-up scheduled!**\n\n` +
                `Main aapko **${scheduledDate}** ko **${scheduledTimeStr}** par contact karunga.\n\n` +
                `${description}\n\n` +
-               `Agar aapko koi urgent help chahiye toh message kar sakte hain. Thank you! ðŸ™`;
+               `Agar aapko koi urgent help chahiye toh message kar sakte hain. Thank you! 🙏`;
     } else {
-        return `âœ… **Follow-up scheduled!**\n\n` +
+        return `✅ **Follow-up scheduled!**\n\n` +
                `I'll contact you on **${scheduledDate}** at **${scheduledTimeStr}**.\n\n` +
                `${description}\n\n` +
-               `If you need any urgent help before then, feel free to message anytime. Thank you! ðŸ™`;
+               `If you need any urgent help before then, feel free to message anytime. Thank you! 🙏`;
     }
 };
 
@@ -335,7 +335,7 @@ const handleFollowUpRequest = async (tenantId, endUserPhone, userQuery, userLang
         // Fetch recent conversation data for context
         try {
             const { data: conversation } = await dbClient
-                .from('conversations')
+                .from('conversations_new')
                 .select('last_quoted_products, last_product_discussed, state, metadata')
                 .eq('tenant_id', tenantId)
                 .eq('end_user_phone', endUserPhone)
@@ -500,7 +500,7 @@ const processIndividualFollowUp = async (followUp, options = {}) => {
         console.log('[FOLLOWUP_PROCESS_INDIVIDUAL] Processing:', followUp.id);
         
         // Generate context-aware follow-up message
-        let followUpMessage = `ðŸ‘‹ Hi! This is your scheduled follow-up.\n\n`;
+        let followUpMessage = `👋 Hi! This is your scheduled follow-up.\n\n`;
         
         // Parse conversation context
         const context = followUp.conversation_context || {};
@@ -521,9 +521,9 @@ const processIndividualFollowUp = async (followUp, options = {}) => {
                 if (price) {
                     const unitsPerCarton = product.unitsPerCarton || product.units_per_carton || 1;
                     const pricePerPiece = (price / unitsPerCarton).toFixed(2);
-                    followUpMessage += `â€¢ ${productCode} - ${quantity} carton${quantity > 1 ? 's' : ''} @ â‚¹${pricePerPiece}/pc\n`;
+                    followUpMessage += `• ${productCode} - ${quantity} carton${quantity > 1 ? 's' : ''} @ ₹${pricePerPiece}/pc\n`;
                 } else {
-                    followUpMessage += `â€¢ ${productCode || productName}\n`;
+                    followUpMessage += `• ${productCode || productName}\n`;
                 }
             }
             
@@ -540,7 +540,7 @@ const processIndividualFollowUp = async (followUp, options = {}) => {
             followUpMessage += `Following up on your cart:\n\n`;
             
             for (const item of items) {
-                followUpMessage += `â€¢ ${item.product_code} - ${item.quantity} carton${item.quantity > 1 ? 's' : ''}\n`;
+                followUpMessage += `• ${item.product_code} - ${item.quantity} carton${item.quantity > 1 ? 's' : ''}\n`;
             }
             
             if (context.cart_items.length > 3) {
@@ -551,7 +551,7 @@ const processIndividualFollowUp = async (followUp, options = {}) => {
         
         // Add discount context
         if (context.approved_discount) {
-            followUpMessage += `Reminder: You have ${context.approved_discount}% discount approved! âœ…\n\n`;
+            followUpMessage += `Reminder: You have ${context.approved_discount}% discount approved! ✅\n\n`;
             hasContext = true;
         }
         
@@ -566,7 +566,7 @@ const processIndividualFollowUp = async (followUp, options = {}) => {
         
         // Generic ending
         if (hasContext) {
-            followUpMessage += `Would you like to proceed? Let me know how I can help! ðŸ˜Š`;
+            followUpMessage += `Would you like to proceed? Let me know how I can help! 😊`;
         } else {
             // Fallback for no context
             followUpMessage += `${followUp.description}\n\nHow can I help you today?`;
@@ -713,7 +713,7 @@ if (!followResult.ok) {
 } else {
   const row = Array.isArray(followResult.data) ? followResult.data[0] : (followResult.data && followResult.data[0]) ;
   const due = row?.due_at || (followResult.data && followResult.data.due_at) || 'the scheduled time';
-  await sendMessage(from, `Okay â€” I'll remind you at ${due}.`);
+  await sendMessage(from, `Okay — I'll remind you at ${due}.`);
 }
 */
 
@@ -726,3 +726,4 @@ module.exports = {
     processIndividualFollowUp,
     parseAndScheduleFollowUp
 };
+

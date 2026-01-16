@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @title AI Survey Service
  * @description Manages all logic for creating, deploying, and analyzing AI-powered surveys.
  */
@@ -156,21 +156,21 @@ const handleSurveyFlow = async (tenant, conversation, userMessage) => {
 
     if (nextQuestion) {
         // 3. Ask the next question
-        await dbClient.from('conversations').update({
+        await dbClient.from('conversations_new').update({
             temp_storage: JSON.stringify({ surveyId, currentQuestionId: nextQuestion.id, currentSequence: nextSequence })
         }).eq('id', conversationId);
         await sendMessage(end_user_phone, nextQuestion.question_text);
         await logMessage(tenant.id, end_user_phone, 'bot', nextQuestion.question_text, 'survey_question');
     } else {
         // 4. End of survey
-        await dbClient.from('conversations').update({ state: null, temp_storage: null }).eq('id', conversationId);
+        await dbClient.from('conversations_new').update({ state: null, temp_storage: null }).eq('id', conversationId);
         await dbClient.from('survey_deployments').update({ status: 'completed' }).eq('survey_id', surveyId).eq('end_user_phone', end_user_phone);
         
         const endMessage = "Thank you for completing our survey!";
         await sendMessage(end_user_phone, endMessage);
         await logMessage(tenant.id, end_user_phone, 'bot', endMessage, 'survey_end');
 
-        const tenantNotification = `ðŸ“‹ *Survey Completed!*\n\n The user at ${end_user_phone} has completed your survey.`;
+        const tenantNotification = `📋 *Survey Completed!*\n\n The user at ${end_user_phone} has completed your survey.`;
         await sendMessage(tenant.phone_number, tenantNotification);
     }
 };
@@ -200,7 +200,7 @@ const processSurveyDeployments = async () => {
 
             if (firstQuestion) {
                 const conversationId = await getConversationId(deployment.survey.tenant_id, deployment.end_user_phone);
-                await dbClient.from('conversations').update({
+                await dbClient.from('conversations_new').update({
                     state: 'awaiting_survey_response',
                     temp_storage: JSON.stringify({
                         surveyId: deployment.survey_id,
@@ -242,7 +242,7 @@ const getSurveyReport = async (tenantId, surveyName) => {
         if (surveyError || !survey) return `Could not find a survey named "${surveyName}".`;
         if (survey.responses.length === 0) return `Survey "${surveyName}" has no responses yet.`;
         
-        let report = `ðŸ“Š *Survey Report: ${survey.survey_name}*\n\n`;
+        let report = `📊 *Survey Report: ${survey.survey_name}*\n\n`;
         
         survey.questions.sort((a, b) => a.sequence_order - b.sequence_order);
 
@@ -277,5 +277,6 @@ module.exports = {
     processSurveyDeployments,
     getSurveyReport,
 };
+
 
 

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @title Human Handover Service
  * @description Handles detecting user requests for human assistance and notifying tenants.
  */
@@ -50,7 +50,7 @@ const flagAndNotifyForHandover = async (tenant, endUserPhone) => {
     try {
         // 1. Update the conversation in the database
         const { error } = await dbClient
-            .from('conversations')
+            .from('conversations_new')
             .update({ requires_human_attention: true })
             .eq('tenant_id', tenant.id)
             .eq('end_user_phone', endUserPhone);
@@ -58,7 +58,7 @@ const flagAndNotifyForHandover = async (tenant, endUserPhone) => {
         if (error) throw error;
 
         // 2. Send a notification to the tenant
-        const notificationMessage = `ðŸ”” *Attention Required!* ðŸ””\n\nThe customer at ${endUserPhone} has requested to speak with a human. Please review the conversation and respond to them directly.`;
+        const notificationMessage = `🔔 *Attention Required!* 🔔\n\nThe customer at ${endUserPhone} has requested to speak with a human. Please review the conversation and respond to them directly.`;
         await sendMessage(tenant.phone_number, notificationMessage);
 
         // 3. Auto-create triage item
@@ -89,4 +89,5 @@ module.exports = {
     isHandoverRequest,
     flagAndNotifyForHandover,
 };
+
 

@@ -1,4 +1,4 @@
-﻿// =============================================
+// =============================================
 // FILE: services/aiDiscountUnderstanding.js
 // NEW FILE - AI-powered discount detection (NO REGEX)
 // =============================================
@@ -38,11 +38,11 @@ Respond with JSON only:
 }
 
 Examples:
-- "give me discount for 8x80 100 ctns" â†’ isDiscountRequest: true, discountType: "initial_request"
-- "price for 8x80" â†’ isDiscountRequest: false (pure price inquiry)
-- "thoda aur kam karo" â†’ isDiscountRequest: true, discountType: "asking_for_more"
-- "yes go ahead" â†’ isDiscountRequest: false (order confirmation)
-- "2.50 per piece chalega" â†’ isDiscountRequest: true, discountType: "counter_offer"`;
+- "give me discount for 8x80 100 ctns" → isDiscountRequest: true, discountType: "initial_request"
+- "price for 8x80" → isDiscountRequest: false (pure price inquiry)
+- "thoda aur kam karo" → isDiscountRequest: true, discountType: "asking_for_more"
+- "yes go ahead" → isDiscountRequest: false (order confirmation)
+- "2.50 per piece chalega" → isDiscountRequest: true, discountType: "counter_offer"`;
 
         const response = await openai.chat.completions.create({
             model: 'gpt-4o-mini',
@@ -165,10 +165,10 @@ Respond with JSON only:
 }
 
 Examples:
-- "give me discount for 8x80 100 ctns" â†’ products: [{productCode: "8x80", quantity: 100, unit: "cartons"}]
-- "8x80 aur 10x100 ka price with discount" â†’ products: [{productCode: "8x80", ...}, {productCode: "10x100", ...}]
-- "thoda aur kam karo" â†’ products: [], discountRequest: {type: "more", value: null}
-- "5% discount dena" â†’ discountRequest: {type: "percentage", value: 5}`;
+- "give me discount for 8x80 100 ctns" → products: [{productCode: "8x80", quantity: 100, unit: "cartons"}]
+- "8x80 aur 10x100 ka price with discount" → products: [{productCode: "8x80", ...}, {productCode: "10x100", ...}]
+- "thoda aur kam karo" → products: [], discountRequest: {type: "more", value: null}
+- "5% discount dena" → discountRequest: {type: "percentage", value: 5}`;
 
         const response = await openai.chat.completions.create({
             model: 'gpt-4o-mini',
@@ -246,18 +246,18 @@ Customer said: "${customerMessage}"
 Context:
 - Customer type: ${isReturningCustomer ? 'Returning customer (already has special pricing)' : 'New customer'}
 - Order size: ${totalCartons} cartons
-- Products: ${products.map(p => `${p.productCode || p.productName} (${p.quantity} ctns @ â‚¹${p.discountedPrice || p.price}/carton = â‚¹${p.pricePerPiece}/piece)`).join(', ')}
+- Products: ${products.map(p => `${p.productCode || p.productName} (${p.quantity} ctns @ ₹${p.discountedPrice || p.price}/carton = ₹${p.pricePerPiece}/piece)`).join(', ')}
 - Max discount you can offer: ${maxDiscount}%
 - Already offered: ${offeredDiscount}%
 ${requestedDiscount ? `- Customer wants: ${requestedDiscount}%` : ''}
 
 Generate response that:
 1. Is friendly and conversational (not robotic)
-2. Uses emojis naturally (ðŸ’°, ðŸ˜Š, âœ…, ðŸ‘)
+2. Uses emojis naturally (💰, 😊, ✅, 👍)
 3. Matches customer's tone (formal/casual)
 4. Can use Hindi/Hinglish if customer used it
 5. IMPORTANT: Use the ACTUAL prices provided above - DO NOT use placeholders like [price_per_piece]
-6. Show specific prices: "â‚¹${products[0]?.pricePerPiece}/piece" or "â‚¹${products[0]?.discountedPrice}/carton"
+6. Show specific prices: "₹${products[0]?.pricePerPiece}/piece" or "₹${products[0]?.discountedPrice}/carton"
 7. Asks for confirmation naturally
 
 Rules:
@@ -290,7 +290,7 @@ Respond with JSON:
         if (!jsonMatch) {
             // Fallback response
             return {
-                message: `I can offer ${offeredDiscount || maxDiscount}% discount for ${totalCartons} cartons. Does that work for you? ðŸ˜Š`,
+                message: `I can offer ${offeredDiscount || maxDiscount}% discount for ${totalCartons} cartons. Does that work for you? 😊`,
                 tone: 'friendly',
                 shouldEscalate: false
             };
@@ -303,7 +303,7 @@ Respond with JSON:
         } catch (parseError) {
             console.error('[AI_RESPONSE] JSON parse error:', parseError.message);
             return {
-                message: `I can offer ${offeredDiscount || maxDiscount}% discount for ${totalCartons} cartons. Does that work for you? ðŸ˜Š`,
+                message: `I can offer ${offeredDiscount || maxDiscount}% discount for ${totalCartons} cartons. Does that work for you? 😊`,
                 tone: 'friendly',
                 shouldEscalate: false
             };
@@ -312,7 +312,7 @@ Respond with JSON:
     } catch (error) {
         console.error('[AI_RESPONSE] Error:', error.message);
         return {
-            message: `I can help with a discount! Let me check what I can offer for your order. ðŸ˜Š`,
+            message: `I can help with a discount! Let me check what I can offer for your order. 😊`,
             tone: 'friendly',
             shouldEscalate: false
         };
@@ -324,4 +324,5 @@ module.exports = {
     extractDiscountRequestDetails,
     generateDiscountResponse
 };
+
 

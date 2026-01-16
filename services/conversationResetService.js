@@ -1,4 +1,4 @@
-﻿// services/conversationResetService.js - Handle conversation lifecycle
+// services/conversationResetService.js - Handle conversation lifecycle
 const { dbClient } = require('./config');
 
 /**
@@ -8,7 +8,7 @@ const handleConversationReset = async (tenantId, endUserPhone) => {
     try {
         // Check if conversation is stale (inactive for X hours)
         const { data: conversation } = await dbClient
-            .from('conversations')
+            .from('conversations_new')
             .select('*')
             .eq('tenant_id', tenantId)
             .eq('end_user_phone', endUserPhone)
@@ -31,7 +31,7 @@ const handleConversationReset = async (tenantId, endUserPhone) => {
 
                 // Reset conversation state
                 await dbClient
-                    .from('conversations')
+                    .from('conversations_new')
                     .update({
                         state: null,
                         last_product_discussed: null,
@@ -194,4 +194,5 @@ module.exports = {
     debugFollowUpProcessing,
     enhancedFollowUpScheduler
 };
+
 

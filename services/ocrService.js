@@ -1,4 +1,4 @@
-﻿// Create: services/ocrService.js
+// Create: services/ocrService.js
 
 const { openai } = require('./config');
 const { dbClient } = require('./config');
@@ -155,7 +155,7 @@ const identifyProductFromImage = async (imageUrl, tenantId) => {
             };
         }
 
-        // â­ CHECK FOR SHIPPING/LR NUMBERS FIRST (before product search)
+        // ⭐ CHECK FOR SHIPPING/LR NUMBERS FIRST (before product search)
         const textLower = extractedText.toLowerCase();
         const shippingIndicators = ['vrl', 'logistics', 'consignment', 'docket', 'lr no', 'awb', 'waybill'];
         const hasShippingIndicator = shippingIndicators.some(indicator => textLower.includes(indicator));
@@ -228,3 +228,4 @@ module.exports = {
     searchProductsByText,
     identifyProductFromImage
 };
+

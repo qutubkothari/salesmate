@@ -1,4 +1,4 @@
-﻿// services/zohoIntegrationService.js - Updated for Tenant-Based Authentication
+// services/zohoIntegrationService.js - Updated for Tenant-Based Authentication
 const fetch = require('node-fetch');
 const zohoTenantAuth = require('./zohoTenantAuthService');
 
@@ -542,7 +542,7 @@ class ZohoIntegrationService {
                             if (updateError) {
                                 errors.push(`Update error for ${zohoItem.name}: ${updateError.message}`);
                             } else {
-                                console.log(`[ZOHO_PRICE_SYNC] Updated ${localProduct.name}: â‚¹${localProduct.price} â†’ â‚¹${zohoItem.rate}`);
+                                console.log(`[ZOHO_PRICE_SYNC] Updated ${localProduct.name}: ₹${localProduct.price} → ₹${zohoItem.rate}`);
                                 syncedCount++;
                             }
                         }
@@ -575,3 +575,4 @@ class ZohoIntegrationService {
 }
 
 module.exports = new ZohoIntegrationService();
+

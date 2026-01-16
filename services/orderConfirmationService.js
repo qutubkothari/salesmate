@@ -1,4 +1,4 @@
-﻿// services/orderConfirmationService.js - COMPLETE FIXED VERSION
+// services/orderConfirmationService.js - COMPLETE FIXED VERSION
 const { dbClient } = require('./config');
 
 /**
@@ -44,7 +44,7 @@ const isOrderConfirmationEnhanced = async (userQuery, conversation, tenantId) =>
             if (recentMessages) {
                 const hasRecentPricing = recentMessages.some(msg => 
                     msg.sender === 'bot' && 
-                    (msg.message_body.includes('â‚¹') || 
+                    (msg.message_body.includes('₹') || 
                      msg.message_body.includes('price') ||
                      msg.message_body.includes('NFF') ||
                      msg.message_body.includes('Total'))
@@ -297,7 +297,7 @@ const autoAddDiscussedProductToCart = async (tenantId, endUserPhone, conversatio
         if (added.length > 0) {
             try {
                 await dbClient
-                    .from('conversations')
+                    .from('conversations_new')
                     .update({
                         state: 'order_discussion',
                         last_product_discussed: added.map(a => a.name).join(', ')
@@ -310,7 +310,7 @@ const autoAddDiscussedProductToCart = async (tenantId, endUserPhone, conversatio
             // Refresh cart timestamp
             await dbClient.from('carts').update({ updated_at: new Date().toISOString() }).eq('id', cart.id);
 
-            // âœ… CRITICAL: Apply any approved discounts to the newly added cart items
+            // ✅ CRITICAL: Apply any approved discounts to the newly added cart items
             try {
                 const { applyApprovedDiscountToCart } = require('./cartService');
                 await applyApprovedDiscountToCart(tenantId, endUserPhone);
@@ -449,7 +449,7 @@ const clearOrderState = async (tenantId, endUserPhone) => {
         
         if (conversationId) {
             await dbClient
-                .from('conversations')
+                .from('conversations_new')
                 .update({
                     state: null,
                     last_product_discussed: null,
@@ -518,7 +518,7 @@ const confirmOrder = async (orderId) => {
     try {
         // Get order with items
         const { data: order } = await dbClient
-            .from('orders')
+            .from('orders_new')
             .select('*, items:order_items(*)')
             .eq('id', orderId)
             .single();
@@ -556,7 +556,7 @@ const confirmOrder = async (orderId) => {
         
         // Save Zoho sales order ID
         await dbClient
-            .from('orders')
+            .from('orders_new')
             .update({ 
                 zoho_sales_order_id: salesOrder.salesOrderId,
                 status: 'sales_order_created'
@@ -585,3 +585,4 @@ module.exports = {
     handleMultiProductConfirmation,
     confirmOrder
 };
+

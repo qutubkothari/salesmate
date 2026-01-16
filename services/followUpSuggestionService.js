@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @title AI Follow-up Suggestion Service
  * @description Manages the logic for generating and retrieving AI-powered follow-up suggestions for tenants.
  */
@@ -123,7 +123,7 @@ const getFollowUpSuggestion = async (tenantId, endUserPhone) => {
             .update({ is_viewed: true })
             .eq('conversation_id', conversationId);
 
-        let response = `ðŸ’¡ *AI Follow-up Suggestion for ${endUserPhone}*\n\n`;
+        let response = `💡 *AI Follow-up Suggestion for ${endUserPhone}*\n\n`;
         response += `You could send this message to re-engage them:\n\n`;
         response += `_"${data.suggestion_text}"_`;
 
@@ -139,5 +139,6 @@ module.exports = {
     generateFollowUpSuggestion,
     getFollowUpSuggestion,
 };
+
 
 

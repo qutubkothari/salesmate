@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Coupon Code Management for Cart
  * Integrates with discount management system
  */
@@ -52,7 +52,7 @@ async function applyCouponCode(tenantId, endUserPhone, couponCode) {
         );
 
         if (!validation.valid) {
-            return `âŒ ${validation.message}`;
+            return `❌ ${validation.message}`;
         }
 
         // Apply coupon to cart
@@ -65,7 +65,7 @@ async function applyCouponCode(tenantId, endUserPhone, couponCode) {
             })
             .eq('id', cart.id);
 
-        return `âœ… Coupon "${couponCode.toUpperCase()}" applied successfully!\n\n${validation.message}\n\nType "cart" or "show cart" to see your updated total.`;
+        return `✅ Coupon "${couponCode.toUpperCase()}" applied successfully!\n\n${validation.message}\n\nType "cart" or "show cart" to see your updated total.`;
     } catch (error) {
         console.error('[APPLY_COUPON] Error:', error.message);
         return 'Error applying coupon code. Please try again.';
@@ -101,7 +101,7 @@ async function removeCouponCode(tenantId, endUserPhone) {
             })
             .eq('id', cart.id);
 
-        return `âœ… Coupon "${removedCoupon}" removed from your cart.`;
+        return `✅ Coupon "${removedCoupon}" removed from your cart.`;
     } catch (error) {
         console.error('[REMOVE_COUPON] Error:', error.message);
         return 'Error removing coupon code.';
@@ -112,4 +112,5 @@ module.exports = {
     applyCouponCode,
     removeCouponCode
 };
+
 

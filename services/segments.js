@@ -28,3 +28,4 @@ function matchSegments(convoOrLead = {}, segments = []) {
 }
 
 module.exports = { matchesRule, matchSegments };
+

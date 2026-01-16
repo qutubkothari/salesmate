@@ -32,7 +32,7 @@ class ConversationLinkingService {
 
       // Get or create conversation for customer
       const conversationResult = await dbClient
-        .from('conversations')
+        .from('conversations_new')
         .select('id')
         .eq('tenant_id', tenantId)
         .eq('customer_id', customerId)
@@ -47,7 +47,7 @@ class ConversationLinkingService {
       } else {
         // Create new conversation linked to visit
         const newConvResult = await dbClient
-          .from('conversations')
+          .from('conversations_new')
           .insert({
             tenant_id: tenantId,
             customer_id: customerId,
@@ -82,7 +82,7 @@ class ConversationLinkingService {
 
       // Update conversation with visit context
       const updateResult = await dbClient
-        .from('conversations')
+        .from('conversations_new')
         .update({
           visit_context: JSON.stringify(visitContext),
           last_visit_date: visit.visit_date,
@@ -172,7 +172,7 @@ class ConversationLinkingService {
 
       // Get conversation
       const convResult = await dbClient
-        .from('conversations')
+        .from('conversations_new')
         .select('*')
         .eq('id', conversationId)
         .single();
@@ -301,7 +301,7 @@ class ConversationLinkingService {
   async getConversationsWithVisits(tenantId, filters = {}) {
     try {
       let query = dbClient
-        .from('conversations')
+        .from('conversations_new')
         .select(`
           id,
           customer_id,
@@ -428,3 +428,4 @@ class ConversationLinkingService {
 }
 
 module.exports = new ConversationLinkingService();
+

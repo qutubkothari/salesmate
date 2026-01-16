@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @title Order Management Service
  * @description Manages the logic for fetching and updating order statuses.
  */
@@ -12,13 +12,13 @@ const { dbClient } = require('./config');
  */
 const getOrderStatus = async (tenantId, endUserPhone) => {
     try {
-        const conversationId = (await dbClient.from('conversations').select('id').eq('tenant_id', tenantId).eq('end_user_phone', endUserPhone).single())?.data?.id;
+        const conversationId = (await dbClient.from('conversations_new').select('id').eq('tenant_id', tenantId).eq('end_user_phone', endUserPhone).single())?.data?.id;
         if (!conversationId) {
             return "You do not have any order history with us.";
         }
 
         const { data: order, error } = await dbClient
-            .from('orders')
+            .from('orders_new')
             .select('id, status, created_at')
             .eq('conversation_id', conversationId)
             .order('created_at', { ascending: false }) // Get the most recent order
@@ -55,13 +55,13 @@ const updateOrderStatus = async (tenantId, endUserPhone, newStatus) => {
     }
 
     try {
-        const conversationId = (await dbClient.from('conversations').select('id').eq('tenant_id', tenantId).eq('end_user_phone', endUserPhone).single())?.data?.id;
+        const conversationId = (await dbClient.from('conversations_new').select('id').eq('tenant_id', tenantId).eq('end_user_phone', endUserPhone).single())?.data?.id;
         if (!conversationId) {
             return `No order history found for customer ${endUserPhone}.`;
         }
 
         const { data: order, error: findError } = await dbClient
-            .from('orders')
+            .from('orders_new')
             .select('id')
             .eq('conversation_id', conversationId)
             .order('created_at', { ascending: false })
@@ -73,7 +73,7 @@ const updateOrderStatus = async (tenantId, endUserPhone, newStatus) => {
         }
 
         const { error: updateError } = await dbClient
-            .from('orders')
+            .from('orders_new')
             .update({ status: newStatus.toLowerCase() })
             .eq('id', order.id);
 
@@ -123,7 +123,7 @@ const createOrderFromVisit = async (tenantId, visitId) => {
 
         // Get customer details
         const customerResult = await dbClient
-            .from('customer_profiles')
+            .from('customer_profiles_new')
             .select('id, name, phone, email, default_shipping_address, gst_number')
             .eq('id', visit.customer_id)
             .single();
@@ -207,7 +207,7 @@ const createOrderFromVisit = async (tenantId, visitId) => {
         };
 
         const result = await dbClient
-            .from('orders')
+            .from('orders_new')
             .insert(insertData)
             .select();
 
@@ -254,7 +254,7 @@ const confirmOrderFromVisit = async (tenantId, orderId) => {
 
         // Get order
         const orderResult = await dbClient
-            .from('orders')
+            .from('orders_new')
             .select('*')
             .eq('id', orderId)
             .single();
@@ -277,7 +277,7 @@ const confirmOrderFromVisit = async (tenantId, orderId) => {
 
         // Update to pending
         const result = await dbClient
-            .from('orders')
+            .from('orders_new')
             .update({
                 status: 'pending',
                 confirmed_at: new Date().toISOString(),
@@ -344,7 +344,7 @@ const getDailyOrdersSummary = async (tenantId, date) => {
         const dateStr = date || new Date().toISOString().split('T')[0];
 
         const result = await dbClient
-            .from('orders')
+            .from('orders_new')
             .select('status, total_amount, salesman_id')
             .eq('tenant_id', tenantId)
             .gte('created_at', `${dateStr}T00:00:00`)
@@ -401,4 +401,5 @@ module.exports = {
     confirmOrderFromVisit,
     getDailyOrdersSummary
 };
+
 

@@ -38,3 +38,4 @@ const isWithinOfficeHours = (tenant) => {
 module.exports = {
     isWithinOfficeHours,
 };
+

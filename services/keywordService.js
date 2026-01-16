@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @title Keyword Response Service
  * @description Handles keyword-based automatic responses and routing.
  */
@@ -104,7 +104,7 @@ const listKeywords = async (tenantIdOrOptions) => {
             // Return formatted string for direct calls
             let result = '*Your Keywords:*\n';
             data.forEach(item => {
-                result += `â€¢ "${item.keyword}" â†’ "${item.response}"\n`;
+                result += `• "${item.keyword}" → "${item.response}"\n`;
             });
             return result;
         }
@@ -171,3 +171,4 @@ module.exports = {
     listKeywords,
     findKeywordResponse
 };
+

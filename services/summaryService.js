@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @title Daily Summary Service
  * @description Manages the logic for generating and sending daily activity summaries to tenants.
  */
@@ -37,18 +37,18 @@ const sendDailySummaries = async () => {
                 { count: newFeedback },
                 { count: humanHandovers }
             ] = await Promise.all([
-                dbClient.from('conversations').select('*', { count: 'exact' }).eq('tenant_id', tenant.id).gt('created_at', twentyFourHoursAgo),
-                dbClient.from('orders').select('*', { count: 'exact' }).eq('tenant_id', tenant.id).gt('created_at', twentyFourHoursAgo),
+                dbClient.from('conversations_new').select('*', { count: 'exact' }).eq('tenant_id', tenant.id).gt('created_at', twentyFourHoursAgo),
+                dbClient.from('orders_new').select('*', { count: 'exact' }).eq('tenant_id', tenant.id).gt('created_at', twentyFourHoursAgo),
                 dbClient.from('feedback_submissions').select('*', { count: 'exact' }).eq('tenant_id', tenant.id).gt('created_at', twentyFourHoursAgo),
-                dbClient.from('conversations').select('*', { count: 'exact' }).eq('tenant_id', tenant.id).eq('requires_human_attention', true).gt('updated_at', twentyFourHoursAgo)
+                dbClient.from('conversations_new').select('*', { count: 'exact' }).eq('tenant_id', tenant.id).eq('requires_human_attention', true).gt('updated_at', twentyFourHoursAgo)
             ]);
 
             // 3. Format the summary message.
-            let summaryMessage = `â˜€ï¸ *Good Morning! Here is your daily summary for the last 24 hours:*\n\n`;
-            summaryMessage += `- ðŸ’¬ New Conversations: *${newLeads || 0}*\n`;
-            summaryMessage += `- ðŸ›ï¸ New Orders: *${newOrders || 0}*\n`;
-            summaryMessage += `- â­ New Feedback Received: *${newFeedback || 0}*\n`;
-            summaryMessage += `- ðŸ™‹ Human Handover Requests: *${humanHandovers || 0}*\n\n`;
+            let summaryMessage = `☀️ *Good Morning! Here is your daily summary for the last 24 hours:*\n\n`;
+            summaryMessage += `- 💬 New Conversations: *${newLeads || 0}*\n`;
+            summaryMessage += `- 🛍️ New Orders: *${newOrders || 0}*\n`;
+            summaryMessage += `- ⭐ New Feedback Received: *${newFeedback || 0}*\n`;
+            summaryMessage += `- 🙋 Human Handover Requests: *${humanHandovers || 0}*\n\n`;
             summaryMessage += `Have a great day!`;
 
             // 4. Send the summary to the tenant.
@@ -64,4 +64,5 @@ const sendDailySummaries = async () => {
 module.exports = {
     sendDailySummaries,
 };
+
 

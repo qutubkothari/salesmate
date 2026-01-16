@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const router = express.Router();
 const { dbClient, USE_LOCAL_DB } = require('../../services/config');
 const { writeAuditLog } = require('../../services/auditLogService');
@@ -141,7 +141,7 @@ router.get('/:tenantId/board', async (req, res) => {
       ];
     }
 
-    let convQuery = dbClient.from('conversations');
+    let convQuery = dbClient.from('conversations_new');
     if (USE_LOCAL_DB) {
       convQuery = convQuery.select('*');
     } else {
@@ -330,4 +330,5 @@ router.put('/:tenantId/leads/:conversationId/stage', async (req, res) => {
 });
 
 module.exports = router;
+
 

@@ -1,4 +1,4 @@
-﻿const { dbClient } = require('../config/database');
+const { dbClient } = require('../config/database');
 
 /**
  * Get customer's last purchase price for a specific product
@@ -13,7 +13,7 @@ async function getCustomerLastPrice(tenantId, phoneNumber, productId) {
 
         // Get customer profile
         const { data: customer } = await dbClient
-            .from('customer_profiles')
+            .from('customer_profiles_new')
             .select('id')
             .eq('tenant_id', tenantId)
             .eq('phone', phoneNumber)
@@ -75,7 +75,7 @@ async function getCustomerLastPrice(tenantId, phoneNumber, productId) {
 async function getCustomerPurchaseHistory(tenantId, phoneNumber, productId) {
     try {
         const { data: customer } = await dbClient
-            .from('customer_profiles')
+            .from('customer_profiles_new')
             .select('id')
             .eq('tenant_id', tenantId)
             .eq('phone', phoneNumber)
@@ -123,7 +123,7 @@ async function getPersonalizedPrice(tenantId, phoneNumber, productId, catalogPri
             return {
                 price: lastPrice.price,
                 isPersonalized: true,
-                message: `Your last price: â‚¹${lastPrice.price} (ordered on ${new Date(lastPrice.lastOrderDate).toLocaleDateString()})`,
+                message: `Your last price: ₹${lastPrice.price} (ordered on ${new Date(lastPrice.lastOrderDate).toLocaleDateString()})`,
                 catalogPrice: catalogPrice,
                 savings: catalogPrice > lastPrice.price ? catalogPrice - lastPrice.price : 0
             };
@@ -133,7 +133,7 @@ async function getPersonalizedPrice(tenantId, phoneNumber, productId, catalogPri
         return {
             price: catalogPrice,
             isPersonalized: false,
-            message: `Price: â‚¹${catalogPrice}`,
+            message: `Price: ₹${catalogPrice}`,
             catalogPrice: catalogPrice,
             savings: 0
         };
@@ -143,7 +143,7 @@ async function getPersonalizedPrice(tenantId, phoneNumber, productId, catalogPri
         return {
             price: catalogPrice,
             isPersonalized: false,
-            message: `Price: â‚¹${catalogPrice}`,
+            message: `Price: ₹${catalogPrice}`,
             catalogPrice: catalogPrice,
             savings: 0
         };
@@ -198,24 +198,24 @@ async function getPricingMessage(tenantId, phoneNumber, productName, productId) 
             parseFloat(product.price)
         );
 
-        let message = `ðŸ“¦ *${productName}*\n\n`;
+        let message = `📦 *${productName}*\n\n`;
 
         if (pricing.isPersonalized) {
-            message += `âœ¨ *Your Special Price*: â‚¹${pricing.price}/${product.packaging_unit || 'carton'}\n`;
+            message += `✨ *Your Special Price*: ₹${pricing.price}/${product.packaging_unit || 'carton'}\n`;
             message += `   (Last ordered: ${new Date(await getLastOrderDate(tenantId, phoneNumber, productId)).toLocaleDateString()})\n\n`;
             
             if (pricing.savings > 0) {
-                message += `ðŸ’° You save â‚¹${pricing.savings} from catalog price!\n\n`;
+                message += `💰 You save ₹${pricing.savings} from catalog price!\n\n`;
             }
         } else {
-            message += `ðŸ’µ *Price*: â‚¹${pricing.price}/${product.packaging_unit || 'carton'}\n\n`;
+            message += `💵 *Price*: ₹${pricing.price}/${product.packaging_unit || 'carton'}\n\n`;
         }
 
         if (product.units_per_carton) {
-            message += `ðŸ“Š ${product.units_per_carton} pieces per carton\n\n`;
+            message += `📊 ${product.units_per_carton} pieces per carton\n\n`;
         }
 
-        message += `Ready to order? Let me know the quantity! ðŸ›’`;
+        message += `Ready to order? Let me know the quantity! 🛒`;
 
         return message;
 
@@ -288,3 +288,4 @@ module.exports = {
     getPricingMessage,
     getProductCustomerPrices
 };
+

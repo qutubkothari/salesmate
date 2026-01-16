@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const router = express.Router();
 const { dbClient } = require('../../config/database');
 const { getLearningInsights } = require('../../services/aiConversationContextService');
@@ -58,7 +58,7 @@ router.get('/ai-learning', async (req, res) => {
                 aiAction: a.ai_action,
                 confidence: a.ai_confidence,
                 reasoning: a.ai_reasoning,
-                outcome: a.outcome_correct === true ? 'âœ… Correct' : a.outcome_correct === false ? 'âŒ Incorrect' : 'â³ Pending',
+                outcome: a.outcome_correct === true ? '✅ Correct' : a.outcome_correct === false ? '❌ Incorrect' : '⏳ Pending',
                 timestamp: a.created_at
             }))
         });
@@ -112,4 +112,5 @@ router.post('/ai-learning/:id/mark-incorrect', async (req, res) => {
 });
 
 module.exports = router;
+
 

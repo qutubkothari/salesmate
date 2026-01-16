@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @title AI Product Description Service
  * @description Manages the logic for automatically generating product descriptions using AI.
  */
@@ -78,4 +78,5 @@ const generateMissingDescriptions = async () => {
 module.exports = {
     generateMissingDescriptions,
 };
+
 

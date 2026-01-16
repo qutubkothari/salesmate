@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @title Discount Management Service
  * @description Handles discount codes, automatic discounts, and promotional offers
  */
@@ -69,11 +69,11 @@ const createDiscount = async (tenantId, discountData) => {
 
         if (error) throw error;
 
-        return `âœ… Discount code "${code}" created successfully!\n` +
+        return `✅ Discount code "${code}" created successfully!\n` +
                `Type: ${type}\n` +
-               `Value: ${type === 'percentage' ? value + '%' : 'â‚¹' + value}\n` +
-               `Min Order: â‚¹${minOrderValue}` +
-               `${isAutomatic ? '\nðŸ¤– Auto-applies when conditions are met' : ''}`;
+               `Value: ${type === 'percentage' ? value + '%' : '₹' + value}\n` +
+               `Min Order: ₹${minOrderValue}` +
+               `${isAutomatic ? '\n🤖 Auto-applies when conditions are met' : ''}`;
 
     } catch (error) {
         console.error('Error creating discount:', error.message);
@@ -154,10 +154,10 @@ const applyDiscount = async (tenantId, endUserPhone, discountCode) => {
 
         return {
             success: true,
-            message: `ðŸŽ‰ Discount "${discountCode}" applied!\n` +
-                    `Subtotal: â‚¹${calculation.subtotal.toFixed(2)}\n` +
-                    `Discount: -â‚¹${calculation.discountAmount.toFixed(2)}\n` +
-                    `**Total: â‚¹${calculation.finalTotal.toFixed(2)}**`,
+            message: `🎉 Discount "${discountCode}" applied!\n` +
+                    `Subtotal: ₹${calculation.subtotal.toFixed(2)}\n` +
+                    `Discount: -₹${calculation.discountAmount.toFixed(2)}\n` +
+                    `**Total: ₹${calculation.finalTotal.toFixed(2)}**`,
             discountAmount: calculation.discountAmount,
             finalTotal: calculation.finalTotal
         };
@@ -202,7 +202,7 @@ const removeDiscount = async (tenantId, endUserPhone) => {
 
         return {
             success: true,
-            message: "âœ… Discount removed from your cart."
+            message: "✅ Discount removed from your cart."
         };
 
     } catch (error) {
@@ -231,7 +231,7 @@ const listDiscounts = async (tenantId) => {
             return 'No active discount codes found.';
         }
 
-        let message = 'ðŸŽ« **Active Discount Codes:**\n\n';
+        let message = '🎫 **Active Discount Codes:**\n\n';
         
         discounts.forEach(discount => {
             const isExpired = discount.valid_until && new Date(discount.valid_until) < new Date();
@@ -239,9 +239,9 @@ const listDiscounts = async (tenantId) => {
                 ` (Used: ${discount.usage_count}/${discount.usage_limit})` : 
                 ` (Used: ${discount.usage_count} times)`;
 
-            message += `**${discount.code}**${isExpired ? ' âš ï¸ EXPIRED' : ''}${discount.is_automatic ? ' ðŸ¤– AUTO' : ''}\n`;
-            message += `- ${discount.type === 'percentage' ? discount.value + '% off' : 'â‚¹' + discount.value + ' off'}\n`;
-            message += `- Min order: â‚¹${discount.min_order_value}${usageInfo}\n`;
+            message += `**${discount.code}**${isExpired ? ' ⚠️ EXPIRED' : ''}${discount.is_automatic ? ' 🤖 AUTO' : ''}\n`;
+            message += `- ${discount.type === 'percentage' ? discount.value + '% off' : '₹' + discount.value + ' off'}\n`;
+            message += `- Min order: ₹${discount.min_order_value}${usageInfo}\n`;
             if (discount.description) {
                 message += `- ${discount.description}\n`;
             }
@@ -288,7 +288,7 @@ const validateDiscount = async (discount, cart, endUserPhone) => {
     if (cartTotal < discount.min_order_value) {
         return { 
             isValid: false, 
-            reason: `Minimum order value of â‚¹${discount.min_order_value} required. Current cart: â‚¹${cartTotal.toFixed(2)}` 
+            reason: `Minimum order value of ₹${discount.min_order_value} required. Current cart: ₹${cartTotal.toFixed(2)}` 
         };
     }
 
@@ -489,3 +489,4 @@ module.exports = {
     getAutomaticDiscounts,
     getDiscountAnalytics
 };
+

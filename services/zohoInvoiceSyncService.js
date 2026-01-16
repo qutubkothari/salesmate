@@ -1,4 +1,4 @@
-﻿// services/zohoInvoiceSyncService.js
+// services/zohoInvoiceSyncService.js
 const { dbClient } = require('../config/database');
 const zohoTenantAuth = require('./zohoTenantAuthService');
 const fetch = require('node-fetch');
@@ -46,7 +46,7 @@ async function syncInvoiceFromZoho(tenantId, invoiceId) {
 
         // Find the order in local database using Zoho invoice ID
         const { data: order, error: orderError } = await dbClient
-            .from('orders')
+            .from('orders_new')
             .select('*')
             .eq('tenant_id', tenantId)
             .eq('zoho_invoice_id', invoiceId)
@@ -56,7 +56,7 @@ async function syncInvoiceFromZoho(tenantId, invoiceId) {
             console.log(`[ZOHO_INVOICE_SYNC] No local order found for invoice ${invoiceId}`);
             // Try to find by sales order ID
             const { data: orderBySO } = await dbClient
-                .from('orders')
+                .from('orders_new')
                 .select('*')
                 .eq('tenant_id', tenantId)
                 .eq('zoho_salesorder_id', invoice.salesorder_id)
@@ -71,7 +71,7 @@ async function syncInvoiceFromZoho(tenantId, invoiceId) {
             
             // Update this order with the invoice ID
             await dbClient
-                .from('orders')
+                .from('orders_new')
                 .update({ zoho_invoice_id: invoiceId })
                 .eq('id', orderBySO.id);
         }
@@ -88,7 +88,7 @@ async function syncInvoiceFromZoho(tenantId, invoiceId) {
         };
 
         const { error: updateError } = await dbClient
-            .from('orders')
+            .from('orders_new')
             .update(updateData)
             .eq('zoho_invoice_id', invoiceId)
             .eq('tenant_id', tenantId);
@@ -157,10 +157,10 @@ async function syncInvoiceFromZoho(tenantId, invoiceId) {
                         const gstAmount = unitPriceBeforeTax * (gstRate / 100) * quantity;
 
                         console.log(`[ZOHO_INVOICE_SYNC] Updating ${product.name}:`);
-                        console.log(`[ZOHO_INVOICE_SYNC]   Old Unit Price: â‚¹${localItem.unit_price_before_tax}`);
-                        console.log(`[ZOHO_INVOICE_SYNC]   New Unit Price: â‚¹${unitPriceBeforeTax.toFixed(2)}`);
-                        console.log(`[ZOHO_INVOICE_SYNC]   Old Total: â‚¹${localItem.price_at_time_of_purchase}`);
-                        console.log(`[ZOHO_INVOICE_SYNC]   New Total: â‚¹${totalPrice.toFixed(2)}`);
+                        console.log(`[ZOHO_INVOICE_SYNC]   Old Unit Price: ₹${localItem.unit_price_before_tax}`);
+                        console.log(`[ZOHO_INVOICE_SYNC]   New Unit Price: ₹${unitPriceBeforeTax.toFixed(2)}`);
+                        console.log(`[ZOHO_INVOICE_SYNC]   Old Total: ₹${localItem.price_at_time_of_purchase}`);
+                        console.log(`[ZOHO_INVOICE_SYNC]   New Total: ₹${totalPrice.toFixed(2)}`);
                         
                         const { error: updateItemError } = await dbClient
                             .from('order_items')
@@ -177,18 +177,18 @@ async function syncInvoiceFromZoho(tenantId, invoiceId) {
                         if (updateItemError) {
                             console.error(`[ZOHO_INVOICE_SYNC] Error updating item: ${updateItemError.message}`);
                         } else {
-                            console.log(`[ZOHO_INVOICE_SYNC] âœ“ Successfully updated order item ${localItem.id}`);
+                            console.log(`[ZOHO_INVOICE_SYNC] ✓ Successfully updated order item ${localItem.id}`);
                         }
                     } else {
-                        console.log(`[ZOHO_INVOICE_SYNC] âš  No order item found for product ${product.id}`);
+                        console.log(`[ZOHO_INVOICE_SYNC] ⚠ No order item found for product ${product.id}`);
                     }
                 } else {
-                    console.log(`[ZOHO_INVOICE_SYNC] âš  No product found with zoho_item_id: ${zohoItem.item_id}`);
+                    console.log(`[ZOHO_INVOICE_SYNC] ⚠ No product found with zoho_item_id: ${zohoItem.item_id}`);
                 }
             }
         }
 
-        console.log(`[ZOHO_INVOICE_SYNC] âœ… Successfully synced invoice ${invoiceId}`);
+        console.log(`[ZOHO_INVOICE_SYNC] ✅ Successfully synced invoice ${invoiceId}`);
 
         return {
             success: true,
@@ -326,4 +326,5 @@ module.exports = {
     syncAllInvoicesFromZoho,
     handleZohoInvoiceWebhook
 };
+
 

@@ -1,4 +1,4 @@
-﻿// services/zohoSalesOrderService.js - Complete Sales Order Management
+// services/zohoSalesOrderService.js - Complete Sales Order Management
 const { dbClient } = require('./config');
 const fetch = require('node-fetch');
 
@@ -55,7 +55,7 @@ const findOrCreateZohoCustomer = async (tenantId, endUserPhone) => {
 
         // Ensure customer profile exists and is populated
         const { data: existingProfile } = await dbClient
-            .from('customer_profiles')
+            .from('customer_profiles_new')
             .select('*')
             .eq('tenant_id', tenantId)
             .eq('phone', endUserPhone)
@@ -63,7 +63,7 @@ const findOrCreateZohoCustomer = async (tenantId, endUserPhone) => {
 
         if (!existingProfile || !existingProfile.first_name) {
             await dbClient
-                .from('customer_profiles')
+                .from('customer_profiles_new')
                 .upsert({
                     tenant_id: tenantId,
                     phone: endUserPhone,
@@ -76,7 +76,7 @@ const findOrCreateZohoCustomer = async (tenantId, endUserPhone) => {
 
         // Get (now guaranteed) customer profile
         const { data: customerProfile } = await dbClient
-            .from('customer_profiles')
+            .from('customer_profiles_new')
             .select('*')
             .eq('tenant_id', tenantId)
             .eq('phone', endUserPhone)
@@ -243,7 +243,7 @@ const createZohoSalesOrder = async (tenantId, orderId) => {
         console.log('[ZOHO_ORDER] Creating sales order for order ID:', orderId);
         
         const { data: order, error: orderError } = await dbClient
-            .from('orders')
+            .from('orders_new')
             .select(`*, 
                 order_items(quantity, price_at_time_of_purchase, unit_price_before_tax, product_id, gst_rate, gst_amount, product:products(id, name, description, price)),
                 customer_profiles!customer_profile_id(
@@ -271,7 +271,7 @@ const createZohoSalesOrder = async (tenantId, orderId) => {
         console.log('[ZOHO_ORDER] Order items found:', order.order_items?.length || 0);
 
         const { data: conversation } = await dbClient
-            .from('conversations')
+            .from('conversations_new')
             .select('end_user_phone')
             .eq('id', order.conversation_id)
             .single();
@@ -341,14 +341,14 @@ const createZohoSalesOrder = async (tenantId, orderId) => {
         
         // Add volume discount info if applicable
         if (order.volume_discount_percent && order.volume_discount_percent > 0) {
-            orderNotes += `\n\nðŸ’° Volume Discount Applied: ${order.volume_discount_percent}%`;
-            orderNotes += `\nDiscount Amount: â‚¹${(order.volume_discount_amount || 0).toLocaleString()}`;
+            orderNotes += `\n\n💰 Volume Discount Applied: ${order.volume_discount_percent}%`;
+            orderNotes += `\nDiscount Amount: ₹${(order.volume_discount_amount || 0).toLocaleString()}`;
             orderNotes += `\n(Prices shown are already discounted)`;
         }
         
         // Add manual discount if any
         if (order.discount_amount) {
-            orderNotes += `\n${order.volume_discount_percent ? 'Additional ' : ''}Manual Discount: â‚¹${order.discount_amount.toLocaleString()}`;
+            orderNotes += `\n${order.volume_discount_percent ? 'Additional ' : ''}Manual Discount: ₹${order.discount_amount.toLocaleString()}`;
         }
         
         // Add shipping address if available
@@ -360,21 +360,21 @@ const createZohoSalesOrder = async (tenantId, orderId) => {
         const transporterContact = order.transporter_contact || order.customer_profiles?.default_transporter_contact;
         
         if (shippingAddress || transporterName) {
-            orderNotes += '\n\nðŸšš SHIPPING & TRANSPORT DETAILS:\nâ”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”';
+            orderNotes += '\n\n🚚 SHIPPING & TRANSPORT DETAILS:\n━━━━━━━━━━━━━━━━━━━━━━━━━━';
             
             if (shippingAddress) {
-                orderNotes += `\nðŸ“ Shipping Address:\n${shippingAddress}`;
-                if (shippingCity) orderNotes += `\nðŸ™ï¸ City: ${shippingCity}`;
-                if (shippingState) orderNotes += `\nðŸ“ State: ${shippingState}`;
-                if (shippingPincode) orderNotes += `\nðŸ“® Pincode: ${shippingPincode}`;
+                orderNotes += `\n📍 Shipping Address:\n${shippingAddress}`;
+                if (shippingCity) orderNotes += `\n🏙️ City: ${shippingCity}`;
+                if (shippingState) orderNotes += `\n📍 State: ${shippingState}`;
+                if (shippingPincode) orderNotes += `\n📮 Pincode: ${shippingPincode}`;
             }
             
             if (transporterName) {
-                orderNotes += `\n\nðŸš› Transporter: ${transporterName}`;
-                if (transporterContact) orderNotes += `\nðŸ“ž Contact: ${transporterContact}`;
+                orderNotes += `\n\n🚛 Transporter: ${transporterName}`;
+                if (transporterContact) orderNotes += `\n📞 Contact: ${transporterContact}`;
             }
             
-            orderNotes += '\nâ”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”';
+            orderNotes += '\n━━━━━━━━━━━━━━━━━━━━━━━━━━';
         }
 
         const salesOrderData = {
@@ -461,7 +461,7 @@ const createZohoSalesOrder = async (tenantId, orderId) => {
             });
 
             const { error: updateError, data: updateData } = await dbClient
-                .from('orders')
+                .from('orders_new')
                 .update({
                     zoho_sales_order_id: zohoOrderId,
                     zoho_invoice_id: zohoInvoiceId,
@@ -507,7 +507,7 @@ const createZohoSalesOrder = async (tenantId, orderId) => {
         console.error('[ZOHO_ORDER] Error:', error.message);
         
         await dbClient
-            .from('orders')
+            .from('orders_new')
             .update({
                 zoho_sync_status: 'failed',
                 zoho_sync_error: error.message,
@@ -784,4 +784,5 @@ module.exports = {
     updateSalesOrderNotes,
     updateInvoiceNotes
 };
+
 

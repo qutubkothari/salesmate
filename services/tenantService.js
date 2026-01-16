@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @title Tenant Management Service
  * @description Handles the logic for finding and creating tenants in the database.
  */
@@ -113,7 +113,7 @@ const initializeTenantConfig = async (tenantId, options = {}) => {
         // Set dynamic defaults based on existing data or options
         const config = {
             industry_type: options.industry_type || 'general',
-            currency_symbol: options.currency_symbol || 'â‚¹',
+            currency_symbol: options.currency_symbol || '₹',
             default_packaging_unit: options.default_packaging_unit || 'piece',
             order_confirmation_phrases: options.order_confirmation_phrases || ['yes go ahead', 'confirm', 'proceed'],
             bot_language: tenant.bot_language || options.bot_language || 'en'
@@ -297,7 +297,7 @@ const setupTenantOrderConfig = async (tenantId, config = {}) => {
         const {
             industry_type = 'general',
             bot_language = 'en',
-            currency_symbol = 'â‚¹',
+            currency_symbol = '₹',
             order_confirmation_phrases,
             default_packaging_unit = 'piece'
         } = config;
@@ -369,7 +369,7 @@ const getTenantOrderConfig = async (tenantId) => {
             error: error.message,
             config: {
                 bot_language: 'en',
-                currency_symbol: 'â‚¹',
+                currency_symbol: '₹',
                 industry_type: 'general',
                 order_patterns: getDefaultOrderPatterns()
             }
@@ -476,5 +476,6 @@ module.exports = {
     testOrderConfirmation,
     getDefaultOrderPatterns
 };
+
 
 

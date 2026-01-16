@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @title Contact Form Service
  * @description Manages the multi-step logic for the contact form feature.
  */
@@ -25,7 +25,7 @@ const handleContactForm = async (tenant, conversation, userMessage) => {
                 .eq('conversation_id', conversation.id);
 
             await dbClient
-                .from('conversations')
+                .from('conversations_new')
                 .update({ state: 'awaiting_email' })
                 .eq('id', conversation.id);
 
@@ -42,7 +42,7 @@ const handleContactForm = async (tenant, conversation, userMessage) => {
                 .eq('conversation_id', conversation.id);
 
             await dbClient
-                .from('conversations')
+                .from('conversations_new')
                 .update({ state: 'awaiting_query' })
                 .eq('id', conversation.id);
 
@@ -60,7 +60,7 @@ const handleContactForm = async (tenant, conversation, userMessage) => {
 
             // Clear the state to end the contact form flow.
             await dbClient
-                .from('conversations')
+                .from('conversations_new')
                 .update({ state: null })
                 .eq('id', conversation.id);
 
@@ -69,7 +69,7 @@ const handleContactForm = async (tenant, conversation, userMessage) => {
             await logMessage(tenantId, endUserPhone, 'bot', confirmationMessage);
 
             // Notify the tenant of the new submission.
-            const tenantNotification = `ðŸŽ‰ *New Contact Form Submission!*\n\nA new inquiry has been received from ${endUserPhone}. View the full conversation using the /history command.`;
+            const tenantNotification = `🎉 *New Contact Form Submission!*\n\nA new inquiry has been received from ${endUserPhone}. View the full conversation using the /history command.`;
             await sendMessage(tenant.phone_number, tenantNotification);
             break;
     }
@@ -97,7 +97,7 @@ const startContactForm = async (tenantId, endUserPhone) => {
 
     // Set the initial state for the conversation
     await dbClient
-        .from('conversations')
+        .from('conversations_new')
         .update({ state: 'awaiting_name' })
         .eq('id', conversationId);
 
@@ -110,4 +110,5 @@ module.exports = {
     handleContactForm,
     startContactForm,
 };
+
 

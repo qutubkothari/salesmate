@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @title WhatsApp Messaging Service
  * @description This service handles all interactions with the Maytapi API for sending messages.
  */
@@ -148,13 +148,13 @@ async function sendViaMaytapi(to, cleanText, cfg) {
 
 function cleanOutgoingText(text) {
     return String(text || '')
-        .replace(/Ã¢â€šÂ¹/g, 'â‚¹')
-        .replace(/Rs\./g, 'â‚¹')
-        .replace(/Rs\s+/g, 'â‚¹')
-        .replace(/ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¹/g, 'â‚¹')
-        .replace(/ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‚Â¦/g, 'ðŸ“¦')
-        .replace(/ÃƒÂ¢Ã…"Ã¢â‚¬Â¦/g, 'âœ…')
-        .replace(/ÃƒÂ°Ã…Â¸Ã¢â‚¬â„¢Ã‚Â³/g, 'ðŸ’³')
+        .replace(/â‚¹/g, '₹')
+        .replace(/Rs\./g, '₹')
+        .replace(/Rs\s+/g, '₹')
+        .replace(/Ã¢â€šÂ¹/g, '₹')
+        .replace(/Ã°Å¸â€œÂ¦/g, '📦')
+        .replace(/Ã¢Å"â€¦/g, '✅')
+        .replace(/Ã°Å¸â€™Â³/g, '💳')
         .trim();
 }
 
@@ -228,9 +228,9 @@ const sendMessage = async (to, text, tenantId = null) => {
         return null;
     }
 };
-// âœ… FIX 2: Create a helper function for formatting currency
+// ✅ FIX 2: Create a helper function for formatting currency
 function formatCurrency(amount) {
-    if (!amount && amount !== 0) return 'â‚¹0';
+    if (!amount && amount !== 0) return '₹0';
     // Use Intl.NumberFormat for proper Indian number formatting
     const formatted = new Intl.NumberFormat('en-IN', {
         style: 'currency',
@@ -238,8 +238,8 @@ function formatCurrency(amount) {
         minimumFractionDigits: 0,
         maximumFractionDigits: 0
     }).format(amount);
-    // Ensure we're using â‚¹ symbol, not Rs
-    return formatted.replace(/Rs\.?\s*/, 'â‚¹');
+    // Ensure we're using ₹ symbol, not Rs
+    return formatted.replace(/Rs\.?\s*/, '₹');
 }
 
 /**
@@ -393,5 +393,6 @@ module.exports = {
     sendMessage,
     sendMessageWithImage,
     sendDocument,
-    formatCurrency  // âœ… Add this export
+    formatCurrency  // ✅ Add this export
 };
+

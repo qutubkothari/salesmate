@@ -1,4 +1,4 @@
-﻿// services/conversationFlagService.js
+// services/conversationFlagService.js
 // Crash-proof, minimal implementation used by scheduler.js and tests.
 // Keeps running even if the DB/table isn't present yet.
 
@@ -18,7 +18,7 @@ async function flagInactiveConversations({ tenantId = null, minutes = 60 } = {})
   try {
     // 1) Find inactive, open conversations
     let q = dbClient
-      .from('conversations')
+      .from('conversations_new')
       .select('id, tenant_id, updated_at, status')
       .lte('updated_at', since)
       .eq('status', 'open')
@@ -91,4 +91,5 @@ module.exports = {
   clearFlags,
   getFlagSummary
 };
+
 

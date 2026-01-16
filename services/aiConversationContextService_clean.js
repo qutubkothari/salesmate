@@ -1,4 +1,4 @@
-﻿const { openai } = require('./config');
+const { openai } = require('./config');
 const { dbClient } = require('../config/database');
 
 /**
@@ -50,10 +50,10 @@ CRITICAL RULES:
 5. If bot just asked a question, customer's response answers that question
 
 Examples:
-- Bot: "0% for 1 carton. Ready?" â†’ User: "i need 100 cartons" = QUANTITY_UPDATE
-- Bot: "3% discount okay?" â†’ User: "yes go ahead" = ORDER_CONFIRMATION
-- Bot: "Price â‚¹1.67/pc" â†’ User: "best price?" = DISCOUNT_REQUEST
-- Bot: "3% discount: â‚¹1.62/pc. Okay?" â†’ User: "give me more" = DISCOUNT_REQUEST`;
+- Bot: "0% for 1 carton. Ready?" → User: "i need 100 cartons" = QUANTITY_UPDATE
+- Bot: "3% discount okay?" → User: "yes go ahead" = ORDER_CONFIRMATION
+- Bot: "Price ₹1.67/pc" → User: "best price?" = DISCOUNT_REQUEST
+- Bot: "3% discount: ₹1.62/pc. Okay?" → User: "give me more" = DISCOUNT_REQUEST`;
 
         const response = await openai.chat.completions.create({
             model: 'gpt-4o-mini',
@@ -225,7 +225,7 @@ async function getLearningInsights() {
         // Analyze patterns
         const patterns = {};
         incorrectAnalyses.forEach(analysis => {
-            const key = `${analysis.ai_intent} â†’ ${analysis.actual_intent}`;
+            const key = `${analysis.ai_intent} → ${analysis.actual_intent}`;
             patterns[key] = (patterns[key] || 0) + 1;
         });
         return {
@@ -314,5 +314,6 @@ module.exports = {
     generateRecommendations,
     fallbackContextAnalysis
 };
+
 
 

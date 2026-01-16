@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @title Automated Onboarding Service
  * @description Manages the logic for sending automated onboarding messages to new tenants.
  */
@@ -62,7 +62,7 @@ const sendDueOnboardingMessages = async () => {
                 if (now >= dueDate && !sentMessagesSet.has(lookupKey)) {
                     messagesToSend.push({
                         to: tenant.phone_number,
-                        text: `ðŸš€ *Pro Tip:*\n\n${message.message_body}`,
+                        text: `🚀 *Pro Tip:*\n\n${message.message_body}`,
                         tenant_id: tenant.id,
                         onboarding_message_id: message.id,
                     });
@@ -98,4 +98,5 @@ const sendDueOnboardingMessages = async () => {
 module.exports = {
     sendDueOnboardingMessages,
 };
+
 

@@ -1,4 +1,4 @@
-﻿// services/responseAnalytics.js
+// services/responseAnalytics.js
 const { dbClient } = require('./config');
 
 /**
@@ -21,3 +21,4 @@ const trackResponse = async (tenantId, userQuery, responseSource, cost = 0) => {
 };
 
 module.exports = { trackResponse };
+

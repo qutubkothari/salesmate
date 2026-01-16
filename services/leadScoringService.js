@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @title AI Lead Scoring Service
  * @description Manages the logic for analyzing conversation history and assigning a lead score.
  */
@@ -112,7 +112,7 @@ Respond with a single word only.`
         if (validScores.includes(score)) {
             // 3. Update the conversation with the new score.
             await dbClient
-                .from('conversations')
+                .from('conversations_new')
                 .update({ lead_score: score })
                 .eq('id', conversationId);
 
@@ -155,4 +155,5 @@ Respond with a single word only.`
 module.exports = {
     scoreLead,
 };
+
 

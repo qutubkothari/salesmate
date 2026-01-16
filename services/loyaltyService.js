@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @title Customer Loyalty Service
  * @description Manages all logic for tenant loyalty programs, including points and rewards.
  */
@@ -117,7 +117,7 @@ const viewLoyaltyStatus = async (tenantId, endUserPhone) => {
             .eq('program_id', program.id)
             .order('points_cost', { ascending: true });
 
-        let message = `ðŸŒŸ *Your Loyalty Status*\n\n`;
+        let message = `🌟 *Your Loyalty Status*\n\n`;
         message += `You currently have *${balance} points*.\n\n`;
         message += `*Available Rewards:*\n`;
 
@@ -189,4 +189,5 @@ module.exports = {
     viewLoyaltyStatus,
     redeemReward,
 };
+
 

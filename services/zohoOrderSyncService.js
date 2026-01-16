@@ -1,4 +1,4 @@
-﻿const { dbClient } = require('../config/database');
+const { dbClient } = require('../config/database');
 const axios = require('axios');
 
 /**
@@ -79,7 +79,7 @@ async function syncZohoOrdersToDatabase(tenantId) {
         for (const zohoOrder of zohoOrders) {
             // Check if order already exists in our database
             const { data: existingOrder } = await dbClient
-                .from('orders')
+                .from('orders_new')
                 .select('id')
                 .eq('zoho_salesorder_id', zohoOrder.salesorder_id)
                 .single();
@@ -254,7 +254,7 @@ async function createOrderFromZoho(tenantId, zohoOrder) {
 
         // Create order
         const { data: order, error: orderError } = await dbClient
-            .from('orders')
+            .from('orders_new')
             .insert({
                 tenant_id: tenantId,
                 customer_profile_id: customer.id,
@@ -325,7 +325,7 @@ async function findOrCreateCustomerFromZoho(tenantId, zohoCustomerId, name, phon
     try {
         // Try to find by Zoho customer ID
         let { data: customer } = await dbClient
-            .from('customer_profiles')
+            .from('customer_profiles_new')
             .select('id')
             .eq('tenant_id', tenantId)
             .eq('zoho_contact_id', zohoCustomerId)
@@ -336,7 +336,7 @@ async function findOrCreateCustomerFromZoho(tenantId, zohoCustomerId, name, phon
         // Try to find by phone
         if (phone) {
             const { data: customerByPhone } = await dbClient
-                .from('customer_profiles')
+                .from('customer_profiles_new')
                 .select('id')
                 .eq('tenant_id', tenantId)
                 .eq('phone', phone)
@@ -345,7 +345,7 @@ async function findOrCreateCustomerFromZoho(tenantId, zohoCustomerId, name, phon
             if (customerByPhone) {
                 // Update with Zoho ID
                 await dbClient
-                    .from('customer_profiles')
+                    .from('customer_profiles_new')
                     .update({ zoho_contact_id: zohoCustomerId })
                     .eq('id', customerByPhone.id);
 
@@ -356,7 +356,7 @@ async function findOrCreateCustomerFromZoho(tenantId, zohoCustomerId, name, phon
         // Create new customer
         const nameParts = name.split(' ');
         const { data: newCustomer } = await dbClient
-            .from('customer_profiles')
+            .from('customer_profiles_new')
             .insert({
                 tenant_id: tenantId,
                 phone: phone || `zoho_${zohoCustomerId}`,
@@ -399,3 +399,4 @@ module.exports = {
     updateOrderItemPricesFromZoho,
     scheduleZohoOrderSync
 };
+

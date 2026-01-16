@@ -1,4 +1,4 @@
-﻿/**
+/**
  * WhatsApp Web Service using whatsapp-web.js
  * Standalone broadcast system with QR code authentication
  */
@@ -265,7 +265,7 @@ async function initializeClient(tenantId, sessionName = 'default', options = {})
             }
         });
 
-        // Inbound message â†’ route through existing AI handler and reply via WhatsApp Web
+        // Inbound message → route through existing AI handler and reply via WhatsApp Web
         client.on('message', async (msg) => {
             try {
                 if (!msg || msg.fromMe) return;
@@ -887,4 +887,5 @@ module.exports = {
     getAllConnections,
     autoInitializeConnectedClients
 };
+
 

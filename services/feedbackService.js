@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @title Customer Feedback Service
  * @description Manages the multi-step logic for collecting customer feedback and generating reports.
  */
@@ -33,7 +33,7 @@ const handleFeedbackForm = async (tenant, conversation, userMessage) => {
                 .eq('conversation_id', conversation.id);
 
             await dbClient
-                .from('conversations')
+                .from('conversations_new')
                 .update({ state: 'awaiting_feedback_comment' })
                 .eq('id', conversation.id);
 
@@ -51,7 +51,7 @@ const handleFeedbackForm = async (tenant, conversation, userMessage) => {
 
             // Clear the state to end the feedback flow.
             await dbClient
-                .from('conversations')
+                .from('conversations_new')
                 .update({ state: null })
                 .eq('id', conversation.id);
 
@@ -60,7 +60,7 @@ const handleFeedbackForm = async (tenant, conversation, userMessage) => {
             await logMessage(tenantId, endUserPhone, 'bot', confirmationMessage);
 
             // Notify the tenant of the new feedback.
-            const tenantNotification = `â­ *New Customer Feedback Received!*\n\nA customer (${endUserPhone}) has left new feedback. View the full conversation using the /history command.`;
+            const tenantNotification = `⭐ *New Customer Feedback Received!*\n\nA customer (${endUserPhone}) has left new feedback. View the full conversation using the /history command.`;
             await sendMessage(tenant.phone_number, tenantNotification);
             break;
     }
@@ -88,7 +88,7 @@ const startFeedbackForm = async (tenantId, endUserPhone) => {
 
     // Set the initial state for the conversation
     await dbClient
-        .from('conversations')
+        .from('conversations_new')
         .update({ state: 'awaiting_feedback_rating' })
         .eq('id', conversationId);
 
@@ -120,7 +120,7 @@ const getFeedbackReport = async (tenantId) => {
         const totalSubmissions = data.length;
         const averageRating = data.reduce((sum, item) => sum + item.rating, 0) / totalSubmissions;
 
-        let report = `ðŸ“ *Customer Feedback Report*\n\n`;
+        let report = `📝 *Customer Feedback Report*\n\n`;
         report += `*Total Submissions:* ${totalSubmissions}\n`;
         report += `*Average Rating:* ${averageRating.toFixed(2)} / 5.00\n\n`;
         report += `*Recent Comments:*\n`;
@@ -129,7 +129,7 @@ const getFeedbackReport = async (tenantId) => {
         data.slice(0, 5).forEach(item => {
             if (item.comment) {
                 const date = new Date(item.created_at).toLocaleDateString();
-                report += `\n- *[${date}] Rating: ${item.rating}â­*\n  _"${item.comment}"_\n`;
+                report += `\n- *[${date}] Rating: ${item.rating}⭐*\n  _"${item.comment}"_\n`;
             }
         });
 
@@ -146,5 +146,6 @@ module.exports = {
     startFeedbackForm,
     getFeedbackReport, // Export the new function
 };
+
 
 

@@ -1,4 +1,4 @@
-﻿// services/customerNotesService.js
+// services/customerNotesService.js
 // Modular service for customer notes CRUD
 
 const { dbClient } = require('./config');
@@ -24,4 +24,5 @@ module.exports = {
     return dbClient.from('customer_notes').delete().eq('id', id);
   }
 };
+
 

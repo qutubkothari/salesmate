@@ -414,3 +414,4 @@ module.exports = {
   isAdmin,
   isManagerOrAbove
 };
+

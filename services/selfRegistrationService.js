@@ -1,4 +1,4 @@
-﻿// services/selfRegistrationService.js
+// services/selfRegistrationService.js
 // Handle customer self-registration via WhatsApp
 
 const { dbClient } = require('./config');
@@ -18,8 +18,8 @@ function isRegistrationRequest(message) {
 function isConfirmation(message) {
     const lowerMsg = message.toLowerCase().trim();
     return {
-        isYes: /^(yes|yeah|yep|yup|sure|ok|okay|confirm|proceed|ha|haan|à¤¹à¤¾à¤|yes please|ðŸ‘)$/i.test(lowerMsg),
-        isNo: /^(no|nope|nah|cancel|stop|na|nahi|à¤¨à¤¹à¥€à¤‚|ðŸ‘Ž)$/i.test(lowerMsg)
+        isYes: /^(yes|yeah|yep|yup|sure|ok|okay|confirm|proceed|ha|haan|हाँ|yes please|👍)$/i.test(lowerMsg),
+        isNo: /^(no|nope|nah|cancel|stop|na|nahi|नहीं|👎)$/i.test(lowerMsg)
     };
 }
 
@@ -55,17 +55,17 @@ async function startRegistration(phoneNumber, sendMessageFn, tenantId = null) {
         console.log('[SELF_REGISTRATION] Starting registration for:', phoneNumber);
 
         // Send confirmation message (we'll check for duplicates later after collecting bot/admin numbers)
-        const confirmMessage = `ðŸš€ *Welcome to WhatsApp AI Sales Assistant!*
+        const confirmMessage = `🚀 *Welcome to WhatsApp AI Sales Assistant!*
 
 You're about to create your own AI-powered sales bot! Here's what you get:
 
-âœ… *7-Day FREE Trial*
-âœ… AI-powered customer conversations
-âœ… Product catalog management
-âœ… Order processing & tracking
-âœ… Multi-language support (English, Hindi, Hinglish, Arabic)
-âœ… Discount negotiations
-âœ… Cart management
+✅ *7-Day FREE Trial*
+✅ AI-powered customer conversations
+✅ Product catalog management
+✅ Order processing & tracking
+✅ Multi-language support (English, Hindi, Hinglish, Arabic)
+✅ Discount negotiations
+✅ Cart management
 
 *What happens next:*
 1. We'll ask for your bot phone number (Maytapi)
@@ -110,16 +110,16 @@ async function askForBotNumber(phoneNumber, sendMessageFn) {
     try {
         console.log('[SELF_REGISTRATION] Asking for bot number:', phoneNumber);
 
-        const message = `ðŸ“± *Step 1: Bot Phone Number*
+        const message = `📱 *Step 1: Bot Phone Number*
 
 Please provide your *Maytapi WhatsApp Business number* that will be used as your AI bot.
 
 This is the number your customers will message to place orders and get assistance.
 
 *Example format:*
-â€¢ 919876543210
-â€¢ +919876543210
-â€¢ 91-9876543210
+• 919876543210
+• +919876543210
+• 91-9876543210
 
 Please enter your bot number:`;
 
@@ -149,20 +149,20 @@ async function askForAdminNumber(phoneNumber, botNumber, sendMessageFn) {
     try {
         console.log('[SELF_REGISTRATION] Asking for admin number:', phoneNumber);
 
-        const message = `ðŸ“± *Step 2: Admin Phone Number*
+        const message = `📱 *Step 2: Admin Phone Number*
 
 Please provide your *admin WhatsApp number* where you'll receive notifications and run admin commands.
 
 This number will have full control over:
-â€¢ Adding/managing products
-â€¢ Viewing orders and analytics
-â€¢ Broadcasting messages
-â€¢ Managing bot settings
+• Adding/managing products
+• Viewing orders and analytics
+• Broadcasting messages
+• Managing bot settings
 
 *Example format:*
-â€¢ 919123456789
-â€¢ +919123456789
-â€¢ 91-9123456789
+• 919123456789
+• +919123456789
+• 91-9123456789
 
 Please enter your admin number:`;
 
@@ -208,7 +208,7 @@ async function completeRegistration(phoneNumber, botNumber, adminNumber, sendMes
             .single();
 
         if (existingBot) {
-            const errorMessage = `âŒ This bot number (${cleanBotNumber}) is already registered!
+            const errorMessage = `❌ This bot number (${cleanBotNumber}) is already registered!
 
 *Business:* ${existingBot.business_name || 'Not set'}
 
@@ -248,7 +248,7 @@ To start over, type *"register"* again.`;
                 status: 'active',
                 is_active: true,
                 bot_phone_number: cleanBotNumber,
-                currency_symbol: 'â‚¹',
+                currency_symbol: '₹',
                 default_packaging_unit: 'piece',
                 daily_summary_enabled: true,
                 abandoned_cart_delay_hours: 2,
@@ -263,7 +263,7 @@ To start over, type *"register"* again.`;
 
             // Check if it's a duplicate key error
             if (tenantError.code === '23505') {
-                const errorMessage = `âŒ Registration failed: This bot number is already in use.
+                const errorMessage = `❌ Registration failed: This bot number is already in use.
 
 Please try again with a different number.
 
@@ -288,41 +288,41 @@ To start over, type *"register"*.`;
         clearRegistrationData(phoneNumber);
 
         // Send welcome message with admin instructions
-        const welcomeMessage = `ðŸŽ‰ *Registration Successful!*
+        const welcomeMessage = `🎉 *Registration Successful!*
 
-Your AI Sales Assistant is ready! ðŸ¤–
+Your AI Sales Assistant is ready! 🤖
 
 *Your Account Details:*
-ðŸ¤– Bot Number: ${cleanBotNumber}
-ðŸ“± Admin Number: ${cleanAdminNumber}
-ðŸŽŸï¸ Referral Code: ${referralCode}
-ðŸ“… Trial Ends: ${new Date(trialEndsAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-ðŸ’Ž Plan: Standard (Trial)
+🤖 Bot Number: ${cleanBotNumber}
+📱 Admin Number: ${cleanAdminNumber}
+🎟️ Referral Code: ${referralCode}
+📅 Trial Ends: ${new Date(trialEndsAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+💎 Plan: Standard (Trial)
 
 *Quick Start Guide:*
 
-1ï¸âƒ£ *Set Your Business Name*
+1️⃣ *Set Your Business Name*
    Send: /set_business YourBusinessName
 
-2ï¸âƒ£ *Add Products* (3 methods)
-   â€¢ Manual: /add_product
-   â€¢ Import: Upload product list
-   â€¢ Sync from Zoho
+2️⃣ *Add Products* (3 methods)
+   • Manual: /add_product
+   • Import: Upload product list
+   • Sync from Zoho
 
-3ï¸âƒ£ *Configure Bot*
-   â€¢ Language: /set_language Hinglish
-   â€¢ Personality: /set_personality
-   â€¢ Welcome message: /set_welcome
+3️⃣ *Configure Bot*
+   • Language: /set_language Hinglish
+   • Personality: /set_personality
+   • Welcome message: /set_welcome
 
-4ï¸âƒ£ *Access Admin Dashboard*
+4️⃣ *Access Admin Dashboard*
    Visit: https://sak-whatsapp-ai-sales-assist.wl.r.appspot.com
 
 *Admin Commands:*
-â€¢ /help - Show all commands
-â€¢ /stats - View your statistics
-â€¢ /add_product - Add new product
-â€¢ /view_products - List all products
-â€¢ /broadcast - Send message to all customers
+• /help - Show all commands
+• /stats - View your statistics
+• /add_product - Add new product
+• /view_products - List all products
+• /broadcast - Send message to all customers
 
 *Important:*
 Admin commands should be sent from the admin number (${cleanAdminNumber}) to the bot number (${cleanBotNumber}).
@@ -330,7 +330,7 @@ Admin commands should be sent from the admin number (${cleanAdminNumber}) to the
 *Need Help?*
 Reply "help" anytime for assistance!
 
-Ready to serve your first customer! ðŸš€`;
+Ready to serve your first customer! 🚀`;
 
         await sendMessageFn(phoneNumber, welcomeMessage);
 
@@ -347,7 +347,7 @@ Ready to serve your first customer! ðŸš€`;
         clearRegistrationData(phoneNumber);
 
         // Send error message to user
-        const errorMessage = `âŒ Registration failed. Please try again or contact support.
+        const errorMessage = `❌ Registration failed. Please try again or contact support.
 
 Error: ${error.message}`;
 
@@ -364,11 +364,11 @@ async function cancelRegistration(phoneNumber, sendMessageFn, tenantId = null) {
     try {
         console.log('[SELF_REGISTRATION] Cancelling registration for:', phoneNumber);
 
-        const cancelMessage = `Registration cancelled. âŒ
+        const cancelMessage = `Registration cancelled. ❌
 
 No worries! You can start registration anytime by sending *"register"*.
 
-If you have questions, just ask! I'm here to help. ðŸ˜Š`;
+If you have questions, just ask! I'm here to help. 😊`;
 
         await sendMessageFn(phoneNumber, cancelMessage);
 
@@ -429,7 +429,7 @@ async function updateConversationState(phoneNumber, tenantId, state, metadata = 
     try {
         // Find active conversation
         const { data: conversation } = await dbClient
-            .from('conversations')
+            .from('conversations_new')
             .select('id')
             .eq('end_user_phone', phoneNumber)
             .eq('tenant_id', tenantId)
@@ -439,7 +439,7 @@ async function updateConversationState(phoneNumber, tenantId, state, metadata = 
 
         if (conversation) {
             await dbClient
-                .from('conversations')
+                .from('conversations_new')
                 .update({
                     state,
                     metadata: { ...metadata, registration_flow: true }
@@ -460,7 +460,7 @@ async function updateConversationState(phoneNumber, tenantId, state, metadata = 
 async function getRegistrationState(phoneNumber, tenantId) {
     try {
         const { data: conversation } = await dbClient
-            .from('conversations')
+            .from('conversations_new')
             .select('state, metadata')
             .eq('end_user_phone', phoneNumber)
             .eq('tenant_id', tenantId)
@@ -520,13 +520,13 @@ async function handleSelfRegistration(phoneNumber, message, sendMessageFn, tenan
                 case 'awaiting_bot_number':
                     // Validate bot number
                     if (!isValidPhoneNumber(message)) {
-                        await sendMessageFn(phoneNumber, `âŒ Invalid phone number format.
+                        await sendMessageFn(phoneNumber, `❌ Invalid phone number format.
 
 Please enter a valid phone number (10-15 digits).
 
 *Example:*
-â€¢ 919876543210
-â€¢ +919876543210
+• 919876543210
+• +919876543210
 
 Please try again:`);
                         return {
@@ -543,13 +543,13 @@ Please try again:`);
                 case 'awaiting_admin_number':
                     // Validate admin number
                     if (!isValidPhoneNumber(message)) {
-                        await sendMessageFn(phoneNumber, `âŒ Invalid phone number format.
+                        await sendMessageFn(phoneNumber, `❌ Invalid phone number format.
 
 Please enter a valid phone number (10-15 digits).
 
 *Example:*
-â€¢ 919123456789
-â€¢ +919123456789
+• 919123456789
+• +919123456789
 
 Please try again:`);
                         return {
@@ -602,4 +602,5 @@ module.exports = {
     getRegistrationState,
     getRegistrationData
 };
+
 

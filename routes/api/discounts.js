@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const router = express.Router();
 const { dbClient } = require('../../services/config');
 
@@ -486,7 +486,7 @@ router.post('/:tenantId/validate-coupon', async (req, res) => {
             return res.json({
                 success: false,
                 valid: false,
-                message: `Minimum order value of â‚¹${data.min_order_value} required`
+                message: `Minimum order value of ₹${data.min_order_value} required`
             });
         }
 
@@ -506,4 +506,5 @@ router.post('/:tenantId/validate-coupon', async (req, res) => {
 });
 
 module.exports = router;
+
 

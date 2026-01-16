@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @title Tenant Referral Service
  * @description Manages all logic for the tenant referral program, including code generation and rewards.
  */
@@ -43,7 +43,7 @@ const applyReferralBonus = async (tenantId, reason) => {
             .update({ subscription_end_date: newEndDate.toISOString(), subscription_status: 'active' })
             .eq('id', tenant.id);
 
-        const bonusMessage = `ðŸŽ‰ *Referral Bonus!*\n\n${reason} We've extended your subscription by ${REFERRAL_BONUS_DAYS} days!`;
+        const bonusMessage = `🎉 *Referral Bonus!*\n\n${reason} We've extended your subscription by ${REFERRAL_BONUS_DAYS} days!`;
         await sendMessage(tenant.phone_number, bonusMessage);
         console.log(`Applied ${REFERRAL_BONUS_DAYS}-day referral bonus to tenant ${tenantId}.`);
 
@@ -112,5 +112,6 @@ module.exports = {
     generateReferralCode,
     processReferral,
 };
+
 
 

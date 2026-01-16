@@ -1,4 +1,4 @@
-﻿// =============================================
+// =============================================
 // FILE: services/discountNegotiationLogging.js
 // NEW FILE - Logs AI discount negotiations for analytics
 // =============================================
@@ -175,4 +175,5 @@ module.exports = {
     getDiscountAnalytics,
     getCustomerNegotiationHistory
 };
+
 

@@ -1,4 +1,4 @@
-﻿// services/intelligentFollowUpService.js
+// services/intelligentFollowUpService.js
 /**
  * Intelligent Follow-up Service
  * Automatically schedules follow-ups based on customer behavior, lead scoring, and conversation patterns
@@ -72,7 +72,7 @@ async function getFollowUpCandidates(tenantId) {
         // 3. Lead score assigned
         // 4. No pending follow-up already scheduled
         const { data: conversations, error } = await dbClient
-            .from('conversations')
+            .from('conversations_new')
             .select(`
                 id,
                 end_user_phone,
@@ -154,7 +154,7 @@ async function checkAbandonedCart(conversationId) {
         
         // Check if there's a recent order
         const { data: orders, error: orderError } = await dbClient
-            .from('orders')
+            .from('orders_new')
             .select('id')
             .eq('conversation_id', conversationId)
             .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
@@ -198,7 +198,7 @@ async function checkPriceInquiryNoOrder(conversationId) {
         
         // Check if there's a recent order
         const { data: orders, error: orderError } = await dbClient
-            .from('orders')
+            .from('orders_new')
             .select('id')
             .eq('conversation_id', conversationId)
             .gte('created_at', new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString())
@@ -310,7 +310,7 @@ async function createManualIntelligentFollowUp(tenantId, phone, leadScore) {
     try {
         // Get conversation
         const { data: conversation } = await dbClient
-            .from('conversations')
+            .from('conversations_new')
             .select('id, end_user_phone, lead_score')
             .eq('tenant_id', tenantId)
             .eq('end_user_phone', phone)
@@ -352,4 +352,5 @@ module.exports = {
     checkAbandonedCart,
     checkPriceInquiryNoOrder
 };
+
 

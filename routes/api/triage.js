@@ -1,4 +1,4 @@
-﻿// routes/api/triage.js
+// routes/api/triage.js
 const express = require('express');
 const router = express.Router();
 const { dbClient } = require('../../services/config');
@@ -393,5 +393,6 @@ router.post('/:tenantId/:id/reopen', async (req, res) => {
 });
 
 module.exports = router;
+
 
 

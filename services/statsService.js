@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @title Tenant Usage Statistics Service
  * @description Handles the logic for calculating and presenting bot usage statistics to tenants.
  */
@@ -31,7 +31,7 @@ const getUsageStats = async (tenantId) => {
         }, {});
 
         // 3. Format the stats into a user-friendly message.
-        let statsMessage = 'ðŸ“ˆ *Your Bot Usage Statistics*\n\n';
+        let statsMessage = '📈 *Your Bot Usage Statistics*\n\n';
         statsMessage += `*Customer Messages Received:* ${stats['user_input'] || 0}\n`;
         statsMessage += `*AI Responses Sent:* ${stats['ai_response'] || 0}\n`;
         statsMessage += `*Keyword Replies:* ${stats['keyword_response'] || 0}\n`;
@@ -49,4 +49,5 @@ const getUsageStats = async (tenantId) => {
 module.exports = {
     getUsageStats,
 };
+
 

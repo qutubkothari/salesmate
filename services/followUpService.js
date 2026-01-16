@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @title Follow-up and Response Categorization Service
  * @description Handles AI-powered categorization of end-user responses, schedules follow-ups, and sends reminders.
  */
@@ -26,7 +26,7 @@ const normalizeConversationHistory = (conversation) => {
             const parsed = JSON.parse(rawHistory);
             conversationHistory = Array.isArray(parsed) ? parsed : [parsed];
         } catch (e) {
-            // not JSON â€” treat as single-string entry
+            // not JSON — treat as single-string entry
             conversationHistory = [rawHistory];
         }
     } else if (typeof rawHistory === 'object') {
@@ -128,7 +128,7 @@ const updateConversationCategory = async (tenantId, endUserPhone, category) => {
         }
 
         const { error } = await dbClient
-            .from('conversations')
+            .from('conversations_new')
             .update({
                 end_user_category: category,
                 updated_at: new Date().toISOString(),
@@ -158,7 +158,7 @@ const sendDueFollowUpReminders = async () => {
         const now = new Date().toISOString();
         // Find conversations where the follow-up time is in the past
         const { data: dueFollowUps, error } = await dbClient
-            .from('conversations')
+            .from('conversations_new')
             .select('id, tenant_id, end_user_phone, follow_up_at')
             .not('follow_up_at', 'is', null)
             .lte('follow_up_at', now);
@@ -180,7 +180,7 @@ const sendDueFollowUpReminders = async () => {
 
                 // Update the conversation to nullify the follow-up time so we don't send it again
                 await dbClient
-                    .from('conversations')
+                    .from('conversations_new')
                     .update({ follow_up_at: null })
                     .eq('id', followUp.id);
 
@@ -202,5 +202,6 @@ module.exports = {
     conversationHistoryToText,
     getConversationTextForAnalysis
 };
+
 
 

@@ -1,4 +1,4 @@
-﻿// IMPORTANT: The only valid /api/dashboard/conversations/:tenantId endpoint is below.
+// IMPORTANT: The only valid /api/dashboard/conversations/:tenantId endpoint is below.
 // It must only query the 'conversations' table and never construct objects from customer_profiles or merge in a way that overwrites the id.
 const express = require('express');
 const router = express.Router();
@@ -358,7 +358,7 @@ router.get('/customers/:tenantId', async (req, res) => {
         const { tenantId } = req.params;
 
         const { data: customers, error } = await dbClient
-            .from('customer_profiles')
+            .from('customer_profiles_new')
             .select('id, phone, first_name, last_name, company, total_spent, total_orders, updated_at')
             .eq('tenant_id', tenantId)
             .order('total_spent', { ascending: false })
@@ -527,7 +527,7 @@ router.get('/customers/:tenantId/:customerId/business', async (req, res) => {
 
         // Get customer business profile
         const { data: customer, error: customerError } = await dbClient
-            .from('customer_profiles')
+            .from('customer_profiles_new')
             .select(`
                 id, phone, first_name, last_name, company, email,
                 gst_number, business_registration_number, business_type,
@@ -628,7 +628,7 @@ router.post('/customers/:tenantId/:customerId/business/verify', async (req, res)
         if (business_registration_number) updateData.business_registration_number = business_registration_number;
 
         const { data: updatedCustomer, error: updateError } = await dbClient
-            .from('customer_profiles')
+            .from('customer_profiles_new')
             .update(updateData)
             .eq('tenant_id', tenantId)
             .eq('id', customerId)
@@ -755,7 +755,7 @@ router.patch('/business-documents/:tenantId/:documentId', async (req, res) => {
         // If verified, update customer business_verified status
         if (verification_status === 'verified') {
             await dbClient
-                .from('customer_profiles')
+                .from('customer_profiles_new')
                 .update({ business_verified: true })
                 .eq('id', document.customer_id);
         }
@@ -790,9 +790,9 @@ router.get('/business-insights/:tenantId', async (req, res) => {
             { count: pendingDocuments },
             { count: totalDocuments }
         ] = await Promise.all([
-            dbClient.from('customer_profiles').select('*', { count: 'exact', head: true })
+            dbClient.from('customer_profiles_new').select('*', { count: 'exact', head: true })
                 .eq('tenant_id', tenantId).not('company', 'is', null),
-            dbClient.from('customer_profiles').select('*', { count: 'exact', head: true })
+            dbClient.from('customer_profiles_new').select('*', { count: 'exact', head: true })
                 .eq('tenant_id', tenantId).eq('business_verified', true),
             dbClient.from('customer_business_documents').select('*', { count: 'exact', head: true })
                 .eq('tenant_id', tenantId).eq('verification_status', 'pending'),
@@ -802,7 +802,7 @@ router.get('/business-insights/:tenantId', async (req, res) => {
 
         // Get business customer tiers
         const { data: tierDistribution } = await dbClient
-            .from('customer_profiles')
+            .from('customer_profiles_new')
             .select('customer_tier')
             .eq('tenant_id', tenantId)
             .not('company', 'is', null);
@@ -814,7 +814,7 @@ router.get('/business-insights/:tenantId', async (req, res) => {
 
         // Get top business customers by spending
         const { data: topBusinessCustomers } = await dbClient
-            .from('customer_profiles')
+            .from('customer_profiles_new')
             .select('company, total_spent, total_orders, business_verified')
             .eq('tenant_id', tenantId)
             .not('company', 'is', null)
@@ -871,7 +871,7 @@ router.get('/customers/:tenantId', async (req, res) => {
 
         // Build dynamic query with filters
         let query = dbClient
-            .from('customer_profiles')
+            .from('customer_profiles_new')
             .select(`
                 *,
                 customer_notes!customer_notes_customer_id_fkey (
@@ -937,7 +937,7 @@ router.get('/customers/:tenantId', async (req, res) => {
         if (customerIds.length > 0) {
             // Get recent orders for these customers
             const { data: recentOrders } = await dbClient
-                .from('orders')
+                .from('orders_new')
                 .select('id, total_amount, created_at, order_status, conversation_id')
                 .eq('tenant_id', tenantId)
                 .in('conversation_id', customers.map(c => c.phone).filter(Boolean))
@@ -1003,7 +1003,7 @@ router.get('/customers/:tenantId/:customerId', async (req, res) => {
 
         // Get customer profile
         const { data: customer, error: customerError } = await dbClient
-            .from('customer_profiles')
+            .from('customer_profiles_new')
             .select('*')
             .eq('tenant_id', tenantId)
             .eq('id', customerId)
@@ -1015,7 +1015,7 @@ router.get('/customers/:tenantId/:customerId', async (req, res) => {
 
         // Get all orders for this customer
         const { data: orders, error: ordersError } = await dbClient
-            .from('orders')
+            .from('orders_new')
             .select(`
                 id,
                 total_amount,
@@ -1108,7 +1108,7 @@ router.put('/customers/:tenantId/:customerId', async (req, res) => {
         if (communication_preference !== undefined) updateData.communication_preference = communication_preference;
 
         const { data: customer, error } = await dbClient
-            .from('customer_profiles')
+            .from('customer_profiles_new')
             .update(updateData)
             .eq('tenant_id', tenantId)
             .eq('id', customerId)
@@ -1257,15 +1257,15 @@ router.get('/stats/:tenantId', async (req, res) => {
         // NOTE: In local SQLite mode, the dbClient-like wrapper may not return `count` for `{ head: true }` queries.
         // We compute robust counts with a fallback to `data.length`.
         const [ordersCountRes, conversationsData, productsCountRes, ordersData] = await Promise.all([
-            dbClient.from('orders').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId),
-            dbClient.from('conversations').select('id').eq('tenant_id', tenantId),
+            dbClient.from('orders_new').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId),
+            dbClient.from('conversations_new').select('id').eq('tenant_id', tenantId),
             dbClient.from('products').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId),
-            dbClient.from('orders').select('total_amount').eq('tenant_id', tenantId)
+            dbClient.from('orders_new').select('total_amount').eq('tenant_id', tenantId)
         ]);
 
         let totalOrders = ordersCountRes?.count;
         if (typeof totalOrders !== 'number') {
-            const ordersRowsRes = await dbClient.from('orders').select('id').eq('tenant_id', tenantId);
+            const ordersRowsRes = await dbClient.from('orders_new').select('id').eq('tenant_id', tenantId);
             totalOrders = Array.isArray(ordersRowsRes?.data) ? ordersRowsRes.data.length : 0;
         }
 
@@ -1448,7 +1448,7 @@ router.get('/orders/:tenantId', async (req, res) => {
 
         // In local SQLite mode, schemas can vary; selecting missing columns (e.g. original_amount)
         // causes a hard failure at prepare-time. Use SELECT * to avoid column drift.
-        let query = dbClient.from('orders');
+        let query = dbClient.from('orders_new');
         if (USE_LOCAL_DB) {
             query = query.select('*');
         } else {
@@ -1492,7 +1492,7 @@ router.get('/orders/:tenantId', async (req, res) => {
         if (customer) {
             // Try to find conversation ids with matching phone
             const { data: convs, error: convErr } = await dbClient
-                .from('conversations')
+                .from('conversations_new')
                 .select('id, end_user_phone')
                 .ilike('end_user_phone', `%${customer}%`);
             if (!convErr && convs && convs.length) {
@@ -1549,7 +1549,7 @@ router.get('/orders/:tenantId', async (req, res) => {
 
         if (convIds.length > 0) {
             const { data: convs, error: convError } = await dbClient
-                .from('conversations')
+                .from('conversations_new')
                 .select('id, end_user_phone')
                 .in('id', convIds);
 
@@ -1562,7 +1562,7 @@ router.get('/orders/:tenantId', async (req, res) => {
         }
 
         // Attempt to fetch order_items joined with products (if schema exists).
-        // This is optional â€“ if tables don't exist, we will degrade gracefully.
+        // This is optional – if tables don't exist, we will degrade gracefully.
         const orderIds = enrichedOrders.map(o => o.id).filter(Boolean);
         let itemsMap = {};
 
@@ -1617,7 +1617,7 @@ router.get('/orders/:tenantId', async (req, res) => {
             const customerPhones = enrichedOrders.map(o => convMap[o.conversation_id]?.end_user_phone).filter(Boolean);
             if (customerPhones.length > 0) {
                 const { data: profiles, error: profileErr } = await dbClient
-                    .from('customer_profiles')
+                    .from('customer_profiles_new')
                     .select('phone, company')
                     .in('phone', customerPhones);
                 if (!profileErr && profiles) {
@@ -1686,7 +1686,7 @@ router.get('/orders/:tenantId', async (req, res) => {
 
     } catch (error) {
         console.error('Orders API error:', error);
-        // Return underlying message where safe Ã¢â‚¬" this helps debug
+        // Return underlying message where safe â€" this helps debug
         res.status(500).json({ error: 'Failed to load orders', details: error?.message || String(error) });
     }
 });
@@ -1701,7 +1701,7 @@ router.get('/order/:orderId', async (req, res) => {
         
         // Get order
         const { data: order, error: orderError } = await dbClient
-            .from('orders')
+            .from('orders_new')
             .select('*')
             .eq('id', orderId)
             .single();
@@ -1732,7 +1732,7 @@ router.get('/order/:orderId', async (req, res) => {
         let customer_phone = order.customer_phone;
         if (order.conversation_id && !customer_phone) {
             const { data: conv } = await dbClient
-                .from('conversations')
+                .from('conversations_new')
                 .select('end_user_phone')
                 .eq('id', order.conversation_id)
                 .single();
@@ -1781,7 +1781,7 @@ router.patch('/orders/:orderId/status', async (req, res) => {
         }
 
         const { data, error } = await dbClient
-            .from('orders')
+            .from('orders_new')
             .update({ status, order_status: status })
             .eq('id', orderId)
             .select('id, status, order_status')
@@ -1809,7 +1809,7 @@ router.get('/conversations/:tenantId', async (req, res) => {
 
         console.log(`Fetching conversations for tenant: ${tenantId}`);
 
-        let convQuery = dbClient.from('conversations');
+        let convQuery = dbClient.from('conversations_new');
         if (USE_LOCAL_DB) {
             // Local SQLite schemas can drift; select('*') avoids hard failures on missing columns.
             convQuery = convQuery.select('*');
@@ -1882,7 +1882,7 @@ router.get('/conversations/:tenantId', async (req, res) => {
                     
                     try {
                         const { data: customerProfile } = await dbClient
-                            .from('customer_profiles')
+                            .from('customer_profiles_new')
                             .select('id, company, first_name, last_name')
                             .eq('phone', conv.end_user_phone)
                             .eq('tenant_id', tenantId)
@@ -2152,7 +2152,7 @@ router.get('/products/performance/:tenantId', async (req, res) => {
         let salesError = null;
 
         const { data: tenantOrders, error: tenantOrdersError } = await dbClient
-            .from('orders')
+            .from('orders_new')
             .select('id')
             .eq('tenant_id', tenantId);
 
@@ -2309,7 +2309,7 @@ router.get('/analytics/:tenantId', async (req, res) => {
         startDate.setDate(startDate.getDate() - period);
 
         const { data: dailySales, error: salesError } = await dbClient
-            .from('orders')
+            .from('orders_new')
             .select('total_amount, subtotal_amount, gst_amount, shipping_charges, created_at, status, order_status, conversation_id')
             .eq('tenant_id', tenantId)
             .gte('created_at', startDate.toISOString())
@@ -2358,7 +2358,7 @@ router.get('/analytics/:tenantId', async (req, res) => {
 
         // Conversations for conversion rate (period)
         const { data: convsPeriod } = await dbClient
-            .from('conversations')
+            .from('conversations_new')
             .select('id, created_at, assigned_to, status, heat')
             .eq('tenant_id', tenantId)
             .gte('created_at', startDate.toISOString());
@@ -2504,7 +2504,7 @@ router.get('/customers/:tenantId', async (req, res) => {
         const { tenantId } = req.params;
 
         const { data: topCustomers, error } = await dbClient
-            .from('conversations')
+            .from('conversations_new')
             .select(`
                 end_user_phone,
                 orders (total_amount, created_at)
@@ -2552,7 +2552,7 @@ router.get('/conversation/:tenantId/:conversationId', async (req, res) => {
         }
 
         const { data: conversation, error: convError } = await dbClient
-            .from('conversations')
+            .from('conversations_new')
             .select('*')
             .eq('id', conversationId)
             .eq('tenant_id', tenantId)
@@ -2596,7 +2596,7 @@ router.get('/conversation/:conversationId', async (req, res) => {
         const { conversationId } = req.params;
         
         const { data: conversation, error: convError } = await dbClient
-            .from('conversations')
+            .from('conversations_new')
             .select('*')
             .eq('id', conversationId)
             .single();
@@ -2654,7 +2654,7 @@ router.post('/conversation/:tenantId/:conversationId/reply', async (req, res) =>
         }
 
         const { data: conversation, error: convError } = await dbClient
-            .from('conversations')
+            .from('conversations_new')
             .select('*')
             .eq('id', conversationId)
             .eq('tenant_id', tenantId)
@@ -2758,7 +2758,7 @@ router.post('/conversation/:tenantId/:conversationId/reply', async (req, res) =>
         }
 
         await dbClient
-            .from('conversations')
+            .from('conversations_new')
             .update({ updated_at: new Date().toISOString() })
             .eq('id', conversationId)
             .eq('tenant_id', tenantId);
@@ -3281,3 +3281,6 @@ router.get('/manager/report', requireAuth, async (req, res) => {
 
 // END OF ROUTES
 module.exports = router;
+
+
+

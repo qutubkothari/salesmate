@@ -1,4 +1,4 @@
-﻿// routes/api/tenants.js
+// routes/api/tenants.js
 // Client/Tenant Management APIs
 
 const express = require('express');
@@ -93,7 +93,7 @@ router.post('/register', async (req, res) => {
                 status: 'active',
                 is_active: true,
                 bot_phone_number: normalizedOwnerWhatsApp, // Default to owner's number
-                currency_symbol: 'â‚¹',
+                currency_symbol: '₹',
                 default_packaging_unit: 'piece',
                 daily_summary_enabled: true,
                 abandoned_cart_delay_hours: 2,
@@ -435,14 +435,14 @@ async function getTenantStats(tenantId) {
         startOfMonth.setHours(0, 0, 0, 0);
 
         const { count: conversationsThisMonth } = await dbClient
-            .from('conversations')
+            .from('conversations_new')
             .select('id', { count: 'exact', head: true })
             .eq('tenant_id', tenantId)
             .gte('created_at', startOfMonth.toISOString());
 
         // Get total customers
         const { count: totalCustomers } = await dbClient
-            .from('customer_profiles')
+            .from('customer_profiles_new')
             .select('id', { count: 'exact', head: true })
             .eq('tenant_id', tenantId);
 
@@ -454,7 +454,7 @@ async function getTenantStats(tenantId) {
 
         // Get total orders
         const { count: totalOrders } = await dbClient
-            .from('orders')
+            .from('orders_new')
             .select('id', { count: 'exact', head: true })
             .eq('tenant_id', tenantId);
 
@@ -579,4 +579,5 @@ router.post('/update-password', async (req, res) => {
 });
 
 module.exports = router;
+
 

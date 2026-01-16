@@ -1,4 +1,4 @@
-﻿const { calculateDiscount } = require('./volumeDiscountService');
+const { calculateDiscount } = require('./volumeDiscountService');
 
 /**
  * Safely parse context_data (handles both string and object)
@@ -33,7 +33,7 @@ const applyApprovedDiscountToCart = async (tenantId, endUserPhone) => {
 
     // Get conversation with quoted products
     const { data: conversation } = await dbClient
-        .from('conversations')
+        .from('conversations_new')
         .select('id, context_data, last_quoted_products')
         .eq('id', conversationId)
         .single();
@@ -97,7 +97,7 @@ const applyApprovedDiscountToCart = async (tenantId, endUserPhone) => {
 
     if (!cartItems || cartItems.length === 0) return;
 
-    // Ã¢Å“â€¦ Apply discount to EACH item individually
+    // âœ… Apply discount to EACH item individually
     for (const item of cartItems) {
         // Priority for base price:
         // 1. Personalized price from quotedProductsMap (from price quote)
@@ -108,7 +108,7 @@ const applyApprovedDiscountToCart = async (tenantId, endUserPhone) => {
         const discountAmountPerCarton = basePrice - discountedPrice;
 
         const priceSource = quotedProductsMap.has(item.product.id) ? 'quoted products' : 'catalog';
-        console.log(`[DISCOUNT_PER_ITEM] ${item.product.name}: Ã¢â€šÂ¹${basePrice} Ã¢â€ â€™ Ã¢â€šÂ¹${discountedPrice.toFixed(2)} (${approvedDiscount}% off, source: ${priceSource})`);
+        console.log(`[DISCOUNT_PER_ITEM] ${item.product.name}: â‚¹${basePrice} â†’ â‚¹${discountedPrice.toFixed(2)} (${approvedDiscount}% off, source: ${priceSource})`);
 
         // Update cart_item with discounted price
         await dbClient
@@ -148,26 +148,26 @@ const checkoutWithZohoIntegration = async (tenant, endUserPhone) => {
         }).eq('id', cart.id);
 
         // Send initial confirmation message
-        let confirmationMessage = `âœ… **Order Confirmed!**\n\n`;
+        let confirmationMessage = `✅ **Order Confirmed!**\n\n`;
         confirmationMessage += `**Products:**\n`;
         pricing.items.forEach(item => {
             const unitPrice = item.carton_price_override || item.unitPrice;
             const actualQuantity = parseInt(item.quantity) || 1; // FIXED: ensure numeric quantity
-            confirmationMessage += `ðŸ“¦ ${item.productName} Ã— ${actualQuantity} cartons\n   â‚¹${unitPrice}/pc (was â‚¹${item.unitPrice}/pc)\n   â‚¹${(unitPrice * item.unitsPerCarton).toFixed(2)}/carton (was â‚¹${(item.unitPrice * item.unitsPerCarton).toFixed(2)}/carton)\n`;
+            confirmationMessage += `📦 ${item.productName} × ${actualQuantity} cartons\n   ₹${unitPrice}/pc (was ₹${item.unitPrice}/pc)\n   ₹${(unitPrice * item.unitsPerCarton).toFixed(2)}/carton (was ₹${(item.unitPrice * item.unitsPerCarton).toFixed(2)}/carton)\n`;
         });
         confirmationMessage += `\n**Pricing Breakdown:**\n`;
-        confirmationMessage += `Subtotal: â‚¹${pricing.subtotal.toLocaleString()}\n`;
+        confirmationMessage += `Subtotal: ₹${pricing.subtotal.toLocaleString()}\n`;
         if (pricing.discountAmount > 0) {
-            confirmationMessage += `Discount: -â‚¹${pricing.discountAmount.toLocaleString()}\n`;
+            confirmationMessage += `Discount: -₹${pricing.discountAmount.toLocaleString()}\n`;
         }
         if (pricing.shipping.freeShippingApplied) {
-            confirmationMessage += `Shipping: FREE âœ“\n`;
+            confirmationMessage += `Shipping: FREE ✓\n`;
         } else if (pricing.shipping.charges > 0) {
-            confirmationMessage += `Shipping: â‚¹${pricing.shipping.charges.toLocaleString()}\n`;
+            confirmationMessage += `Shipping: ₹${pricing.shipping.charges.toLocaleString()}\n`;
         }
-        confirmationMessage += `GST (${pricing.gst.rate}%): â‚¹${pricing.gst.amount.toLocaleString()}\n`;
-        confirmationMessage += `**Final Total: â‚¹${pricing.grandTotal.toLocaleString()}**\n\n`;
-        confirmationMessage += `ðŸ“‹ Processing your sales order document...`;
+        confirmationMessage += `GST (${pricing.gst.rate}%): ₹${pricing.gst.amount.toLocaleString()}\n`;
+        confirmationMessage += `**Final Total: ₹${pricing.grandTotal.toLocaleString()}**\n\n`;
+        confirmationMessage += `📋 Processing your sales order document...`;
         // Send initial confirmation
         await sendMessage(endUserPhone, confirmationMessage);
 
@@ -180,19 +180,19 @@ const checkoutWithZohoIntegration = async (tenant, endUserPhone) => {
             const deliveryResult = await deliverOrderPDF(tenant.id, order.id, endUserPhone);
             if (deliveryResult.success) {
                 // Success message
-                const successMessage = `Ã°Å¸Å½â€° **Order Processing Complete!**\n\n` +
-                                     `Ã¢Å“â€¦ Sales order created in Zoho CRM\n` +
-                                     `Ã°Å¸â€œâ€ž Sales order document sent above\n` +
-                                     `Ã°Å¸â€ â€ Reference: ${order.id.substring(0, 8)}\n\n` +
+                const successMessage = `ðŸŽ‰ **Order Processing Complete!**\n\n` +
+                                     `âœ… Sales order created in Zoho CRM\n` +
+                                     `ðŸ“„ Sales order document sent above\n` +
+                                     `ðŸ†” Reference: ${order.id.substring(0, 8)}\n\n` +
                                      `Your order is now being processed. We'll keep you updated on the status.`;
                 await sendMessage(endUserPhone, successMessage);
                 console.log('[CHECKOUT_ZOHO] Complete process successful');
             } else {
                 // Partial success - order created but PDF failed
-                const partialMessage = `Ã¢Å¡ Ã¯Â¸Â **Order Confirmed with Minor Issue**\n\n` +
-                                     `Ã¢Å“â€¦ Your order has been created successfully\n` +
-                                     `Ã¢ÂÅ’ Sales document generation is delayed\n` +
-                                     `Ã°Å¸â€ â€ Reference: ${order.id.substring(0, 8)}\n\n` +
+                const partialMessage = `âš ï¸ **Order Confirmed with Minor Issue**\n\n` +
+                                     `âœ… Your order has been created successfully\n` +
+                                     `âŒ Sales document generation is delayed\n` +
+                                     `ðŸ†” Reference: ${order.id.substring(0, 8)}\n\n` +
                                      `We'll send your sales document shortly and keep you updated.`;
                 await sendMessage(endUserPhone, partialMessage);
                 console.log('[CHECKOUT_ZOHO] Partial success - order created, PDF failed');
@@ -200,9 +200,9 @@ const checkoutWithZohoIntegration = async (tenant, endUserPhone) => {
         } catch (zohoError) {
             console.error('[CHECKOUT_ZOHO] Error in Zoho integration:', zohoError.message);
             // Fallback message - order is still valid even if Zoho fails
-            const fallbackMessage = `Ã¢Å“â€¦ **Order Confirmed!**\n\n` +
+            const fallbackMessage = `âœ… **Order Confirmed!**\n\n` +
                                   `Your order has been created successfully.\n` +
-                                  `Ã°Å¸â€ â€ Reference: ${order.id.substring(0, 8)}\n\n` +
+                                  `ðŸ†” Reference: ${order.id.substring(0, 8)}\n\n` +
                                   `Our team will process your order and send you the details shortly.`;
             await sendMessage(endUserPhone, fallbackMessage);
         }
@@ -211,7 +211,7 @@ const checkoutWithZohoIntegration = async (tenant, endUserPhone) => {
         try {
             const paymentDetails = await generatePaymentDetails(tenant, pricing.grandTotal, order.id);
             if (paymentDetails) {
-                await sendMessage(endUserPhone, `Ã°Å¸â€™Â³ **Payment Information**\n\n${paymentDetails}`);
+                await sendMessage(endUserPhone, `ðŸ’³ **Payment Information**\n\n${paymentDetails}`);
             }
         } catch (paymentError) {
             console.warn('[CHECKOUT_ZOHO] Payment details generation failed:', paymentError.message);
@@ -233,7 +233,7 @@ const processOrderBackground = async (orderId) => {
         console.log('[BACKGROUND_ORDER] Processing order:', orderId);
         // Get order details
         const { data: order } = await dbClient
-            .from('orders')
+            .from('orders_new')
             .select(`
                 *,
                 conversations (end_user_phone, tenant_id)
@@ -259,7 +259,7 @@ const processOrderBackground = async (orderId) => {
             // Send success notification
             await sendMessage(
                 order.conversations.end_user_phone,
-                `Ã°Å¸â€œâ€¹ **Order Update**\n\nYour sales order document for order ${orderId.substring(0, 8)} has been generated and sent!\n\nÃ¢Å“â€¦ Processing complete`
+                `ðŸ“‹ **Order Update**\n\nYour sales order document for order ${orderId.substring(0, 8)} has been generated and sent!\n\nâœ… Processing complete`
             );
         }
         return result;
@@ -296,7 +296,7 @@ const debugCartState = async (tenantId, endUserPhone, context = '') => {
 
         // Check conversation state
         const { data: conversation } = await dbClient
-            .from('conversations')
+            .from('conversations_new')
             .select('*')
             .eq('id', conversationId)
             .single();
@@ -402,7 +402,7 @@ const forceResetCartForNewOrder = async (tenantId, endUserPhone) => {
 
         // Reset conversation state
         const { error: convError } = await dbClient
-            .from('conversations')
+            .from('conversations_new')
             .update({
                 state: null,
                 last_product_discussed: null,
@@ -475,7 +475,7 @@ const forceClearCartCompletely = async (tenantId, endUserPhone) => {
 
         // Step 3: Reset conversation completely
         await dbClient
-            .from('conversations')
+            .from('conversations_new')
             .update({
                 state: null,
                 last_product_discussed: null,
@@ -486,7 +486,7 @@ const forceClearCartCompletely = async (tenantId, endUserPhone) => {
         await debugCartState(tenantId, endUserPhone, 'AFTER_FORCE_CLEAR');
 
         console.log('[FORCE_CLEAR] Complete reset finished');
-        return "Ã°Å¸â€Â¥ Cart completely reset! All previous items removed.";
+        return "ðŸ”¥ Cart completely reset! All previous items removed.";
 
     } catch (error) {
         console.error('[FORCE_CLEAR] Error:', error.message);
@@ -653,7 +653,7 @@ const viewCartWithDiscounts = async (tenantId, endUserPhone) => {
         let customerProfileId = null;
         try {
             const { data: profile } = await dbClient
-                .from('customer_profiles')
+                .from('customer_profiles_new')
                 .select('id')
                 .eq('tenant_id', tenantId)
                 .eq('phone', endUserPhone)
@@ -681,7 +681,7 @@ const viewCartWithDiscounts = async (tenantId, endUserPhone) => {
         let negotiatedDiscountAmount = 0;
         try {
             const { data: conversation } = await dbClient
-                .from('conversations')
+                .from('conversations_new')
                 .select('context_data')
                 .eq('id', conversationId)
                 .single();
@@ -694,7 +694,7 @@ const viewCartWithDiscounts = async (tenantId, endUserPhone) => {
                 if (contextData.offeredDiscount || contextData.approvedDiscount) {
                     negotiatedDiscountPercent = contextData.offeredDiscount || contextData.approvedDiscount;
                     negotiatedDiscountAmount = (baseOrderTotal * negotiatedDiscountPercent) / 100;
-                    console.log('[CART_VIEW] Negotiated discount found:', negotiatedDiscountPercent, '% = â‚¹', negotiatedDiscountAmount);
+                    console.log('[CART_VIEW] Negotiated discount found:', negotiatedDiscountPercent, '% = ₹', negotiatedDiscountAmount);
                 }
             }
         } catch (error) {
@@ -738,7 +738,7 @@ const viewCartWithDiscounts = async (tenantId, endUserPhone) => {
                 // Also clear from memory array for current request
                 validItems.forEach(item => {
                     if (item.carton_price_override) {
-                        console.log(`[CART_VIEW] Clearing ${item.product.name}: was â‚¹${item.carton_price_override}, now catalog â‚¹${item.product.price}`);
+                        console.log(`[CART_VIEW] Clearing ${item.product.name}: was ₹${item.carton_price_override}, now catalog ₹${item.product.price}`);
                         item.carton_price_override = null;
                     }
                 });
@@ -750,7 +750,7 @@ const viewCartWithDiscounts = async (tenantId, endUserPhone) => {
         let isReturningCustomer = false;
         try {
             const { count } = await dbClient
-                .from('orders')
+                .from('orders_new')
                 .select('*', { count: 'exact', head: true })
                 .eq('tenant_id', tenantId)
                 .eq('customer_profile_id', customerProfileId)
@@ -785,14 +785,14 @@ const viewCartWithDiscounts = async (tenantId, endUserPhone) => {
                 // Clear from memory - CRITICAL: Set to null so pricing service uses catalog prices
                 validItems.forEach(item => {
                     if (item.carton_price_override) {
-                        console.log(`[CART_VIEW] Memory: Clearing ${item.product.name}: was â‚¹${item.carton_price_override}, now will use catalog â‚¹${item.product.price}`);
+                        console.log(`[CART_VIEW] Memory: Clearing ${item.product.name}: was ₹${item.carton_price_override}, now will use catalog ₹${item.product.price}`);
                         item.carton_price_override = null;
                     }
                 });
             }
         }
         
-        console.log('[CART_VIEW] ðŸ” DEBUG - Pricing call parameters:');
+        console.log('[CART_VIEW] 🔍 DEBUG - Pricing call parameters:');
         console.log('[CART_VIEW] - Customer type:', isReturningCustomer ? 'RETURNING' : 'NEW');
         console.log('[CART_VIEW] - negotiatedDiscountPercent:', negotiatedDiscountPercent);
         console.log('[CART_VIEW] - ignorePriceOverride flag:', ignorePriceOverride);
@@ -800,7 +800,7 @@ const viewCartWithDiscounts = async (tenantId, endUserPhone) => {
         console.log('[CART_VIEW] - finalDiscountAmount:', finalDiscountAmount);
         console.log('[CART_VIEW] - Items carton_price_override status AFTER clearing:');
         validItems.forEach(item => {
-            console.log(`[CART_VIEW]   - ${item.product.name}: carton_price_override=${item.carton_price_override || 'null'}, catalog=â‚¹${item.product.price}`);
+            console.log(`[CART_VIEW]   - ${item.product.name}: carton_price_override=${item.carton_price_override || 'null'}, catalog=₹${item.product.price}`);
         });
         
         const pricing = await calculateComprehensivePricing(
@@ -828,21 +828,21 @@ const viewCartWithDiscounts = async (tenantId, endUserPhone) => {
                 var totalPieces = item.quantity * originalItem.product.units_per_carton;
                 var pricePerPiece = (item.unitPrice / originalItem.product.units_per_carton).toFixed(2);
                 cartMessage += `  - ${item.quantity} carton(s) (${totalPieces.toLocaleString()} pieces)\n`;
-                cartMessage += `  - ${item.quantity} cartons @ â‚¹${item.unitPrice}/carton (â‚¹${pricePerPiece} per piece)\n`;
+                cartMessage += `  - ${item.quantity} cartons @ ₹${item.unitPrice}/carton (₹${pricePerPiece} per piece)\n`;
             } else {
                 cartMessage += `  - Qty: ${item.quantity}\n`;
-                cartMessage += `  - ${item.quantity} @ â‚¹${item.unitPrice} each\n`;
+                cartMessage += `  - ${item.quantity} @ ₹${item.unitPrice} each\n`;
             }
             // Show total for each item
-            cartMessage += `  - Total: â‚¹${item.roundedItemTotal.toLocaleString()}\n\n`;
+            cartMessage += `  - Total: ₹${item.roundedItemTotal.toLocaleString()}\n\n`;
         });
 
         // CRITICAL FIX: Show EXACT same pricing breakdown as checkout will show
         cartMessage += "*Pricing Breakdown:*\n";
-        cartMessage += `Subtotal: â‚¹${pricing.subtotal.toLocaleString()}\n`;
+        cartMessage += `Subtotal: ₹${pricing.subtotal.toLocaleString()}\n`;
 
         if (pricing.discountAmount > 0) {
-            cartMessage += `Discount: -â‚¹${pricing.discountAmount.toLocaleString()}`;
+            cartMessage += `Discount: -₹${pricing.discountAmount.toLocaleString()}`;
             if (discountSource !== 'none') {
                 cartMessage += ` (${discountSource})`;
             }
@@ -851,16 +851,16 @@ const viewCartWithDiscounts = async (tenantId, endUserPhone) => {
         
         // CRITICAL: Include shipping charges (was missing before)
         if (pricing.shipping.freeShippingApplied) {
-            cartMessage += `Shipping: FREE âœ“\n`;
+            cartMessage += `Shipping: FREE ✓\n`;
         } else if (pricing.shipping.charges > 0) {
-            cartMessage += `Shipping: â‚¹${pricing.shipping.charges.toLocaleString()} (${pricing.totalCartons} cartons Ã— â‚¹${pricing.shipping.ratePerCarton})\n`;
+            cartMessage += `Shipping: ₹${pricing.shipping.charges.toLocaleString()} (${pricing.totalCartons} cartons × ₹${pricing.shipping.ratePerCarton})\n`;
         }
 
-        cartMessage += `GST (${pricing.gst.rate}%): â‚¹${pricing.gst.amount.toLocaleString()}\n`;
-        cartMessage += `*Final Total: â‚¹${pricing.grandTotal.toLocaleString()}*`;
+        cartMessage += `GST (${pricing.gst.rate}%): ₹${pricing.gst.amount.toLocaleString()}\n`;
+        cartMessage += `*Final Total: ₹${pricing.grandTotal.toLocaleString()}*`;
         
         if (pricing.isRounded && pricing.roundingAdjustment > 0) {
-            cartMessage += ` (rounded from â‚¹${pricing.grandTotalBeforeRounding.toLocaleString()})`;
+            cartMessage += ` (rounded from ₹${pricing.grandTotalBeforeRounding.toLocaleString()})`;
         }
         
         cartMessage += '\n\nTo complete purchase: say "yes go ahead" or type /checkout';
@@ -886,7 +886,7 @@ const checkoutWithDiscounts = async (tenant, endUserPhone) => {
 
         // Check for existing order for this conversation in the last 10 minutes (or today)
         const { data: recentOrders, error: orderCheckError } = await dbClient
-            .from('orders')
+            .from('orders_new')
             .select('id, created_at, order_status')
             .eq('tenant_id', tenant.id)
             .eq('conversation_id', conversationId)
@@ -928,7 +928,7 @@ const checkoutWithDiscounts = async (tenant, endUserPhone) => {
             // Request GST using the new service (handles state transition automatically)
             const { message } = await GSTService.requestGSTPreference(tenant.id, endUserPhone);
             
-            return `â¸ï¸ ${message}`;
+            return `⏸️ ${message}`;
         }
 
         const { preference, gstNumber } = await GSTService.getGSTPreference(tenant.id, endUserPhone);
@@ -997,7 +997,7 @@ const checkoutWithDiscounts = async (tenant, endUserPhone) => {
         });
 
         const { data: order, error: orderError} = await dbClient
-            .from('orders')
+            .from('orders_new')
             .insert({
                 tenant_id: tenant.id,
                 conversation_id: conversationId,
@@ -1045,7 +1045,7 @@ const checkoutWithDiscounts = async (tenant, endUserPhone) => {
             const unitPriceBeforeTax = (discountedPriceWithTax / 1.18).toFixed(2);
             const gstAmount = ((discountedPriceWithTax - unitPriceBeforeTax) * item.quantity).toFixed(2);
             
-            console.log(`[ORDER_ITEM] ${item.product.name}: Original Ã¢â€šÂ¹${originalPriceWithTax} Ã¢â€ â€™ Discounted Ã¢â€šÂ¹${discountedPriceWithTax.toFixed(2)}`);
+            console.log(`[ORDER_ITEM] ${item.product.name}: Original â‚¹${originalPriceWithTax} â†’ Discounted â‚¹${discountedPriceWithTax.toFixed(2)}`);
             
             return {
                 order_id: order.id,
@@ -1073,7 +1073,7 @@ const checkoutWithDiscounts = async (tenant, endUserPhone) => {
         console.log('[CHECKOUT] Order ID:', order.id);
         try {
             const { requestShippingInfo } = require('./shippingInfoService');
-            const orderSummary = `Order #${order.id.substring(0, 8)} - â‚¹${pricing.grandTotal.toLocaleString()}`;
+            const orderSummary = `Order #${order.id.substring(0, 8)} - ₹${pricing.grandTotal.toLocaleString()}`;
             const shippingResult = await requestShippingInfo(tenant.id, endUserPhone, order.id, orderSummary);
             console.log('[CHECKOUT] Shipping info request sent, result:', shippingResult);
         } catch (shippingError) {
@@ -1082,7 +1082,7 @@ const checkoutWithDiscounts = async (tenant, endUserPhone) => {
             // Send fallback message to customer
             try {
                 const { sendMessage } = require('./whatsappService');
-                await sendMessage(endUserPhone, `âœ… Order confirmed! Order ID: ${order.id.substring(0, 8)}\n\nâš ï¸ Please provide your shipping address and transporter details.`);
+                await sendMessage(endUserPhone, `✅ Order confirmed! Order ID: ${order.id.substring(0, 8)}\n\n⚠️ Please provide your shipping address and transporter details.`);
             } catch (fallbackError) {
                 console.error('[CHECKOUT] Fallback message also failed:', fallbackError);
             }
@@ -1107,7 +1107,7 @@ const checkoutWithDiscounts = async (tenant, endUserPhone) => {
                 console.log('[ZOHO_INTEGRATION] Success:', result.zohoOrderId);
                 // Send success notification
                 await sendMessage(endUserPhone, 
-                    `Ã°Å¸â€œâ€¹ Sales Order Created!\n\nZoho Order: ${result.zohoOrderId.substring(0, 8)}\nReference: ${order.id.substring(0, 8)}`
+                    `ðŸ“‹ Sales Order Created!\n\nZoho Order: ${result.zohoOrderId.substring(0, 8)}\nReference: ${order.id.substring(0, 8)}`
                 );
 
                 // PDF Delivery after Zoho success
@@ -1119,13 +1119,13 @@ const checkoutWithDiscounts = async (tenant, endUserPhone) => {
                             endUserPhone,
                             result.pdfBuffer,
                             result.filename,
-                            `Ã°Å¸â€œâ€ž Your sales order invoice\nOrder: ${result.zohoOrderId}\nThank you for your business!`
+                            `ðŸ“„ Your sales order invoice\nOrder: ${result.zohoOrderId}\nThank you for your business!`
                         );
                         if (pdfDelivery.success) {
                             console.log('[PDF_SEND] PDF delivered successfully');
                             // PATCH: Update order with PDF delivery URL
                             await dbClient
-                                .from('orders')
+                                .from('orders_new')
                                 .update({
                                     pdf_delivery_url: pdfDelivery.fileUrl,
                                     pdf_delivery_status: 'delivered',
@@ -1159,7 +1159,7 @@ const checkoutWithDiscounts = async (tenant, endUserPhone) => {
         }).eq('id', cart.id);
 
         // CRITICAL FIX: Customer confirmation with IDENTICAL pricing breakdown as cart view
-        let confirmationMessage = `âœ… *Order Confirmed!*\n\n`;
+        let confirmationMessage = `✅ *Order Confirmed!*\n\n`;
         
         // Add product details with per-piece pricing and discount breakdown
         if (validItems && validItems.length > 0) {
@@ -1181,28 +1181,28 @@ const checkoutWithDiscounts = async (tenant, endUserPhone) => {
                 }
                 
                 const actualQuantity = parseInt(quantity) || 1; // FIXED: ensure numeric quantity
-                confirmationMessage += `ðŸ“¦ ${productName} Ã— ${actualQuantity} carton${actualQuantity > 1 ? 's' : ''}\n`;
+                confirmationMessage += `📦 ${productName} × ${actualQuantity} carton${actualQuantity > 1 ? 's' : ''}\n`;
                 if (discountedPerPiece && originalPerPiece) {
-                    confirmationMessage += `   â‚¹${discountedPerPiece}/pc (was â‚¹${originalPerPiece}/pc)\n`;
-                    confirmationMessage += `   â‚¹${discountedPrice.toFixed(2)}/carton (was â‚¹${originalPrice.toFixed(2)}/carton)\n`;
+                    confirmationMessage += `   ₹${discountedPerPiece}/pc (was ₹${originalPerPiece}/pc)\n`;
+                    confirmationMessage += `   ₹${discountedPrice.toFixed(2)}/carton (was ₹${originalPrice.toFixed(2)}/carton)\n`;
                 } else {
-                    confirmationMessage += `   â‚¹${discountedPrice.toFixed(2)}/carton (was â‚¹${originalPrice.toFixed(2)}/carton)\n`;
+                    confirmationMessage += `   ₹${discountedPrice.toFixed(2)}/carton (was ₹${originalPrice.toFixed(2)}/carton)\n`;
                 }
             });
             confirmationMessage += `\n`;
         }
 
-        confirmationMessage += `Subtotal: â‚¹${pricing.subtotal.toLocaleString()}\n`;
+        confirmationMessage += `Subtotal: ₹${pricing.subtotal.toLocaleString()}\n`;
         // Removed bulk discount line since discounts are now shown per item above
         if (pricing.shipping.freeShippingApplied) {
-            confirmationMessage += `Shipping: FREE âœ“\n`;
+            confirmationMessage += `Shipping: FREE ✓\n`;
         } else if (pricing.shipping.charges > 0) {
-            confirmationMessage += `Shipping: â‚¹${pricing.shipping.charges.toLocaleString()} (${pricing.totalCartons} cartons Ã— â‚¹${pricing.shipping.ratePerCarton})\n`;
+            confirmationMessage += `Shipping: ₹${pricing.shipping.charges.toLocaleString()} (${pricing.totalCartons} cartons × ₹${pricing.shipping.ratePerCarton})\n`;
         }
-        confirmationMessage += `GST (${pricing.gst.rate}%): â‚¹${pricing.gst.amount.toLocaleString()}\n`;
-        confirmationMessage += `**Final Total: â‚¹${pricing.grandTotal.toLocaleString()}**`;
+        confirmationMessage += `GST (${pricing.gst.rate}%): ₹${pricing.gst.amount.toLocaleString()}\n`;
+        confirmationMessage += `**Final Total: ₹${pricing.grandTotal.toLocaleString()}**`;
         if (pricing.isRounded && pricing.roundingAdjustment > 0) {
-            confirmationMessage += ` (rounded from â‚¹${pricing.grandTotalBeforeRounding.toLocaleString()})`;
+            confirmationMessage += ` (rounded from ₹${pricing.grandTotalBeforeRounding.toLocaleString()})`;
         }
         confirmationMessage += '\n\nThank you for your order!';
 
@@ -1290,7 +1290,7 @@ const getOrderStatus = async (tenantId, endUserPhone) => {
         if (!conversationId) return "Could not identify your conversation.";
 
         const { data: orders } = await dbClient
-            .from('orders')
+            .from('orders_new')
             .select('id, total_amount, created_at, order_status, shipping_charges, gst_amount')
             .eq('tenant_id', tenantId)
             .eq('conversation_id', conversationId)
@@ -1301,20 +1301,20 @@ const getOrderStatus = async (tenantId, endUserPhone) => {
             return "You haven't placed any orders yet.";
         }
 
-        let statusMessage = "Ã°Å¸â€œâ€¹ **Your Recent Orders**\n\n";
+        let statusMessage = "ðŸ“‹ **Your Recent Orders**\n\n";
         orders.forEach((order, index) => {
             const orderDate = new Date(order.created_at).toLocaleDateString();
             statusMessage += `${index + 1}. Order #${order.id.substring(0, 8)}\n`;
             statusMessage += `   Date: ${orderDate}\n`;
             
             if (order.shipping_charges > 0) {
-                statusMessage += `   Shipping: Ã¢â€šÂ¹${order.shipping_charges}\n`;
+                statusMessage += `   Shipping: â‚¹${order.shipping_charges}\n`;
             }
             if (order.gst_amount > 0) {
-                statusMessage += `   GST: Ã¢â€šÂ¹${order.gst_amount}\n`;
+                statusMessage += `   GST: â‚¹${order.gst_amount}\n`;
             }
             
-            statusMessage += `   **Total: Ã¢â€šÂ¹${order.total_amount}**\n`;
+            statusMessage += `   **Total: â‚¹${order.total_amount}**\n`;
             statusMessage += `   Status: ${order.order_status || 'Processing'}\n\n`;
         });
 
@@ -1425,7 +1425,7 @@ module.exports = {
     checkoutWithDiscounts,
     getOrderStatus,
     getOrCreateCart,
-    forceResetCartForNewOrder,  // Ã¢â€ Â Make sure this is exported
+    forceResetCartForNewOrder,  // â† Make sure this is exported
     debugCartState,
     forceClearCartCompletely,
     checkoutWithZohoIntegration,
@@ -1433,3 +1433,4 @@ module.exports = {
     removeCartItem,
     applyApprovedDiscountToCart
 };
+

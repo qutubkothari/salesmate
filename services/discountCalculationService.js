@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @title Discount Calculation Service
  * @description Core service for calculating and applying discounts to orders
  * Supports volume, customer, product, category, coupon, time-based, and other discount types
@@ -189,7 +189,7 @@ class DiscountCalculationService {
 
         try {
             const { count } = await dbClient
-                .from('orders')
+                .from('orders_new')
                 .select('*', { count: 'exact', head: true })
                 .eq('customer_profile_id', customerProfile.id)
                 .eq('status', 'confirmed');
@@ -416,7 +416,7 @@ class DiscountCalculationService {
                 if (rule.min_order_value && orderData.totalAmount < rule.min_order_value) {
                     return {
                         valid: false,
-                        message: `Minimum order value of â‚¹${rule.min_order_value} required`
+                        message: `Minimum order value of ₹${rule.min_order_value} required`
                     };
                 }
                 if (rule.coupon_usage_limit && rule.coupon_used_count >= rule.coupon_usage_limit) {
@@ -442,7 +442,7 @@ class DiscountCalculationService {
 
             return {
                 valid: true,
-                message: `Coupon applied! You saved â‚¹${discountAmount}`,
+                message: `Coupon applied! You saved ₹${discountAmount}`,
                 discount: rule,
                 discountAmount
             };
@@ -492,4 +492,5 @@ class DiscountCalculationService {
 }
 
 module.exports = new DiscountCalculationService();
+
 

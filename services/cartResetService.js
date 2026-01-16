@@ -1,4 +1,4 @@
-﻿// Enhanced cart and conversation management utilities
+// Enhanced cart and conversation management utilities
 const { dbClient } = require('./config');
 
 /**
@@ -9,7 +9,7 @@ const handleConversationReset = async (tenantId, endUserPhone) => {
     try {
         // Check if conversation is stale (inactive for X hours)
         const { data: conversation } = await dbClient
-            .from('conversations')
+            .from('conversations_new')
             .select('*')
             .eq('tenant_id', tenantId)
             .eq('end_user_phone', endUserPhone)
@@ -47,7 +47,7 @@ const handleConversationReset = async (tenantId, endUserPhone) => {
 
                 // Reset conversation state
                 const { error: updateError } = await dbClient
-                    .from('conversations')
+                    .from('conversations_new')
                     .update({
                         state: null,
                         last_product_discussed: null,
@@ -157,7 +157,7 @@ const forceCartResetOnNewOrder = async (tenantId, endUserPhone) => {
     try {
         // Get conversationId
         const { data: conversation } = await dbClient
-            .from('conversations')
+            .from('conversations_new')
             .select('*')
             .eq('tenant_id', tenantId)
             .eq('end_user_phone', endUserPhone)
@@ -174,7 +174,7 @@ const forceCartResetOnNewOrder = async (tenantId, endUserPhone) => {
         }
         // Reset conversation state
         await dbClient
-            .from('conversations')
+            .from('conversations_new')
             .update({
                 state: null,
                 last_product_discussed: null,
@@ -215,7 +215,7 @@ const clearCart = async (tenantId, endUserPhone) => {
 
         // FIXED: Only update columns that exist
         await dbClient
-            .from('conversations')
+            .from('conversations_new')
             .update({
                 state: null,
                 last_product_discussed: null,
@@ -263,7 +263,7 @@ const forceClearCartSimple = async (tenantId, endUserPhone) => {
 
         // Reset only the essential conversation fields that we know exist
         const { error: resetError } = await dbClient
-            .from('conversations')
+            .from('conversations_new')
             .update({
                 state: null,
                 last_product_discussed: null,
@@ -326,7 +326,7 @@ const clearCartSafe = async (tenantId, endUserPhone) => {
         // Try to reset conversation state with minimal fields
         try {
             await dbClient
-                .from('conversations')
+                .from('conversations_new')
                 .update({
                     state: null,
                     last_product_discussed: null,
@@ -339,7 +339,7 @@ const clearCartSafe = async (tenantId, endUserPhone) => {
             console.warn('[CART_CLEAR_SAFE] Conversation reset failed, but cart is cleared:', convError.message);
         }
 
-        return "âœ… Your shopping cart has been cleared successfully!";
+        return "✅ Your shopping cart has been cleared successfully!";
 
     } catch (error) {
         console.error('[CART_CLEAR_SAFE] Error:', error.message);
@@ -373,4 +373,5 @@ if (!module.exports.addProductToCartEnhanced) {
         return { success: false, error: 'add_missing' };
     });
 }
+
 

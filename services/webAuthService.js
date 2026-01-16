@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @title Web Authentication Service
  * @description Manages the logic for generating and validating "magic link" tokens for web dashboard login.
  */
@@ -46,13 +46,13 @@ const generateLoginLink = async (tenantId) => {
 
         // Styled WhatsApp message with emoji and instructions
         let responseMessage =
-            'ðŸ›¡ï¸ *Admin Dashboard Access*\n' +
+            '🛡️ *Admin Dashboard Access*\n' +
             '\n' +
             'Your secure login link:\n' +
             `${magicLink}\n` +
             '\n' +
-            'â° *Expires in 30 minutes*\n' +
-            'ðŸ”’ *For security, this link can only be used once*\n' +
+            '⏰ *Expires in 30 minutes*\n' +
+            '🔒 *For security, this link can only be used once*\n' +
             '\n' +
             'Click the link to access your admin dashboard.';
 
@@ -66,4 +66,5 @@ const generateLoginLink = async (tenantId) => {
 module.exports = {
     generateLoginLink,
 };
+
 

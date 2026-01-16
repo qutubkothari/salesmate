@@ -57,3 +57,4 @@ router.delete('/:tenantId/:keyId', requireBearerTenant(), async (req, res) => {
 });
 
 module.exports = router;
+

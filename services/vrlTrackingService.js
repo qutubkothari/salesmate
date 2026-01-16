@@ -1,4 +1,4 @@
-﻿const axios = require('axios');
+const axios = require('axios');
 const { dbClient } = require('./config');
 
 const VRL_SCRAPER_URL = process.env.VRL_SCRAPER_URL || 'https://vrl-scraper-557586370061.asia-south1.run.app/track';
@@ -47,9 +47,9 @@ async function trackVRLShipment(lrNumber) {
  * @returns {string} Formatted message
  */
 function formatVRLTrackingMessage(data) {
-  let message = `ðŸ“¦ *VRL Shipment Tracking*\n\n`;
-  message += `ðŸ“‹ *LR Number:* ${data.lrNumber}\n`;
-  message += `ðŸ“Š *Status:* ${data.status}\n`;
+  let message = `📦 *VRL Shipment Tracking*\n\n`;
+  message += `📋 *LR Number:* ${data.lrNumber}\n`;
+  message += `📊 *Status:* ${data.status}\n`;
   
   // Determine current location from the last history entry if available
   let currentLocation = data.currentLocation;
@@ -71,13 +71,13 @@ function formatVRLTrackingMessage(data) {
     }
   }
   
-  message += `ðŸ“ *Current Location:* ${currentLocation}\n`;
+  message += `📍 *Current Location:* ${currentLocation}\n`;
   
   if (data.origin) {
-    message += `ðŸ *From:* ${data.origin}\n`;
+    message += `🏁 *From:* ${data.origin}\n`;
   }
   if (data.destination) {
-    message += `ðŸŽ¯ *To:* ${data.destination}\n`;
+    message += `🎯 *To:* ${data.destination}\n`;
   }
   
   message += `\n`;
@@ -89,24 +89,24 @@ function formatVRLTrackingMessage(data) {
       const dateB = b.datetime ? new Date(b.datetime) : new Date(0);
       return dateA - dateB;
     });
-    message += `*ðŸ“œ Tracking History:*\n`;
+    message += `*📜 Tracking History:*\n`;
     sortedHistory.forEach((event, index) => {
       // Highlight the latest event
       const isLatest = index === sortedHistory.length - 1;
-      const icon = isLatest ? 'â­' : (index === 0 ? 'ðŸ”´' : 'ðŸŸ¢');
+      const icon = isLatest ? '⭐' : (index === 0 ? '🔴' : '🟢');
       message += `\n${icon} *${event.status}*`;
       if (isLatest) message += ' (Latest Update)';
       message += `\n`;
       if (event.datetime) {
-        message += `   ðŸ“… ${event.datetime}\n`;
+        message += `   📅 ${event.datetime}\n`;
       }
       if (event.location) {
-        message += `   ðŸ“ ${event.location}\n`;
+        message += `   📍 ${event.location}\n`;
       }
     });
   }
   
-  message += `\n\nðŸ’¡ _Track updated: ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}_`;
+  message += `\n\n💡 _Track updated: ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}_`;
   
   return message;
 }
@@ -365,7 +365,7 @@ async function checkShipmentsForUpdates(sendMessageFunc) {
           
           // Check if status changed
           if (oldStatus !== newStatus) {
-            console.log(`[VRL_TRACKING] Status changed for ${shipment.lr_number}: ${oldStatus} â†’ ${newStatus}`);
+            console.log(`[VRL_TRACKING] Status changed for ${shipment.lr_number}: ${oldStatus} → ${newStatus}`);
             
             // Update database
             const updateData = {
@@ -390,7 +390,7 @@ async function checkShipmentsForUpdates(sendMessageFunc) {
             
             // Send notification to customer (only if not delivered, or if this is the delivery notification)
             if (sendMessageFunc && shipment.phone_number && (!isDelivered(newStatus) || isDelivered(newStatus))) {
-              const message = `ðŸ”” *Shipment Update*\n\n${formatVRLTrackingMessage(result.tracking)}`;
+              const message = `🔔 *Shipment Update*\n\n${formatVRLTrackingMessage(result.tracking)}`;
               
               try {
                 await sendMessageFunc(shipment.phone_number, message);
@@ -440,4 +440,5 @@ module.exports = {
   checkShipmentsForUpdates,
   isDelivered
 };
+
 

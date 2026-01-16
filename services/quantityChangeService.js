@@ -1,4 +1,4 @@
-﻿// services/quantityChangeService.js
+// services/quantityChangeService.js
 const { dbClient } = require('./config');
 const { getConversationId } = require('./historyService');
 
@@ -70,9 +70,9 @@ const updateCartQuantity = async (tenantId, endUserPhone, newQuantity, productNa
         return {
             success: true,
             message: `Updated to ${newQuantity} cartons of ${itemToUpdate.product.name}
-Subtotal: â‚¹${subtotal.toFixed(2)}
-GST (18%): â‚¹${gstAmount.toFixed(2)}
-Total: â‚¹${total.toFixed(2)}`,
+Subtotal: ₹${subtotal.toFixed(2)}
+GST (18%): ₹${gstAmount.toFixed(2)}
+Total: ₹${total.toFixed(2)}`,
             product: itemToUpdate.product,
             newQuantity
         };
@@ -87,3 +87,4 @@ module.exports = {
     detectQuantityChange,
     updateCartQuantity
 };
+

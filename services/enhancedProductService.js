@@ -1,4 +1,4 @@
-﻿// services/enhancedProductService.js - ENHANCED SEARCH FIX
+// services/enhancedProductService.js - ENHANCED SEARCH FIX
 
 const { dbClient } = require('./config');
 
@@ -302,7 +302,7 @@ const debugProductSearch = async (tenantId, searchTerm) => {
     if (allProducts && allProducts.length > 0) {
         console.log('[DEBUG_SEARCH] Sample products:');
         allProducts.slice(0, 3).forEach(p => {
-            console.log(`  - ${p.name} (Price: â‚¹${p.price}, Active: ${p.is_active})`);
+            console.log(`  - ${p.name} (Price: ₹${p.price}, Active: ${p.is_active})`);
         });
     }
     
@@ -323,3 +323,4 @@ module.exports = {
     formatProductForDisplay,
     debugProductSearch
 };
+

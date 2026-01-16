@@ -1,4 +1,4 @@
-﻿// services/salesTeamManagement.js
+// services/salesTeamManagement.js
 const updateSalesTeam = async (tenantId, salesNumbers) => {
     const [primary, secondary, ...additional] = salesNumbers;
     
@@ -13,3 +13,4 @@ const updateSalesTeam = async (tenantId, salesNumbers) => {
 };
 
 // Usage: updateSalesTeam(tenantId, ['+919876543210', '+919876543211', '+919876543212']);
+

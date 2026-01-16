@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @title Bulk Message Scheduling Service
  * @description Handles the logic for processing contact lists, scheduling bulk messages, and sending them.
  */
@@ -140,5 +140,6 @@ module.exports = {
     processContactSheet,
     findAndSendScheduledMessages,
 };
+
 
 

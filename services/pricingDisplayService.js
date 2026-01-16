@@ -1,4 +1,4 @@
-﻿const { dbClient } = require('../config/database');
+const { dbClient } = require('../config/database');
 
 /**
  * Calculate and format pricing display with per piece and per carton breakdown
@@ -10,8 +10,8 @@ async function formatPriceDisplay(product, pricePerCarton = null) {
         const unitsPerCarton = parseInt(product.units_per_carton) || 1;
         
         // CRITICAL: Calculate per piece price ONLY from units_per_carton, NEVER from order quantity
-        // Per-piece price = carton price Ã· pieces per carton
-        // Example: â‚¹2511 per carton Ã· 1500 pcs/carton = â‚¹1.67/pc
+        // Per-piece price = carton price ÷ pieces per carton
+        // Example: ₹2511 per carton ÷ 1500 pcs/carton = ₹1.67/pc
         const pricePerPiece = (cartonPrice / unitsPerCarton).toFixed(2);
         
         console.log('[PRICING_DISPLAY] Price calculation:', {
@@ -19,7 +19,7 @@ async function formatPriceDisplay(product, pricePerCarton = null) {
             cartonPrice: cartonPrice,
             unitsPerCarton: unitsPerCarton,
             calculatedPricePerPiece: pricePerPiece,
-            formula: `${cartonPrice} Ã· ${unitsPerCarton} = ${pricePerPiece}`
+            formula: `${cartonPrice} ÷ ${unitsPerCarton} = ${pricePerPiece}`
         });
         
         const display = {
@@ -31,9 +31,9 @@ async function formatPriceDisplay(product, pricePerCarton = null) {
             
             // Formatted strings for display
             formatted: {
-                perPiece: `â‚¹${pricePerPiece}/pc`,
-                perCarton: `â‚¹${cartonPrice.toFixed(2)}/${product.packaging_unit || 'carton'}`,
-                breakdown: `â‚¹${pricePerPiece}/pc Ã— ${unitsPerCarton} pcs = â‚¹${cartonPrice.toFixed(2)}/${product.packaging_unit || 'carton'}`
+                perPiece: `₹${pricePerPiece}/pc`,
+                perCarton: `₹${cartonPrice.toFixed(2)}/${product.packaging_unit || 'carton'}`,
+                breakdown: `₹${pricePerPiece}/pc × ${unitsPerCarton} pcs = ₹${cartonPrice.toFixed(2)}/${product.packaging_unit || 'carton'}`
             }
         };
         
@@ -79,7 +79,7 @@ async function formatPersonalizedPriceDisplay(tenantId, phoneNumber, productId) 
         
         // Get customer's last purchase price
         const { data: customer, error: customerError } = await dbClient
-            .from('customer_profiles')
+            .from('customer_profiles_new')
             .select('id')
             .eq('tenant_id', tenantId)
             .eq('phone', cleanPhone)
@@ -98,7 +98,7 @@ async function formatPersonalizedPriceDisplay(tenantId, phoneNumber, productId) 
             // Get orders through conversations (orders -> conversations -> customer_profile_id)
             // First get customer's conversations
             const { data: conversations } = await dbClient
-                .from('conversations')
+                .from('conversations_new')
                 .select('id')
                 .eq('customer_profile_id', customer.id)
                 .eq('tenant_id', tenantId);
@@ -176,8 +176,8 @@ async function formatPersonalizedPriceDisplay(tenantId, phoneNumber, productId) 
         const unitsPerCarton = parseInt(product.units_per_carton) || 1;
         
         // CRITICAL: Calculate per piece price ONLY from units_per_carton, NEVER from order quantity
-        // Per-piece price = price per carton Ã· pieces per carton  
-        // Example: â‚¹2511 per carton Ã· 1500 pcs/carton = â‚¹1.67/pc
+        // Per-piece price = price per carton ÷ pieces per carton  
+        // Example: ₹2511 per carton ÷ 1500 pcs/carton = ₹1.67/pc
         const pricePerPiece = (displayPrice / unitsPerCarton).toFixed(2);
         
         console.log('[PRICING_DISPLAY] Personalized price calculation:', {
@@ -185,7 +185,7 @@ async function formatPersonalizedPriceDisplay(tenantId, phoneNumber, productId) 
             displayPrice: displayPrice,
             unitsPerCarton: unitsPerCarton,
             calculatedPricePerPiece: pricePerPiece,
-            formula: `${displayPrice} Ã· ${unitsPerCarton} = ${pricePerPiece}`,
+            formula: `${displayPrice} ÷ ${unitsPerCarton} = ${pricePerPiece}`,
             isReturningCustomer: !!lastPurchasePrice
         });
         
@@ -211,9 +211,9 @@ async function formatPersonalizedPriceDisplay(tenantId, phoneNumber, productId) 
             
             // Formatted strings
             formatted: {
-                perPiece: `â‚¹${pricePerPiece}/pc`,
-                perCarton: `â‚¹${displayPrice.toFixed(2)}/${product.packaging_unit || 'carton'}`,
-                breakdown: `â‚¹${pricePerPiece}/pc Ã— ${unitsPerCarton} pcs = â‚¹${displayPrice.toFixed(2)}/${product.packaging_unit || 'carton'}`
+                perPiece: `₹${pricePerPiece}/pc`,
+                perCarton: `₹${displayPrice.toFixed(2)}/${product.packaging_unit || 'carton'}`,
+                breakdown: `₹${pricePerPiece}/pc × ${unitsPerCarton} pcs = ₹${displayPrice.toFixed(2)}/${product.packaging_unit || 'carton'}`
             }
         };
         
@@ -231,7 +231,7 @@ async function formatPersonalizedPriceDisplay(tenantId, phoneNumber, productId) 
 function createPriceMessage(priceDisplay, includePersonalization = false, originalQuery = '') {
     if (!priceDisplay) return 'Price information not available.';
     
-    let message = `ðŸ“¦ *${priceDisplay.productName}*\n\n`;
+    let message = `📦 *${priceDisplay.productName}*\n\n`;
     
     // Check if quantity was mentioned in the original query (handles "25ctns" without space)
     const quantityMatch = originalQuery.match(/(\d+)\s*(pcs?|pieces?|cartons?|ctns?)/i);
@@ -239,19 +239,19 @@ function createPriceMessage(priceDisplay, includePersonalization = false, origin
     
     // Show personalization if returning customer
     if (includePersonalization && priceDisplay.isReturningCustomer) {
-        message += `âœ¨ Your Special Price:\n`;
+        message += `✨ Your Special Price:\n`;
     } else {
-        message += `ðŸ’µ Price:\n`;
+        message += `💵 Price:\n`;
     }
     
     // Always show both prices with clear units
-    message += `ðŸ”¹ ${priceDisplay.formatted.perPiece} per piece\n`;
-    message += `ðŸ“¦ ${priceDisplay.formatted.perCarton}\n`;
+    message += `🔹 ${priceDisplay.formatted.perPiece} per piece\n`;
+    message += `📦 ${priceDisplay.formatted.perCarton}\n`;
     message += `   (${priceDisplay.unitsPerCarton} pcs/carton)\n`;
     
     // Show savings if applicable
     if (includePersonalization && priceDisplay.savings > 0) {
-        message += `ðŸ’° Saves â‚¹${priceDisplay.savings} vs catalog\n`;
+        message += `💰 Saves ₹${priceDisplay.savings} vs catalog\n`;
     }
     
     message += `\n`;
@@ -280,31 +280,31 @@ function createPriceMessage(priceDisplay, includePersonalization = false, origin
             finalQuantity = roundedCartons;
             totalAmount = (roundedCartons * cartonPrice).toFixed(2);
             
-            message += `ðŸ“Š *Quote for ${quantity.toLocaleString('en-IN')} pieces:*\n`;
-            message += `   ${quantity.toLocaleString('en-IN')} pcs Ã· ${unitsPerCarton} pcs/carton = ${exactCartons} cartons\n`;
+            message += `📊 *Quote for ${quantity.toLocaleString('en-IN')} pieces:*\n`;
+            message += `   ${quantity.toLocaleString('en-IN')} pcs ÷ ${unitsPerCarton} pcs/carton = ${exactCartons} cartons\n`;
             message += `   (Rounded to ${roundedCartons} carton${roundedCartons !== 1 ? 's' : ''})\n`;
-            message += `   ${roundedCartons} carton${roundedCartons !== 1 ? 's' : ''} Ã— â‚¹${cartonPrice.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})} = *â‚¹${parseFloat(totalAmount).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}*\n\n`;
+            message += `   ${roundedCartons} carton${roundedCartons !== 1 ? 's' : ''} × ₹${cartonPrice.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})} = *₹${parseFloat(totalAmount).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}*\n\n`;
         } else {
             // Already in cartons
             finalQuantity = quantity;
             totalAmount = (quantity * cartonPrice).toFixed(2);
             
-            message += `ðŸ“Š *Quote for ${quantity} carton${quantity !== 1 ? 's' : ''}:*\n`;
-            message += `   ${quantity} carton${quantity !== 1 ? 's' : ''} Ã— â‚¹${cartonPrice.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})} = *â‚¹${parseFloat(totalAmount).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}*\n\n`;
+            message += `📊 *Quote for ${quantity} carton${quantity !== 1 ? 's' : ''}:*\n`;
+            message += `   ${quantity} carton${quantity !== 1 ? 's' : ''} × ₹${cartonPrice.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})} = *₹${parseFloat(totalAmount).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}*\n\n`;
         }
     }
     
     // Show last order date if returning customer
     if (includePersonalization && priceDisplay.isReturningCustomer && priceDisplay.lastOrderDate) {
         const orderDate = new Date(priceDisplay.lastOrderDate).toLocaleDateString('en-IN');
-        message += `ðŸ“… Last ordered: ${orderDate}\n`;
+        message += `📅 Last ordered: ${orderDate}\n`;
     }
     
     // Show appropriate CTA based on whether quantity was specified
     if (quantityMatch) {
-        message += `\nðŸ›’ Ready to add this to your cart? Just say "yes"!`;
+        message += `\n🛒 Ready to add this to your cart? Just say "yes"!`;
     } else {
-        message += `\nðŸ›’ Ready to order? Let me know the quantity!`;
+        message += `\n🛒 Ready to order? Let me know the quantity!`;
     }
     
     return message;
@@ -328,7 +328,7 @@ async function formatMultipleProductPrices(tenantId, phoneNumber, productIds) {
             return 'No products found.';
         }
         
-        let message = 'ðŸ“‹ *Price List*\n\n';
+        let message = '📋 *Price List*\n\n';
         
         displays.forEach((display, index) => {
             message += `${index + 1}. *${display.productName}*\n`;
@@ -336,13 +336,13 @@ async function formatMultipleProductPrices(tenantId, phoneNumber, productIds) {
             message += `   ${display.unitsPerCarton} pcs per ${display.packagingUnit}\n`;
             
             if (display.isReturningCustomer) {
-                message += `   âœ¨ Your special price\n`;
+                message += `   ✨ Your special price\n`;
             }
             
             message += `\n`;
         });
         
-        message += `\nðŸ’¬ Reply with product name and quantity to order!`;
+        message += `\n💬 Reply with product name and quantity to order!`;
         
         return message;
         
@@ -365,15 +365,15 @@ function calculateQuantityPrice(priceDisplay, quantity, unit = 'carton') {
             totalPrice = priceDisplay.pricePerPiece * quantity;
             const cartons = Math.ceil(quantity / priceDisplay.unitsPerCarton);
             
-            breakdown = `${quantity} pcs @ â‚¹${priceDisplay.pricePerPiece}/pc = â‚¹${totalPrice.toFixed(2)}\n`;
-            breakdown += `(â‰ˆ ${cartons} ${priceDisplay.packagingUnit}s)`;
+            breakdown = `${quantity} pcs @ ₹${priceDisplay.pricePerPiece}/pc = ₹${totalPrice.toFixed(2)}\n`;
+            breakdown += `(≈ ${cartons} ${priceDisplay.packagingUnit}s)`;
             
         } else {
             // Calculate by cartons
             totalPrice = priceDisplay.pricePerCarton * quantity;
             const pieces = quantity * priceDisplay.unitsPerCarton;
             
-            breakdown = `${quantity} ${priceDisplay.packagingUnit}s @ â‚¹${priceDisplay.pricePerCarton}/${priceDisplay.packagingUnit} = â‚¹${totalPrice.toFixed(2)}\n`;
+            breakdown = `${quantity} ${priceDisplay.packagingUnit}s @ ₹${priceDisplay.pricePerCarton}/${priceDisplay.packagingUnit} = ₹${totalPrice.toFixed(2)}\n`;
             breakdown += `(${pieces} pieces total)`;
         }
         
@@ -382,7 +382,7 @@ function calculateQuantityPrice(priceDisplay, quantity, unit = 'carton') {
             unit,
             totalPrice: parseFloat(totalPrice.toFixed(2)),
             breakdown,
-            formatted: `â‚¹${totalPrice.toFixed(2)}`
+            formatted: `₹${totalPrice.toFixed(2)}`
         };
         
     } catch (error) {
@@ -399,11 +399,11 @@ function createOrderConfirmationMessage(priceDisplay, quantity, unit = 'carton')
     
     if (!calculation) return 'Error calculating price.';
     
-    let message = `ðŸ“ *Order Summary*\n\n`;
+    let message = `📝 *Order Summary*\n\n`;
     message += `Product: ${priceDisplay.productName}\n\n`;
-    message += `ðŸ’° *Pricing:*\n`;
+    message += `💰 *Pricing:*\n`;
     message += `${calculation.breakdown}\n\n`;
-    message += `ðŸ·ï¸ *Total: ${calculation.formatted}*\n\n`;
+    message += `🏷️ *Total: ${calculation.formatted}*\n\n`;
     message += `Confirm order? Reply "yes go ahead" to proceed.`;
     
     return message;
@@ -417,3 +417,4 @@ module.exports = {
     calculateQuantityPrice,
     createOrderConfirmationMessage
 };
+

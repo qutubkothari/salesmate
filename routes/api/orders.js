@@ -1,4 +1,4 @@
-﻿// routes/api/orders.js
+// routes/api/orders.js
 const express = require('express');
 const router = express.Router();
 const { dbClient } = require('../../services/config');
@@ -13,7 +13,7 @@ router.get('/:orderId', async (req, res) => {
     if (!orderId) return res.status(400).json({ error: 'orderId required' });
 
     const { data: order, error: orderErr } = await dbClient
-      .from('orders')
+      .from('orders_new')
       .select('*')
       .eq('id', orderId)
       .maybeSingle();
@@ -78,7 +78,7 @@ router.patch('/:orderId/status', async (req, res) => {
     }
 
     const { data, error } = await dbClient
-      .from('orders')
+      .from('orders_new')
       .update({ status, order_status: status })
       .eq('id', orderId)
       .select('id, status, order_status')
@@ -97,4 +97,5 @@ router.patch('/:orderId/status', async (req, res) => {
 });
 
 module.exports = router;
+
 

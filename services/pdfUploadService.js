@@ -1,4 +1,4 @@
-﻿// services/pdfUploadService.js
+// services/pdfUploadService.js
 const { bucket } = require('./config');
 const { dbClient } = require('./config');
 const fetch = require('node-fetch');
@@ -98,3 +98,4 @@ module.exports = {
     uploadPDFToGCS,
     savePDFMetadata
 };
+

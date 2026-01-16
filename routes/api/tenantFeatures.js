@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Tenant Features API Routes
  * Manage feature flags for tenants
  */
@@ -115,4 +115,5 @@ router.get('/:phone/check/:feature', async (req, res) => {
 });
 
 module.exports = router;
+
 

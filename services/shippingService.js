@@ -1,4 +1,4 @@
-﻿// services/shippingService.js
+// services/shippingService.js
 const { dbClient } = require('./config');
 
 /**
@@ -44,7 +44,7 @@ const calculateShippingCharges = async (tenantId, totalCartons, subtotalAmount) 
                 totalCartons,
                 freeShippingApplied: true,
                 threshold: shippingConfig.free_shipping_threshold,
-                message: `Free shipping applied! (Order above â‚¹${shippingConfig.free_shipping_threshold})`
+                message: `Free shipping applied! (Order above ₹${shippingConfig.free_shipping_threshold})`
             };
         }
 
@@ -70,7 +70,7 @@ const calculateShippingCharges = async (tenantId, totalCartons, subtotalAmount) 
             totalCartons,
             freeShippingApplied: false,
             threshold: shippingConfig.free_shipping_threshold,
-            message: `Shipping: ${totalCartons} cartons Ã— â‚¹${ratePerCarton}/carton = â‚¹${shippingCharges.toFixed(2)}`
+            message: `Shipping: ${totalCartons} cartons × ₹${ratePerCarton}/carton = ₹${shippingCharges.toFixed(2)}`
         };
 
     } catch (error) {
@@ -85,7 +85,7 @@ const calculateShippingCharges = async (tenantId, totalCartons, subtotalAmount) 
 const calculateDefaultShipping = (totalCartons, subtotalAmount) => {
     console.log('[SHIPPING] Using default rates');
     
-    // Default free shipping at â‚¹10,000
+    // Default free shipping at ₹10,000
     if (subtotalAmount >= 10000) {
         return {
             shippingCharges: 0,
@@ -94,11 +94,11 @@ const calculateDefaultShipping = (totalCartons, subtotalAmount) => {
             totalCartons,
             freeShippingApplied: true,
             threshold: 10000,
-            message: 'Free shipping applied! (Order above â‚¹10,000)'
+            message: 'Free shipping applied! (Order above ₹10,000)'
         };
     }
 
-    // Default rates: â‚¹15 for 15+ cartons, â‚¹20 for less
+    // Default rates: ₹15 for 15+ cartons, ₹20 for less
     const ratePerCarton = totalCartons >= 15 ? 15 : 20;
     const rateType = totalCartons >= 15 ? 'high_volume' : 'standard';
     const shippingCharges = totalCartons * ratePerCarton;
@@ -110,7 +110,7 @@ const calculateDefaultShipping = (totalCartons, subtotalAmount) => {
         totalCartons,
         freeShippingApplied: false,
         threshold: 10000,
-        message: `Shipping: ${totalCartons} cartons Ã— â‚¹${ratePerCarton}/carton = â‚¹${shippingCharges.toFixed(2)}`
+        message: `Shipping: ${totalCartons} cartons × ₹${ratePerCarton}/carton = ₹${shippingCharges.toFixed(2)}`
     };
 };
 
@@ -236,7 +236,7 @@ const formatShippingDisplay = (shippingCalc) => {
         return `Shipping: FREE (${shippingCalc.message})`;
     }
 
-    return `Shipping: â‚¹${shippingCalc.shippingCharges} (${shippingCalc.totalCartons} cartons Ã— â‚¹${shippingCalc.ratePerCarton})`;
+    return `Shipping: ₹${shippingCalc.shippingCharges} (${shippingCalc.totalCartons} cartons × ₹${shippingCalc.ratePerCarton})`;
 };
 
 /**
@@ -278,3 +278,4 @@ module.exports = {
     validateShippingConfig,
     calculateDefaultShipping
 };
+

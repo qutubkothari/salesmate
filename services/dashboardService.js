@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @title Web Dashboard Service
  * @description Manages the logic for fetching data to be displayed on the tenant's web dashboard.
  */
@@ -20,10 +20,10 @@ const getTenantDashboardData = async (tenantId) => {
             { count: feedbackCount, error: feedbackError },
             { count: handoverRequests, error: handoverError }
         ] = await Promise.all([
-            dbClient.from('conversations').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId).gt('created_at', thirtyDaysAgo),
-            dbClient.from('orders').select('total_amount').eq('tenant_id', tenantId).gt('created_at', thirtyDaysAgo),
+            dbClient.from('conversations_new').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId).gt('created_at', thirtyDaysAgo),
+            dbClient.from('orders_new').select('total_amount').eq('tenant_id', tenantId).gt('created_at', thirtyDaysAgo),
             dbClient.from('feedback_submissions').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId).gt('created_at', thirtyDaysAgo),
-            dbClient.from('conversations').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('requires_human_attention', true).gt('updated_at', thirtyDaysAgo)
+            dbClient.from('conversations_new').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('requires_human_attention', true).gt('updated_at', thirtyDaysAgo)
         ]);
 
         if (leadsError || ordersError || feedbackError || handoverError) {
@@ -56,4 +56,5 @@ const getTenantDashboardData = async (tenantId) => {
 module.exports = {
     getTenantDashboardData,
 };
+
 
