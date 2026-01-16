@@ -15,12 +15,26 @@ db.pragma('journal_mode = WAL');
 // Get all visits with optional filtering
 router.get('/visits', async (req, res) => {
   try {
-    const { salesman_id, plant_id, start_date, end_date, visit_type, limit = 100 } = req.query;
+    const { salesman_id, plant_id, start_date, end_date, visit_type, limit = 300, role, user_plant_id } = req.query;
     
     let query = 'SELECT * FROM visits WHERE 1=1';
     const params = [];
     
-    if (salesman_id) {
+    // Role-based filtering
+    // - 'super_admin' or 'admin': See all data
+    // - 'plant_admin': See only their plant
+    // - 'salesman': See only their own visits
+    if (role === 'salesman' && salesman_id) {
+      query += ' AND salesman_id = ?';
+      params.push(salesman_id);
+    } else if (role === 'plant_admin' && user_plant_id) {
+      query += ' AND plant_id = ?';
+      params.push(user_plant_id);
+    }
+    // super_admin and admin see all - no additional filter
+    
+    // Additional filters
+    if (salesman_id && role !== 'salesman') {
       query += ' AND salesman_id = ?';
       params.push(salesman_id);
     }
@@ -409,6 +423,46 @@ router.get('/plants', async (req, res) => {
     });
   } catch (error) {
     console.error('[FSM_API] Error fetching plants:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Get user role and access level (for role-based filtering)
+router.get('/user/profile', async (req, res) => {
+  try {
+    const { user_id, phone } = req.query;
+    
+    // For now, implement simple role detection:
+    // - If no user_id/phone provided: super_admin (full access)
+    // - Check if user is a salesman in FSM
+    let role = 'super_admin';
+    let plant_id = null;
+    let salesman_id = null;
+    
+    if (phone) {
+      // Check if this phone belongs to a salesman
+      const salesman = db.prepare('SELECT * FROM salesmen WHERE phone = ?').get(phone);
+      if (salesman) {
+        role = 'salesman';
+        salesman_id = salesman.id;
+        plant_id = salesman.plant_id;
+      }
+    }
+    
+    res.json({
+      success: true,
+      data: {
+        role,
+        plant_id,
+        salesman_id,
+        access_level: role === 'super_admin' ? 'all' : role === 'plant_admin' ? 'plant' : 'self'
+      }
+    });
+  } catch (error) {
+    console.error('[FSM_API] Error fetching user profile:', error);
     res.status(500).json({
       success: false,
       error: error.message

@@ -793,9 +793,12 @@
     <!-- Visits Tab -->
     <div id="visitsTab" class="hidden">
         <div class="max-w-7xl mx-auto px-6 py-4">
-            <!-- Header with filters -->
+            <!-- Header with filters and role indicator -->
             <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4">
-                <h2 class="text-white text-2xl font-bold">Field Visits</h2>
+                <div>
+                    <h2 class="text-white text-2xl font-bold">Field Visits</h2>
+                    <p id="fsmRoleIndicator" class="text-white/60 text-sm mt-1"></p>
+                </div>
                 <div class="flex flex-wrap gap-3">
                     <select id="visitBranchFilter" onchange="loadVisits()" class="px-4 py-2 rounded-lg bg-white/10 text-white border border-white/20">
                         <option value="">All Branches</option>
@@ -1169,7 +1172,8 @@
         currentTab: 'overview',
         data: { stats: null, conversations: [], orders: [], products: [], settings: {} },
         searchQuery: '',
-        isLoading: false
+        isLoading: false,
+        fsmUser: null // FSM user role and access level
     };
     // ---------- API Helpers ----------
     const api = {
@@ -7997,6 +8001,25 @@
     // Load Visits
     async function loadVisits() {
         try {
+            // Load FSM user profile if not already loaded
+            if (!state.fsmUser) {
+                const profileResp = await fetch(`/api/fsm/user/profile?phone=${state.session?.phoneNumber || ''}`);
+                const profileData = await profileResp.json();
+                if (profileData.success) {
+                    state.fsmUser = profileData.data;
+                    console.log('[FSM] User profile loaded:', state.fsmUser);
+                    
+                    // Update role indicator
+                    const roleIndicator = document.getElementById('fsmRoleIndicator');
+                    if (roleIndicator) {
+                        const roleText = state.fsmUser.role === 'super_admin' ? 'Super Admin - All Plants Access' :
+                                        state.fsmUser.role === 'plant_admin' ? `Plant Admin - ${state.fsmUser.plant_id}` :
+                                        state.fsmUser.role === 'salesman' ? `Salesman - Personal Visits Only` : 'User';
+                        roleIndicator.textContent = `Access Level: ${roleText}`;
+                    }
+                }
+            }
+            
             const filters = {
                 branch: document.getElementById('visitBranchFilter')?.value || '',
                 salesman: document.getElementById('visitSalesmanFilter')?.value || '',
@@ -8005,8 +8028,16 @@
             };
             
             const params = new URLSearchParams();
+            
+            // Add role-based parameters
+            if (state.fsmUser) {
+                params.append('role', state.fsmUser.role);
+                if (state.fsmUser.salesman_id) params.append('salesman_id', state.fsmUser.salesman_id);
+                if (state.fsmUser.plant_id) params.append('user_plant_id', state.fsmUser.plant_id);
+            }
+            
             if (filters.branch) params.append('plant_id', filters.branch);
-            if (filters.salesman) params.append('salesman_id', filters.salesman);
+            if (filters.salesman && state.fsmUser?.role !== 'salesman') params.append('salesman_id', filters.salesman);
             if (filters.dateFrom) params.append('start_date', filters.dateFrom);
             if (filters.dateTo) params.append('end_date', filters.dateTo);
             
