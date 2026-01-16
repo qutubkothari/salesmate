@@ -8082,8 +8082,9 @@
     async function populateVisitFilters() {
         try {
             // Load salesmen for filter
-            const salesmenResp = await fetch('/api/salesmen');
-            const salesmen = await salesmenResp.json();
+            const salesmenResp = await fetch('/api/fsm/salesmen');
+            const salesmenData = await salesmenResp.json();
+            const salesmen = salesmenData.data || [];
             const salesmanFilter = document.getElementById('visitSalesmanFilter');
             if (salesmanFilter) {
                 salesmanFilter.innerHTML = '<option value="">All Salesmen</option>' + 
