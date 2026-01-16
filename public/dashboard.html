@@ -1268,6 +1268,7 @@
         if (!plantId) return '-';
         const key = String(plantId);
         if (state.fsmPlantsMap[key]) return state.fsmPlantsMap[key];
+        if (key === 'Hylite Galvanisers Pimpri - HGP') return 'Hylite Galvanisers - Pimpri';
         if (isUuid(key)) return `Branch ${key.slice(0, 8)}`;
         return key;
     }
