@@ -8669,9 +8669,17 @@
                         </td>
                         <td class="py-3 px-4">${statusBadge}</td>
                         <td class="py-3 px-4">
-                            <button onclick="viewSalesmanDetails('${salesman.id}')" class="text-blue-400 hover:text-blue-300" title="View Details">
-                                <i class="fas fa-eye"></i>
-                            </button>
+                            <div class="flex gap-2">
+                                <button onclick="viewSalesmanDetails('${salesman.id}')" class="text-blue-400 hover:text-blue-300" title="View Details">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                <button onclick="editSalesman('${salesman.id}')" class="text-green-400 hover:text-green-300" title="Edit">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button onclick="deleteSalesman('${salesman.id}', '${escapeHtml(salesman.name || 'this salesman')}')" class="text-red-400 hover:text-red-300" title="Delete">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
                         </td>
                     </tr>
                 `;
@@ -8684,7 +8692,106 @@
     }
     
     function showAddSalesmanModal() {
-        showNotification('Add salesman feature coming soon', 'info');
+        // Simple prompt-based add for now
+        const name = prompt('Enter salesman name:');
+        if (!name) return;
+        
+        const phone = prompt('Enter phone number:');
+        if (!phone) return;
+        
+        // Create salesman
+        fetch('/api/fsm/salesmen', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                name: name,
+                phone: phone,
+                tenant_id: state.session?.tenantId || '',
+                is_active: true
+            })
+        })
+        .then(res => res.json())
+        .then(result => {
+            if (result.success) {
+                showNotification('Salesman added successfully', 'success');
+                loadSalesmen();
+            } else {
+                showNotification(result.error || 'Failed to add salesman', 'error');
+            }
+        })
+        .catch(err => {
+            console.error('Error adding salesman:', err);
+            showNotification('Error adding salesman', 'error');
+        });
+    }
+    
+    function editSalesman(salesmanId) {
+        // Fetch current data first
+        fetch(`/api/fsm/salesmen?tenant_id=${encodeURIComponent(state.session?.tenantId || '')}`)
+            .then(res => res.json())
+            .then(result => {
+                const salesman = (result.data || []).find(s => s.id === salesmanId);
+                if (!salesman) {
+                    showNotification('Salesman not found', 'error');
+                    return;
+                }
+                
+                const name = prompt('Enter salesman name:', salesman.name);
+                if (!name) return;
+                
+                const phone = prompt('Enter phone number:', salesman.phone);
+                if (!phone) return;
+                
+                // Update salesman
+                fetch(`/api/fsm/salesmen/${salesmanId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: name,
+                        phone: phone
+                    })
+                })
+                .then(res => res.json())
+                .then(result => {
+                    if (result.success) {
+                        showNotification('Salesman updated successfully', 'success');
+                        loadSalesmen();
+                    } else {
+                        showNotification(result.error || 'Failed to update salesman', 'error');
+                    }
+                })
+                .catch(err => {
+                    console.error('Error updating salesman:', err);
+                    showNotification('Error updating salesman', 'error');
+                });
+            })
+            .catch(err => {
+                console.error('Error fetching salesman:', err);
+                showNotification('Error fetching salesman data', 'error');
+            });
+    }
+    
+    function deleteSalesman(salesmanId, salesmanName) {
+        if (!confirm(`Are you sure you want to delete ${salesmanName}?`)) {
+            return;
+        }
+        
+        fetch(`/api/fsm/salesmen/${salesmanId}`, {
+            method: 'DELETE'
+        })
+        .then(res => res.json())
+        .then(result => {
+            if (result.success) {
+                showNotification('Salesman deleted successfully', 'success');
+                loadSalesmen();
+            } else {
+                showNotification(result.error || 'Failed to delete salesman', 'error');
+            }
+        })
+        .catch(err => {
+            console.error('Error deleting salesman:', err);
+            showNotification('Error deleting salesman', 'error');
+        });
     }
     
     async function viewSalesmanDetails(salesmanId) {
