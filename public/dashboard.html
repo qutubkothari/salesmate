@@ -191,6 +191,32 @@
                         <i class="fas fa-users"></i>
                         <span>Customers</span>
                     </div>
+
+                    <!-- FSM Section -->
+                    <div class="px-4 py-2 mt-4">
+                        <p class="text-white/40 text-xs font-semibold uppercase tracking-wider">Field Sales</p>
+                    </div>
+
+                    <div class="sidebar-item" onclick="switchTab('visits')" data-tab="visits">
+                        <i class="fas fa-map-marker-alt"></i>
+                        <span>Visits</span>
+                    </div>
+
+                    <div class="sidebar-item" onclick="switchTab('salesmen')" data-tab="salesmen">
+                        <i class="fas fa-user-tie"></i>
+                        <span>Sales Team</span>
+                    </div>
+
+                    <div class="sidebar-item" onclick="switchTab('targets')" data-tab="targets">
+                        <i class="fas fa-bullseye"></i>
+                        <span>Targets</span>
+                    </div>
+
+                    <div class="sidebar-item" onclick="switchTab('branches')" data-tab="branches">
+                        <i class="fas fa-building"></i>
+                        <span>Branches</span>
+                    </div>
+
                     <div class="sidebar-item" onclick="switchTab('settings')" data-tab="settings">
                         <i class="fas fa-cog"></i>
                         <span>Settings</span>
@@ -758,6 +784,281 @@
                     <button id="cancelEditProd" class="px-4 py-2 rounded-xl bg-gray-200 hover:bg-gray-300">Cancel</button>
                     <button id="saveEditProdBtn" class="px-4 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700">Save Changes</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== FSM TABS ========== -->
+    
+    <!-- Visits Tab -->
+    <div id="visitsTab" class="hidden">
+        <div class="max-w-7xl mx-auto">
+            <!-- Header with filters -->
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                <h2 class="text-white text-2xl font-bold">Field Visits</h2>
+                <div class="flex flex-wrap gap-3">
+                    <select id="visitBranchFilter" onchange="loadVisits()" class="px-4 py-2 rounded-lg bg-white/10 text-white border border-white/20">
+                        <option value="">All Branches</option>
+                    </select>
+                    <select id="visitSalesmanFilter" onchange="loadVisits()" class="px-4 py-2 rounded-lg bg-white/10 text-white border border-white/20">
+                        <option value="">All Salesmen</option>
+                    </select>
+                    <input type="date" id="visitDateFrom" onchange="loadVisits()" class="px-4 py-2 rounded-lg bg-white/10 text-white border border-white/20" />
+                    <input type="date" id="visitDateTo" onchange="loadVisits()" class="px-4 py-2 rounded-lg bg-white/10 text-white border border-white/20" />
+                    <button onclick="exportVisitsExcel()" class="px-4 py-2 bg-green-500 hover:bg-green-600 rounded-lg text-white">
+                        <i class="fas fa-download mr-2"></i>Export Excel
+                    </button>
+                </div>
+            </div>
+
+            <!-- Stats Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div class="stat-card p-4 rounded-xl">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-white/60 text-sm">Total Visits</p>
+                            <p class="text-white text-2xl font-bold" id="totalVisitsCount">0</p>
+                        </div>
+                        <i class="fas fa-map-marker-alt text-blue-400 text-3xl"></i>
+                    </div>
+                </div>
+                <div class="stat-card p-4 rounded-xl">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-white/60 text-sm">Completed Today</p>
+                            <p class="text-white text-2xl font-bold" id="todayVisitsCount">0</p>
+                        </div>
+                        <i class="fas fa-check-circle text-green-400 text-3xl"></i>
+                    </div>
+                </div>
+                <div class="stat-card p-4 rounded-xl">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-white/60 text-sm">Active Salesmen</p>
+                            <p class="text-white text-2xl font-bold" id="activeSalesmenCount">0</p>
+                        </div>
+                        <i class="fas fa-user-tie text-purple-400 text-3xl"></i>
+                    </div>
+                </div>
+                <div class="stat-card p-4 rounded-xl">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-white/60 text-sm">Avg. Visit Duration</p>
+                            <p class="text-white text-2xl font-bold" id="avgVisitDuration">0</p>
+                            <p class="text-white/60 text-xs">minutes</p>
+                        </div>
+                        <i class="fas fa-clock text-yellow-400 text-3xl"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Visits Table -->
+            <div class="glass-effect rounded-xl p-6 overflow-x-auto">
+                <table class="w-full" id="visitsTable">
+                    <thead>
+                        <tr class="text-white/60 text-sm border-b border-white/10">
+                            <th class="text-left py-3 px-4">Date</th>
+                            <th class="text-left py-3 px-4">Customer</th>
+                            <th class="text-left py-3 px-4">Salesman</th>
+                            <th class="text-left py-3 px-4">Branch</th>
+                            <th class="text-left py-3 px-4">Type</th>
+                            <th class="text-left py-3 px-4">Duration</th>
+                            <th class="text-left py-3 px-4">Potential</th>
+                            <th class="text-left py-3 px-4">Status</th>
+                            <th class="text-left py-3 px-4">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="visitsTableBody">
+                        <tr>
+                            <td colspan="9" class="text-center py-8 text-white/60">
+                                <i class="fas fa-spinner fa-spin mr-2"></i>Loading visits...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Salesmen Tab -->
+    <div id="salesmenTab" class="hidden">
+        <div class="max-w-7xl mx-auto">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-white text-2xl font-bold">Sales Team</h2>
+                <button onclick="showAddSalesmanModal()" class="px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg text-white">
+                    <i class="fas fa-plus mr-2"></i>Add Salesman
+                </button>
+            </div>
+
+            <!-- Stats Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div class="stat-card p-4 rounded-xl">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-white/60 text-sm">Total Salesmen</p>
+                            <p class="text-white text-2xl font-bold" id="totalSalesmenCount">0</p>
+                        </div>
+                        <i class="fas fa-user-tie text-blue-400 text-3xl"></i>
+                    </div>
+                </div>
+                <div class="stat-card p-4 rounded-xl">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-white/60 text-sm">Active Today</p>
+                            <p class="text-white text-2xl font-bold" id="activeTodayCount">0</p>
+                        </div>
+                        <i class="fas fa-check-circle text-green-400 text-3xl"></i>
+                    </div>
+                </div>
+                <div class="stat-card p-4 rounded-xl">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-white/60 text-sm">On Target</p>
+                            <p class="text-white text-2xl font-bold" id="onTargetCount">0</p>
+                        </div>
+                        <i class="fas fa-bullseye text-purple-400 text-3xl"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Salesmen Table -->
+            <div class="glass-effect rounded-xl p-6 overflow-x-auto">
+                <table class="w-full">
+                    <thead>
+                        <tr class="text-white/60 text-sm border-b border-white/10">
+                            <th class="text-left py-3 px-4">Name</th>
+                            <th class="text-left py-3 px-4">Phone</th>
+                            <th class="text-left py-3 px-4">Territory</th>
+                            <th class="text-left py-3 px-4">Visits (Month)</th>
+                            <th class="text-left py-3 px-4">Target Progress</th>
+                            <th class="text-left py-3 px-4">Status</th>
+                            <th class="text-left py-3 px-4">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="salesmenTableBody">
+                        <tr>
+                            <td colspan="7" class="text-center py-8 text-white/60">
+                                <i class="fas fa-spinner fa-spin mr-2"></i>Loading salesmen...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Targets Tab -->
+    <div id="targetsTab" class="hidden">
+        <div class="max-w-7xl mx-auto">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-white text-2xl font-bold">Monthly Targets</h2>
+                <div class="flex gap-3">
+                    <input type="month" id="targetMonthFilter" onchange="loadTargets()" class="px-4 py-2 rounded-lg bg-white/10 text-white border border-white/20" />
+                    <button onclick="showSetTargetModal()" class="px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg text-white">
+                        <i class="fas fa-plus mr-2"></i>Set Target
+                    </button>
+                </div>
+            </div>
+
+            <!-- Summary Stats -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div class="stat-card p-4 rounded-xl">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-white/60 text-sm">Total Targets</p>
+                            <p class="text-white text-2xl font-bold" id="totalTargetsCount">0</p>
+                        </div>
+                        <i class="fas fa-bullseye text-blue-400 text-3xl"></i>
+                    </div>
+                </div>
+                <div class="stat-card p-4 rounded-xl">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-white/60 text-sm">Achieved</p>
+                            <p class="text-white text-2xl font-bold" id="achievedTargetsCount">0</p>
+                        </div>
+                        <i class="fas fa-trophy text-green-400 text-3xl"></i>
+                    </div>
+                </div>
+                <div class="stat-card p-4 rounded-xl">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-white/60 text-sm">In Progress</p>
+                            <p class="text-white text-2xl font-bold" id="inProgressTargetsCount">0</p>
+                        </div>
+                        <i class="fas fa-spinner text-yellow-400 text-3xl"></i>
+                    </div>
+                </div>
+                <div class="stat-card p-4 rounded-xl">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-white/60 text-sm">Avg. Achievement</p>
+                            <p class="text-white text-2xl font-bold" id="avgAchievementPercent">0%</p>
+                        </div>
+                        <i class="fas fa-chart-line text-purple-400 text-3xl"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Targets Table -->
+            <div class="glass-effect rounded-xl p-6 overflow-x-auto">
+                <table class="w-full">
+                    <thead>
+                        <tr class="text-white/60 text-sm border-b border-white/10">
+                            <th class="text-left py-3 px-4">Salesman</th>
+                            <th class="text-left py-3 px-4">Month</th>
+                            <th class="text-left py-3 px-4">Visit Target</th>
+                            <th class="text-left py-3 px-4">Achieved Visits</th>
+                            <th class="text-left py-3 px-4">Order Target</th>
+                            <th class="text-left py-3 px-4">Achieved Orders</th>
+                            <th class="text-left py-3 px-4">Revenue Target</th>
+                            <th class="text-left py-3 px-4">Achieved Revenue</th>
+                            <th class="text-left py-3 px-4">Progress</th>
+                        </tr>
+                    </thead>
+                    <tbody id="targetsTableBody">
+                        <tr>
+                            <td colspan="9" class="text-center py-8 text-white/60">
+                                <i class="fas fa-spinner fa-spin mr-2"></i>Loading targets...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Branches Tab -->
+    <div id="branchesTab" class="hidden">
+        <div class="max-w-7xl mx-auto">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-white text-2xl font-bold">Branches & Plants</h2>
+                <button onclick="showAddBranchModal()" class="px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg text-white">
+                    <i class="fas fa-plus mr-2"></i>Add Branch
+                </button>
+            </div>
+
+            <!-- Branches Table -->
+            <div class="glass-effect rounded-xl p-6 overflow-x-auto">
+                <table class="w-full">
+                    <thead>
+                        <tr class="text-white/60 text-sm border-b border-white/10">
+                            <th class="text-left py-3 px-4">Branch Name</th>
+                            <th class="text-left py-3 px-4">Location</th>
+                            <th class="text-left py-3 px-4">Contact</th>
+                            <th class="text-left py-3 px-4">Assigned Salesmen</th>
+                            <th class="text-left py-3 px-4">Status</th>
+                            <th class="text-left py-3 px-4">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="branchesTableBody">
+                        <tr>
+                            <td colspan="6" class="text-center py-8 text-white/60">
+                                <i class="fas fa-spinner fa-spin mr-2"></i>Loading branches...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
@@ -1691,6 +1992,16 @@
         if (customersTab) customersTab.classList.add('hidden');
         if (websiteTab) websiteTab.classList.add('hidden');
         
+        // Hide FSM tabs
+        const visitsTab = document.getElementById('visitsTab');
+        const salesmenTab = document.getElementById('salesmenTab');
+        const targetsTab = document.getElementById('targetsTab');
+        const branchesTab = document.getElementById('branchesTab');
+        if (visitsTab) visitsTab.classList.add('hidden');
+        if (salesmenTab) salesmenTab.classList.add('hidden');
+        if (targetsTab) targetsTab.classList.add('hidden');
+        if (branchesTab) branchesTab.classList.add('hidden');
+        
         content.innerHTML = '<div class="flex justify-center py-20"><div class="loading-spinner"></div></div>';
         
         try {
@@ -1739,6 +2050,41 @@
                         content.innerHTML = '<div class="p-8 text-red-500">Website tab element not found.</div>';
                     }
                     break;
+                
+                // FSM Tabs
+                case 'visits':
+                    content.classList.add('hidden');
+                    const visitsTab = document.getElementById('visitsTab');
+                    if (visitsTab) {
+                        visitsTab.classList.remove('hidden');
+                        await loadVisits();
+                    }
+                    break;
+                case 'salesmen':
+                    content.classList.add('hidden');
+                    const salesmenTab = document.getElementById('salesmenTab');
+                    if (salesmenTab) {
+                        salesmenTab.classList.remove('hidden');
+                        await loadSalesmen();
+                    }
+                    break;
+                case 'targets':
+                    content.classList.add('hidden');
+                    const targetsTab = document.getElementById('targetsTab');
+                    if (targetsTab) {
+                        targetsTab.classList.remove('hidden');
+                        await loadTargets();
+                    }
+                    break;
+                case 'branches':
+                    content.classList.add('hidden');
+                    const branchesTab = document.getElementById('branchesTab');
+                    if (branchesTab) {
+                        branchesTab.classList.remove('hidden');
+                        await loadBranches();
+                    }
+                    break;
+                
                 default: 
                     content.innerHTML = '<div class="p-8">Unknown tab</div>';
             }
@@ -7644,6 +7990,326 @@
             console.error('Error deleting website content:', error);
             showNotification('Failed to delete content', 'error');
         }
+    }
+
+    // ========== FSM FUNCTIONS ==========
+    
+    // Load Visits
+    async function loadVisits() {
+        try {
+            const filters = {
+                branch: document.getElementById('visitBranchFilter')?.value || '',
+                salesman: document.getElementById('visitSalesmanFilter')?.value || '',
+                dateFrom: document.getElementById('visitDateFrom')?.value || '',
+                dateTo: document.getElementById('visitDateTo')?.value || ''
+            };
+            
+            const params = new URLSearchParams();
+            if (filters.branch) params.append('branch', filters.branch);
+            if (filters.salesman) params.append('salesman', filters.salesman);
+            if (filters.dateFrom) params.append('dateFrom', filters.dateFrom);
+            if (filters.dateTo) params.append('dateTo', filters.dateTo);
+            
+            const response = await fetch(`/api/visits?${params}`);
+            const visits = await response.json();
+            
+            // Update stats
+            document.getElementById('totalVisitsCount').textContent = visits.length;
+            
+            const today = new Date().toISOString().split('T')[0];
+            const todayVisits = visits.filter(v => v.visit_date && v.visit_date.startsWith(today));
+            document.getElementById('todayVisitsCount').textContent = todayVisits.length;
+            
+            const uniqueSalesmen = new Set(visits.map(v => v.salesman_id)).size;
+            document.getElementById('activeSalesmenCount').textContent = uniqueSalesmen;
+            
+            const completedVisits = visits.filter(v => v.time_out && v.duration_minutes);
+            const avgDuration = completedVisits.length > 0 
+                ? Math.round(completedVisits.reduce((sum, v) => sum + (v.duration_minutes || 0), 0) / completedVisits.length)
+                : 0;
+            document.getElementById('avgVisitDuration').textContent = avgDuration;
+            
+            // Populate filters
+            await populateVisitFilters();
+            
+            // Populate table
+            const tbody = document.getElementById('visitsTableBody');
+            if (visits.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="9" class="text-center py-8 text-white/60">No visits found</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = visits.map(visit => {
+                const visitDate = visit.visit_date ? new Date(visit.visit_date).toLocaleDateString() : 'N/A';
+                const status = visit.time_out 
+                    ? '<span class="text-green-400"><i class="fas fa-check-circle"></i> Complete</span>'
+                    : '<span class="text-yellow-400"><i class="fas fa-clock"></i> In Progress</span>';
+                
+                const potentialClass = visit.potential === 'High' ? 'bg-green-500/20 text-green-300' :
+                    visit.potential === 'Medium' ? 'bg-yellow-500/20 text-yellow-300' :
+                    'bg-gray-500/20 text-gray-300';
+                
+                return `
+                    <tr class="text-white border-b border-white/10 hover:bg-white/5">
+                        <td class="py-3 px-4">${visitDate}</td>
+                        <td class="py-3 px-4">${escapeHtml(visit.customer_name || 'N/A')}</td>
+                        <td class="py-3 px-4">${escapeHtml(visit.salesman_name || 'N/A')}</td>
+                        <td class="py-3 px-4">${escapeHtml(visit.plant_name || '-')}</td>
+                        <td class="py-3 px-4">
+                            <span class="px-2 py-1 rounded text-xs bg-blue-500/20 text-blue-300">${visit.visit_type || 'Regular'}</span>
+                        </td>
+                        <td class="py-3 px-4">${visit.duration_minutes || 0} min</td>
+                        <td class="py-3 px-4">
+                            <span class="px-2 py-1 rounded text-xs ${potentialClass}">${visit.potential || 'Low'}</span>
+                        </td>
+                        <td class="py-3 px-4">${status}</td>
+                        <td class="py-3 px-4">
+                            <button onclick="viewVisitDetails('${visit.id}')" class="text-blue-400 hover:text-blue-300" title="View Details">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+            
+        } catch (error) {
+            console.error('Error loading visits:', error);
+            showNotification('Error loading visits', 'error');
+        }
+    }
+    
+    async function populateVisitFilters() {
+        try {
+            // Load salesmen for filter
+            const salesmenResp = await fetch('/api/salesmen');
+            const salesmen = await salesmenResp.json();
+            const salesmanFilter = document.getElementById('visitSalesmanFilter');
+            if (salesmanFilter) {
+                salesmanFilter.innerHTML = '<option value="">All Salesmen</option>' + 
+                    salesmen.map(s => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
+            }
+            
+            // For now, using single branch - future enhancement for multi-branch
+            const branchFilter = document.getElementById('visitBranchFilter');
+            if (branchFilter) {
+                branchFilter.innerHTML = '<option value="">All Branches</option>';
+            }
+        } catch (error) {
+            console.error('Error populating filters:', error);
+        }
+    }
+    
+    function viewVisitDetails(visitId) {
+        // TODO: Implement visit details modal
+        showNotification('Visit details feature coming soon', 'info');
+    }
+    
+    function exportVisitsExcel() {
+        // TODO: Implement Excel export
+        showNotification('Excel export feature coming soon', 'info');
+    }
+    
+    // Load Salesmen
+    async function loadSalesmen() {
+        try {
+            const response = await fetch('/api/salesmen');
+            const salesmen = await response.json();
+            
+            // Update stats
+            document.getElementById('totalSalesmenCount').textContent = salesmen.length;
+            
+            const today = new Date().toISOString().split('T')[0];
+            // Get today's active salesmen (those with visits today)
+            const visitsResp = await fetch(`/api/visits?dateFrom=${today}&dateTo=${today}`);
+            const todayVisits = await visitsResp.json();
+            const activeTodaySet = new Set(todayVisits.map(v => v.salesman_id));
+            document.getElementById('activeTodayCount').textContent = activeTodaySet.size;
+            
+            // Get targets to calculate "on target" count
+            const targetsResp = await fetch('/api/targets');
+            const targets = await targetsResp.json();
+            const onTarget = targets.filter(t => {
+                const progress = t.target_visits > 0 ? (t.achieved_visits / t.target_visits * 100) : 0;
+                return progress >= 80;
+            }).length;
+            document.getElementById('onTargetCount').textContent = onTarget;
+            
+            // Populate table
+            const tbody = document.getElementById('salesmenTableBody');
+            if (salesmen.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center py-8 text-white/60">No salesmen found</td></tr>';
+                return;
+            }
+            
+            // Get visit counts for each salesman
+            const allVisitsResp = await fetch('/api/visits');
+            const allVisits = await allVisitsResp.json();
+            
+            tbody.innerHTML = salesmen.map(salesman => {
+                const salesmanVisits = allVisits.filter(v => v.salesman_id === salesman.id);
+                const thisMonthVisits = salesmanVisits.filter(v => {
+                    const vDate = new Date(v.visit_date);
+                    const now = new Date();
+                    return vDate.getMonth() === now.getMonth() && vDate.getFullYear() === now.getFullYear();
+                }).length;
+                
+                const target = targets.find(t => t.salesman_id === salesman.id);
+                const targetProgress = target && target.target_visits > 0 
+                    ? Math.round(target.achieved_visits / target.target_visits * 100)
+                    : 0;
+                
+                const statusBadge = salesman.status === 'active' 
+                    ? '<span class="px-2 py-1 rounded text-xs bg-green-500/20 text-green-300">Active</span>'
+                    : '<span class="px-2 py-1 rounded text-xs bg-gray-500/20 text-gray-300">Inactive</span>';
+                
+                return `
+                    <tr class="text-white border-b border-white/10 hover:bg-white/5">
+                        <td class="py-3 px-4">${escapeHtml(salesman.name || 'N/A')}</td>
+                        <td class="py-3 px-4">${escapeHtml(salesman.phone || '-')}</td>
+                        <td class="py-3 px-4">${escapeHtml(salesman.territory || '-')}</td>
+                        <td class="py-3 px-4">${thisMonthVisits}</td>
+                        <td class="py-3 px-4">
+                            <div class="w-full bg-white/10 rounded-full h-2">
+                                <div class="bg-blue-500 h-2 rounded-full" style="width: ${Math.min(targetProgress, 100)}%"></div>
+                            </div>
+                            <span class="text-xs text-white/60">${targetProgress}%</span>
+                        </td>
+                        <td class="py-3 px-4">${statusBadge}</td>
+                        <td class="py-3 px-4">
+                            <button onclick="viewSalesmanDetails('${salesman.id}')" class="text-blue-400 hover:text-blue-300" title="View Details">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+            
+        } catch (error) {
+            console.error('Error loading salesmen:', error);
+            showNotification('Error loading salesmen', 'error');
+        }
+    }
+    
+    function showAddSalesmanModal() {
+        showNotification('Add salesman feature coming soon', 'info');
+    }
+    
+    function viewSalesmanDetails(salesmanId) {
+        showNotification('Salesman details feature coming soon', 'info');
+    }
+    
+    // Load Targets
+    async function loadTargets() {
+        try {
+            const monthFilter = document.getElementById('targetMonthFilter');
+            if (monthFilter && !monthFilter.value) {
+                const now = new Date();
+                monthFilter.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+            }
+            
+            const response = await fetch('/api/targets');
+            const targets = await response.json();
+            
+            // Update stats
+            document.getElementById('totalTargetsCount').textContent = targets.length;
+            
+            const achieved = targets.filter(t => {
+                const visitProgress = t.target_visits > 0 ? (t.achieved_visits / t.target_visits * 100) : 0;
+                const orderProgress = t.target_orders > 0 ? (t.achieved_orders / t.target_orders * 100) : 0;
+                return visitProgress >= 100 && orderProgress >= 100;
+            }).length;
+            document.getElementById('achievedTargetsCount').textContent = achieved;
+            
+            const inProgress = targets.filter(t => {
+                const visitProgress = t.target_visits > 0 ? (t.achieved_visits / t.target_visits * 100) : 0;
+                const orderProgress = t.target_orders > 0 ? (t.achieved_orders / t.target_orders * 100) : 0;
+                return (visitProgress > 0 && visitProgress < 100) || (orderProgress > 0 && orderProgress < 100);
+            }).length;
+            document.getElementById('inProgressTargetsCount').textContent = inProgress;
+            
+            const avgProgress = targets.length > 0 
+                ? Math.round(targets.reduce((sum, t) => {
+                    const visitProgress = t.target_visits > 0 ? (t.achieved_visits / t.target_visits * 100) : 0;
+                    return sum + visitProgress;
+                }, 0) / targets.length)
+                : 0;
+            document.getElementById('avgAchievementPercent').textContent = avgProgress + '%';
+            
+            // Populate table
+            const tbody = document.getElementById('targetsTableBody');
+            if (targets.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="9" class="text-center py-8 text-white/60">No targets found</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = targets.map(target => {
+                const visitProgress = target.target_visits > 0 
+                    ? Math.round(target.achieved_visits / target.target_visits * 100)
+                    : 0;
+                const orderProgress = target.target_orders > 0 
+                    ? Math.round(target.achieved_orders / target.target_orders * 100)
+                    : 0;
+                const revenueProgress = target.target_revenue > 0 
+                    ? Math.round(target.achieved_revenue / target.target_revenue * 100)
+                    : 0;
+                
+                const overallProgress = Math.round((visitProgress + orderProgress + revenueProgress) / 3);
+                const progressColor = overallProgress >= 100 ? 'bg-green-500' : 
+                    overallProgress >= 80 ? 'bg-blue-500' : 
+                    overallProgress >= 50 ? 'bg-yellow-500' : 'bg-red-500';
+                
+                return `
+                    <tr class="text-white border-b border-white/10 hover:bg-white/5">
+                        <td class="py-3 px-4">${escapeHtml(target.salesman_name || 'N/A')}</td>
+                        <td class="py-3 px-4">${target.target_month || 'N/A'}</td>
+                        <td class="py-3 px-4">${target.target_visits || 0}</td>
+                        <td class="py-3 px-4">${target.achieved_visits || 0}</td>
+                        <td class="py-3 px-4">${target.target_orders || 0}</td>
+                        <td class="py-3 px-4">${target.achieved_orders || 0}</td>
+                        <td class="py-3 px-4">₹${target.target_revenue || 0}</td>
+                        <td class="py-3 px-4">₹${target.achieved_revenue || 0}</td>
+                        <td class="py-3 px-4">
+                            <div class="w-full bg-white/10 rounded-full h-2">
+                                <div class="${progressColor} h-2 rounded-full" style="width: ${Math.min(overallProgress, 100)}%"></div>
+                            </div>
+                            <span class="text-xs text-white/60">${overallProgress}%</span>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+            
+        } catch (error) {
+            console.error('Error loading targets:', error);
+            showNotification('Error loading targets', 'error');
+        }
+    }
+    
+    function showSetTargetModal() {
+        showNotification('Set target feature coming soon', 'info');
+    }
+    
+    // Load Branches
+    async function loadBranches() {
+        try {
+            // For now, showing placeholder as branches table doesn't exist yet
+            const tbody = document.getElementById('branchesTableBody');
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="text-center py-12 text-white/60">
+                        <i class="fas fa-building text-4xl mb-4"></i>
+                        <p class="text-lg mb-2">Multi-Branch Feature</p>
+                        <p class="text-sm">Branch management will be available in the next update</p>
+                    </td>
+                </tr>
+            `;
+        } catch (error) {
+            console.error('Error loading branches:', error);
+            showNotification('Error loading branches', 'error');
+        }
+    }
+    
+    function showAddBranchModal() {
+        showNotification('Add branch feature coming soon', 'info');
     }
 
     init();

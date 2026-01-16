@@ -1,0 +1,66 @@
+<!-- Salesmen Tab Container -->
+<div id="salesmenTab" class="hidden">
+    <div class="max-w-7xl mx-auto">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-white text-2xl font-bold">Sales Team</h2>
+            <button onclick="window.salesmenManager.showAddModal()" class="px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg text-white">
+                <i class="fas fa-plus mr-2"></i>Add Salesman
+            </button>
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div class="stat-card p-4 rounded-xl">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-white/60 text-sm">Total Salesmen</p>
+                        <p class="text-white text-2xl font-bold" id="totalSalesmenCount">0</p>
+                    </div>
+                    <i class="fas fa-user-tie text-blue-400 text-3xl"></i>
+                </div>
+            </div>
+            <div class="stat-card p-4 rounded-xl">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-white/60 text-sm">Active Today</p>
+                        <p class="text-white text-2xl font-bold" id="activeTodayCount">0</p>
+                    </div>
+                    <i class="fas fa-check-circle text-green-400 text-3xl"></i>
+                </div>
+            </div>
+            <div class="stat-card p-4 rounded-xl">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-white/60 text-sm">On Target</p>
+                        <p class="text-white text-2xl font-bold" id="onTargetCount">0</p>
+                    </div>
+                    <i class="fas fa-bullseye text-purple-400 text-3xl"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Salesmen Table -->
+        <div class="glass-effect rounded-xl p-6 overflow-x-auto">
+            <table class="w-full">
+                <thead>
+                    <tr class="text-white/60 text-sm border-b border-white/10">
+                        <th class="text-left py-3 px-4">Name</th>
+                        <th class="text-left py-3 px-4">Phone</th>
+                        <th class="text-left py-3 px-4">Territory</th>
+                        <th class="text-left py-3 px-4">Visits (Month)</th>
+                        <th class="text-left py-3 px-4">Target Progress</th>
+                        <th class="text-left py-3 px-4">Status</th>
+                        <th class="text-left py-3 px-4">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="salesmenTableBody">
+                    <tr>
+                        <td colspan="7" class="text-center py-8 text-white/60">
+                            <i class="fas fa-spinner fa-spin mr-2"></i>Loading salesmen...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

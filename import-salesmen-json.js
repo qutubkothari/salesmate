@@ -1,0 +1,526 @@
+/**
+ * Import Salesmen from Supabase JSON Export
+ * Usage: node import-salesmen-json.js
+ */
+
+const Database = require('better-sqlite3');
+const path = require('path');
+
+const LOCAL_DB_PATH = path.join(__dirname, 'local-database.db');
+const DEFAULT_TENANT_ID = '101f04af63cbefc2bf8f0a98b9ae1205'; // SAK Solution tenant
+
+// Salesmen data from Supabase
+const salesmenData = [
+  {
+    "id": "b458cac6-e311-4ad6-9c2e-76792ef8fef8",
+    "name": "hussain",
+    "phone": "7737835253",
+    "email": "",
+    "is_active": true,
+    "created_at": "2025-11-22 20:19:25.242806+00",
+    "updated_at": "2025-11-24 17:50:11.511618+00",
+    "is_admin": true,
+    "tenant_id": "84c1ba8d-53ab-43ef-9483-d997682f3072",
+    "plant": [],
+    "name_ar": "حسين",
+    "deleted_at": null
+  },
+  {
+    "id": "227a6a69-3243-4fe1-b57f-4f0b8917be8d",
+    "name": "MUSTAFA",
+    "phone": "8484862949",
+    "email": "",
+    "is_active": true,
+    "created_at": "2025-11-22 20:42:31.002336+00",
+    "updated_at": "2025-11-24 17:25:34.84428+00",
+    "is_admin": false,
+    "tenant_id": "84c1ba8d-53ab-43ef-9483-d997682f3072",
+    "plant": null,
+    "name_ar": null,
+    "deleted_at": "2025-11-24 17:25:35.336+00"
+  },
+  {
+    "id": "7df22b98-b397-472f-a33a-0365cf9545dc",
+    "name": "Abbas Rangoonwala",
+    "phone": "9730965552",
+    "email": "",
+    "is_active": true,
+    "created_at": "2025-11-23 04:47:19.171923+00",
+    "updated_at": "2025-11-24 13:03:43.953444+00",
+    "is_admin": true,
+    "tenant_id": "112f12b8-55e9-4de8-9fda-d58e37c75796",
+    "plant": [
+      "Hylite Galvanisers Pimpri - HGP",
+      "5d3b1922-ea5d-48f0-a15a-896cc1a97670",
+      "9a95512f-9c72-4de1-864e-0219c44b8ea3",
+      "f2e18b86-6960-45b9-9a2a-dae18350de4c",
+      "423fb7c8-51d0-47f5-8bc5-2fdc0e4f8695",
+      "2e177bea-cc42-463a-a9ed-dcf1b6ebd50b",
+      "1d9bc13a-b886-47a3-a95b-8f5f93521f45",
+      "3b6bac99-a85e-45c8-b2ed-dbc5203c2fb1"
+    ],
+    "name_ar": null,
+    "deleted_at": null
+  },
+  {
+    "id": "b4cc8d15-2099-43e2-b1f8-435e31b69658",
+    "name": "Alok",
+    "phone": "8600259300",
+    "email": "",
+    "is_active": true,
+    "created_at": "2025-11-23 05:40:33.313725+00",
+    "updated_at": "2025-11-23 07:40:41.61876+00",
+    "is_admin": false,
+    "tenant_id": "112f12b8-55e9-4de8-9fda-d58e37c75796",
+    "plant": [
+      "5d3b1922-ea5d-48f0-a15a-896cc1a97670"
+    ],
+    "name_ar": null,
+    "deleted_at": null
+  },
+  {
+    "id": "14abed4e-9932-4181-816f-0b0c0a684d7c",
+    "name": "Ahmed Sabr",
+    "phone": "1062419870",
+    "email": "",
+    "is_active": true,
+    "created_at": "2025-11-24 06:11:54.114017+00",
+    "updated_at": "2025-11-24 06:11:54.114017+00",
+    "is_admin": false,
+    "tenant_id": "84c1ba8d-53ab-43ef-9483-d997682f3072",
+    "plant": [
+      "daf4f8ab-bd64-40e4-8a60-5d9e9fdf56b4"
+    ],
+    "name_ar": "أحمد صبري",
+    "deleted_at": null
+  },
+  {
+    "id": "4543539d-6c4f-439b-84e9-a279e1b1d8e4",
+    "name": "Ahmed Hassan",
+    "phone": "1032833937",
+    "email": "",
+    "is_active": true,
+    "created_at": "2025-11-24 11:16:48.625258+00",
+    "updated_at": "2025-11-24 11:16:48.625258+00",
+    "is_admin": false,
+    "tenant_id": "84c1ba8d-53ab-43ef-9483-d997682f3072",
+    "plant": [
+      "daf4f8ab-bd64-40e4-8a60-5d9e9fdf56b4"
+    ],
+    "name_ar": "أحمد حسن",
+    "deleted_at": null
+  },
+  {
+    "id": "9c6ba0fa-a516-4c5b-bbe0-04a01b5f0125",
+    "name": "Mudar Sanchawala",
+    "phone": "9766748786",
+    "email": "",
+    "is_active": true,
+    "created_at": "2025-11-24 13:00:46.59389+00",
+    "updated_at": "2025-11-26 10:56:35.900407+00",
+    "is_admin": false,
+    "tenant_id": "112f12b8-55e9-4de8-9fda-d58e37c75796",
+    "plant": [
+      "423fb7c8-51d0-47f5-8bc5-2fdc0e4f8695",
+      "5d3b1922-ea5d-48f0-a15a-896cc1a97670",
+      "9a95512f-9c72-4de1-864e-0219c44b8ea3",
+      "f2e18b86-6960-45b9-9a2a-dae18350de4c",
+      "2e177bea-cc42-463a-a9ed-dcf1b6ebd50b",
+      "1d9bc13a-b886-47a3-a95b-8f5f93521f45",
+      "3b6bac99-a85e-45c8-b2ed-dbc5203c2fb1"
+    ],
+    "name_ar": "مودار سانشاوالا",
+    "deleted_at": null
+  },
+  {
+    "id": "e2e80a08-9bca-4550-a682-bfeac7f55d86",
+    "name": "Yusuf  Bootwala",
+    "phone": "9769395452",
+    "email": "",
+    "is_active": true,
+    "created_at": "2025-11-24 13:03:16.586685+00",
+    "updated_at": "2025-11-26 10:58:03.505037+00",
+    "is_admin": false,
+    "tenant_id": "112f12b8-55e9-4de8-9fda-d58e37c75796",
+    "plant": [
+      "5d3b1922-ea5d-48f0-a15a-896cc1a97670",
+      "f2e18b86-6960-45b9-9a2a-dae18350de4c",
+      "423fb7c8-51d0-47f5-8bc5-2fdc0e4f8695",
+      "2e177bea-cc42-463a-a9ed-dcf1b6ebd50b",
+      "3b6bac99-a85e-45c8-b2ed-dbc5203c2fb1"
+    ],
+    "name_ar": "يوسف بوتوالا",
+    "deleted_at": null
+  },
+  {
+    "id": "fb1fd619-73d1-46ad-b03d-37c3e2eb78cc",
+    "name": "Fatema Bawaji",
+    "phone": "9766194752",
+    "email": "",
+    "is_active": true,
+    "created_at": "2025-11-24 13:04:56.29289+00",
+    "updated_at": "2025-11-26 07:10:50.072387+00",
+    "is_admin": false,
+    "tenant_id": "112f12b8-55e9-4de8-9fda-d58e37c75796",
+    "plant": [
+      "2e177bea-cc42-463a-a9ed-dcf1b6ebd50b"
+    ],
+    "name_ar": "فاطمة بواجي",
+    "deleted_at": null
+  },
+  {
+    "id": "9d253c85-7f22-4bc7-9abd-bca34ed88877",
+    "name": "Burhanuddin Rangwala",
+    "phone": "9890777102",
+    "email": "",
+    "is_active": true,
+    "created_at": "2025-11-24 13:05:28.568669+00",
+    "updated_at": "2025-11-24 13:16:16.129665+00",
+    "is_admin": false,
+    "tenant_id": "112f12b8-55e9-4de8-9fda-d58e37c75796",
+    "plant": [
+      "2e177bea-cc42-463a-a9ed-dcf1b6ebd50b"
+    ],
+    "name_ar": "برهان الدين رانجوالا",
+    "deleted_at": null
+  },
+  {
+    "id": "5b91a0e2-4a5e-47f1-aab6-f71f0b187c3e",
+    "name": "Sarrah Sanchawala",
+    "phone": "8888450842",
+    "email": "",
+    "is_active": true,
+    "created_at": "2025-11-24 13:07:03.638269+00",
+    "updated_at": "2025-11-24 13:07:11.758465+00",
+    "is_admin": false,
+    "tenant_id": "112f12b8-55e9-4de8-9fda-d58e37c75796",
+    "plant": [
+      "2e177bea-cc42-463a-a9ed-dcf1b6ebd50b"
+    ],
+    "name_ar": "سارة سانشاوالا",
+    "deleted_at": null
+  },
+  {
+    "id": "9bc9c4bf-9b6b-4757-adf7-4c34558af4e9",
+    "name": "Hamza Bootwala",
+    "phone": "9819370256",
+    "email": "",
+    "is_active": true,
+    "created_at": "2025-11-24 13:08:49.486023+00",
+    "updated_at": "2025-11-26 07:01:27.526144+00",
+    "is_admin": true,
+    "tenant_id": "112f12b8-55e9-4de8-9fda-d58e37c75796",
+    "plant": [
+      "9a95512f-9c72-4de1-864e-0219c44b8ea3",
+      "3b6bac99-a85e-45c8-b2ed-dbc5203c2fb1",
+      "5d3b1922-ea5d-48f0-a15a-896cc1a97670"
+    ],
+    "name_ar": "حمزة بوتوالا",
+    "deleted_at": null
+  },
+  {
+    "id": "d22bf296-af49-4812-bee6-9c7a3df8d116",
+    "name": "Kiran Kamble",
+    "phone": "9137783276",
+    "email": "",
+    "is_active": true,
+    "created_at": "2025-11-24 13:15:07.859734+00",
+    "updated_at": "2025-11-25 08:41:40.530933+00",
+    "is_admin": false,
+    "tenant_id": "112f12b8-55e9-4de8-9fda-d58e37c75796",
+    "plant": [
+      "9a95512f-9c72-4de1-864e-0219c44b8ea3",
+      "1d9bc13a-b886-47a3-a95b-8f5f93521f45"
+    ],
+    "name_ar": "كيران كامبل",
+    "deleted_at": null
+  },
+  {
+    "id": "fd05b103-c79b-48ff-bea6-9162c49dc5a5",
+    "name": "Murtaza Rangwl",
+    "phone": "",
+    "email": "",
+    "is_active": true,
+    "created_at": "2025-11-24 15:28:29.00847+00",
+    "updated_at": "2025-11-24 15:50:19.595792+00",
+    "is_admin": false,
+    "tenant_id": "84c1ba8d-53ab-43ef-9483-d997682f3072",
+    "plant": [],
+    "name_ar": "مرتضى رانغولا",
+    "deleted_at": "2025-11-24 15:50:19.502+00"
+  },
+  {
+    "id": "2e98c401-f120-4461-a0af-48538cea25ef",
+    "name": "Murtaza Rangwala",
+    "phone": "1222538476",
+    "email": "",
+    "is_active": true,
+    "created_at": "2025-11-24 17:24:52.959109+00",
+    "updated_at": "2025-11-24 17:24:52.959109+00",
+    "is_admin": false,
+    "tenant_id": "84c1ba8d-53ab-43ef-9483-d997682f3072",
+    "plant": [
+      "daf4f8ab-bd64-40e4-8a60-5d9e9fdf56b4"
+    ],
+    "name_ar": "مرتضى رانجوالا",
+    "deleted_at": null
+  },
+  {
+    "id": "31cb000d-3929-4fa3-8501-764358a7ffcb",
+    "name": "Alok1",
+    "phone": "12345678",
+    "email": "",
+    "is_active": true,
+    "created_at": "2025-11-24 17:41:01.403806+00",
+    "updated_at": "2025-11-24 17:41:13.792287+00",
+    "is_admin": false,
+    "tenant_id": "112f12b8-55e9-4de8-9fda-d58e37c75796",
+    "plant": [
+      "2e177bea-cc42-463a-a9ed-dcf1b6ebd50b"
+    ],
+    "name_ar": "ألوك1",
+    "deleted_at": "2025-11-24 17:41:14.337+00"
+  },
+  {
+    "id": "69c332ba-36b7-4e32-b0ce-beab3d787736",
+    "name": "Murtaza Bootwala",
+    "phone": "9359338856",
+    "email": "",
+    "is_active": true,
+    "created_at": "2025-11-25 08:40:52.534639+00",
+    "updated_at": "2025-11-25 09:19:33.252771+00",
+    "is_admin": false,
+    "tenant_id": "112f12b8-55e9-4de8-9fda-d58e37c75796",
+    "plant": [
+      "f2e18b86-6960-45b9-9a2a-dae18350de4c",
+      "3b6bac99-a85e-45c8-b2ed-dbc5203c2fb1",
+      "423fb7c8-51d0-47f5-8bc5-2fdc0e4f8695",
+      "2e177bea-cc42-463a-a9ed-dcf1b6ebd50b"
+    ],
+    "name_ar": "مرتضى بوتوالا",
+    "deleted_at": null
+  },
+  {
+    "id": "7fd72650-7287-43a0-aa1c-d547e1204340",
+    "name": "ADMIN",
+    "phone": "1234567890",
+    "email": "",
+    "is_active": true,
+    "created_at": "2025-11-25 14:12:27.813264+00",
+    "updated_at": "2025-11-26 07:12:05.594277+00",
+    "is_admin": true,
+    "tenant_id": "112f12b8-55e9-4de8-9fda-d58e37c75796",
+    "plant": [
+      "423fb7c8-51d0-47f5-8bc5-2fdc0e4f8695",
+      "5d3b1922-ea5d-48f0-a15a-896cc1a97670",
+      "9a95512f-9c72-4de1-864e-0219c44b8ea3",
+      "f2e18b86-6960-45b9-9a2a-dae18350de4c",
+      "2e177bea-cc42-463a-a9ed-dcf1b6ebd50b",
+      "1d9bc13a-b886-47a3-a95b-8f5f93521f45",
+      "3b6bac99-a85e-45c8-b2ed-dbc5203c2fb1"
+    ],
+    "name_ar": "قاسم",
+    "deleted_at": null
+  },
+  {
+    "id": "1aaec88c-025d-4027-b3f7-63bcae500d6d",
+    "name": "abbas sales",
+    "phone": "8530499971",
+    "email": "",
+    "is_active": true,
+    "created_at": "2025-11-26 07:12:45.920867+00",
+    "updated_at": "2025-11-26 07:12:45.920867+00",
+    "is_admin": false,
+    "tenant_id": "112f12b8-55e9-4de8-9fda-d58e37c75796",
+    "plant": [],
+    "name_ar": null,
+    "deleted_at": null
+  },
+  {
+    "id": "ab562e36-fbb4-49a8-a3eb-4857138d1c64",
+    "name": "Abu Mansour",
+    "phone": "1227670286",
+    "email": "",
+    "is_active": true,
+    "created_at": "2025-11-26 14:41:40.690801+00",
+    "updated_at": "2025-11-26 14:41:40.690801+00",
+    "is_admin": false,
+    "tenant_id": "84c1ba8d-53ab-43ef-9483-d997682f3072",
+    "plant": [
+      "daf4f8ab-bd64-40e4-8a60-5d9e9fdf56b4",
+      "d2335c33-d21c-48aa-b546-b1b4892d6204"
+    ],
+    "name_ar": "أبو منصور",
+    "deleted_at": null
+  },
+  {
+    "id": "106b219e-42ff-46bc-9265-09d73c75d26d",
+    "name": "Murtaza R",
+    "phone": "1110558254",
+    "email": "",
+    "is_active": true,
+    "created_at": "2025-11-29 04:58:45.596729+00",
+    "updated_at": "2025-11-29 06:33:50.746315+00",
+    "is_admin": true,
+    "tenant_id": "fd43ab22-cc00-4fca-9dbf-768c0949c468",
+    "plant": [
+      "091d5b41-529a-429f-9e78-a21e423ca4a1"
+    ],
+    "name_ar": null,
+    "deleted_at": null
+  },
+  {
+    "id": "2dc343af-5c57-46d9-87c2-cf6bfa9834e4",
+    "name": "Remon Nagy",
+    "phone": "1287417417",
+    "email": "",
+    "is_active": true,
+    "created_at": "2025-11-29 06:35:02.16253+00",
+    "updated_at": "2025-11-29 06:35:02.16253+00",
+    "is_admin": false,
+    "tenant_id": "fd43ab22-cc00-4fca-9dbf-768c0949c468",
+    "plant": [
+      "091d5b41-529a-429f-9e78-a21e423ca4a1"
+    ],
+    "name_ar": "ريمون ناجي",
+    "deleted_at": null
+  },
+  {
+    "id": "5c3ee1a1-2d60-432f-9e4f-dda528e848ee",
+    "name": "Amira",
+    "phone": "1100598936",
+    "email": "",
+    "is_active": true,
+    "created_at": "2025-11-29 06:36:11.42727+00",
+    "updated_at": "2025-11-29 06:36:11.42727+00",
+    "is_admin": false,
+    "tenant_id": "fd43ab22-cc00-4fca-9dbf-768c0949c468",
+    "plant": [
+      "091d5b41-529a-429f-9e78-a21e423ca4a1"
+    ],
+    "name_ar": "أميرة",
+    "deleted_at": null
+  },
+  {
+    "id": "0ca7674a-562c-41b1-934a-4d5c74aa2b67",
+    "name": "Mohammad Yahya",
+    "phone": "1099880582",
+    "email": "",
+    "is_active": true,
+    "created_at": "2025-11-29 06:37:02.873636+00",
+    "updated_at": "2025-11-29 06:37:02.873636+00",
+    "is_admin": false,
+    "tenant_id": "fd43ab22-cc00-4fca-9dbf-768c0949c468",
+    "plant": [
+      "091d5b41-529a-429f-9e78-a21e423ca4a1"
+    ],
+    "name_ar": "محمد يحيى",
+    "deleted_at": null
+  },
+  {
+    "id": "27a44053-3f43-4ba3-9213-2dae0870de11",
+    "name": "Demo Salesman",
+    "phone": "8484830022",
+    "email": null,
+    "is_active": true,
+    "created_at": "2025-12-10 15:52:37.51543+00",
+    "updated_at": "2025-12-10 15:52:37.51543+00",
+    "is_admin": false,
+    "tenant_id": "aaaaaaaa-bbbb-cccc-dddd-000000000001",
+    "plant": [],
+    "name_ar": "مندوب تجريبي",
+    "deleted_at": null
+  },
+  {
+    "id": "e84de5ef-0812-4a8b-bdac-7f3fbf99d28e",
+    "name": "Mufaddal",
+    "phone": "+201289993815",
+    "email": "",
+    "is_active": true,
+    "created_at": "2025-12-11 07:10:05.501178+00",
+    "updated_at": "2025-12-12 09:47:27.691762+00",
+    "is_admin": true,
+    "tenant_id": "fa47fd9f-253f-44c6-af02-86165f018321",
+    "plant": [],
+    "name_ar": null,
+    "deleted_at": null
+  },
+  {
+    "id": "0b07d411-7ec8-4ec8-a831-1c0da2399fcc",
+    "name": "Abdel Ghany",
+    "phone": "1025544999",
+    "email": "",
+    "is_active": true,
+    "created_at": "2025-12-11 07:35:51.963697+00",
+    "updated_at": "2025-12-11 07:35:51.963697+00",
+    "is_admin": false,
+    "tenant_id": "fa47fd9f-253f-44c6-af02-86165f018321",
+    "plant": [
+      "6921c457-066b-4cd7-a8ea-fa41199eb33a"
+    ],
+    "name_ar": null,
+    "deleted_at": null
+  }
+];
+
+const db = new Database(LOCAL_DB_PATH);
+
+// Disable foreign key checks for import
+db.pragma('foreign_keys = OFF');
+
+console.log('========================================');
+console.log('  Importing Salesmen from JSON');
+console.log('========================================\n');
+
+try {
+  // Filter out deleted salesmen
+  const activeSalesmen = salesmenData.filter(s => !s.deleted_at);
+  console.log(`Total salesmen: ${salesmenData.length}`);
+  console.log(`Active salesmen: ${activeSalesmen.length}`);
+  console.log(`Deleted (skipped): ${salesmenData.length - activeSalesmen.length}\n`);
+
+  const insertStmt = db.prepare(`
+    INSERT OR REPLACE INTO salesmen (
+      id, tenant_id, name, phone, email, 
+      plant_id, is_active, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+
+  const transaction = db.transaction((salesmen) => {
+    let imported = 0;
+    for (const salesman of salesmen) {
+      // Get first plant_id from array (if exists)
+      const plantId = Array.isArray(salesman.plant) && salesman.plant.length > 0 
+        ? salesman.plant[0] 
+        : null;
+
+      insertStmt.run(
+        salesman.id,
+        DEFAULT_TENANT_ID, // Map all to SAK Solution tenant
+        salesman.name,
+        salesman.phone || null,
+        salesman.email || null,
+        plantId,
+        salesman.is_active ? 1 : 0,
+        salesman.created_at,
+        salesman.updated_at
+      );
+      imported++;
+    }
+    return imported;
+  });
+
+  const imported = transaction(activeSalesmen);
+
+  console.log(`✅ Imported ${imported} salesmen successfully!\n`);
+
+  // Verify
+  const count = db.prepare('SELECT COUNT(*) as count FROM salesmen').get();
+  console.log(`Total salesmen in database: ${count.count}\n`);
+
+} catch (error) {
+  console.error('❌ Error:', error.message);
+  process.exit(1);
+} finally {
+  db.close();
+}

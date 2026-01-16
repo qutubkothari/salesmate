@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>SAK Salesmate Dashboard</title>
+    
+    <!-- External Dependencies -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    
+    <!-- Custom Styles -->
+    <link rel="stylesheet" href="/css/dashboard.css">
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="gradient-bg overflow-x-hidden">
+    
+    <!-- Sidebar Toggle Button -->
+    <button id="sidebarToggle" class="sidebar-toggle glass-effect text-white p-2 rounded-full hover:bg-white/20 flex items-center justify-center">
+        <i id="sidebarToggleIcon" class="fas fa-angles-left text-sm"></i>
+    </button>
+
+    <!-- Sidebar -->
+    <aside id="sidebar" class="sidebar gradient-bg shadow-2xl">
+        <div class="sidebar-header px-6 py-5 border-b border-white/20 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+                    <i class="fas fa-chart-line text-white text-xl"></i>
+                </div>
+                <span class="sidebar-text">
+                    <h2 id="businessName" class="text-white font-bold text-lg">Salesmate</h2>
+                    <p class="text-white/60 text-xs">Dashboard</p>
+                </span>
+            </div>
+        </div>
+
+        <nav class="sidebar-nav py-4">
+            <!-- Main Section -->
+            <div class="sidebar-item active" onclick="switchTab('overview')" data-tab="overview">
+                <i class="fas fa-home"></i>
+                <span>Overview</span>
+            </div>
+
+            <div class="sidebar-item" onclick="switchTab('conversations')" data-tab="conversations">
+                <i class="fas fa-comments"></i>
+                <span>Conversations</span>
+            </div>
+
+            <div class="sidebar-item" onclick="switchTab('orders')" data-tab="orders">
+                <i class="fas fa-shopping-cart"></i>
+                <span>Orders</span>
+            </div>
+
+            <div class="sidebar-item" onclick="switchTab('followups')" data-tab="followups">
+                <i class="fas fa-tasks"></i>
+                <span>Follow-ups</span>
+            </div>
+
+            <div class="sidebar-item" onclick="switchTab('leads')" data-tab="leads">
+                <i class="fas fa-user-plus"></i>
+                <span>Leads</span>
+            </div>
+
+            <!-- Communication -->
+            <div class="px-4 py-2 mt-4">
+                <p class="text-white/40 text-xs font-semibold uppercase tracking-wider sidebar-text">Communication</p>
+            </div>
+
+            <div class="sidebar-item" onclick="switchTab('email')" data-tab="email">
+                <i class="fas fa-envelope"></i>
+                <span>Email</span>
+            </div>
+
+            <div class="sidebar-item" onclick="switchTab('broadcast')" data-tab="broadcast">
+                <i class="fas fa-bullhorn"></i>
+                <span>Broadcast</span>
+            </div>
+
+            <div class="sidebar-item" onclick="switchTab('templates')" data-tab="templates">
+                <i class="fas fa-file-alt"></i>
+                <span>Templates</span>
+            </div>
+
+            <div class="sidebar-item" onclick="switchTab('whatsapp-web')" data-tab="whatsapp-web">
+                <i class="fab fa-whatsapp"></i>
+                <span>WhatsApp Web</span>
+            </div>
+
+            <!-- Content -->
+            <div class="px-4 py-2 mt-4">
+                <p class="text-white/40 text-xs font-semibold uppercase tracking-wider sidebar-text">Content</p>
+            </div>
+
+            <div class="sidebar-item" onclick="switchTab('products')" data-tab="products">
+                <i class="fas fa-box"></i>
+                <span>Products</span>
+            </div>
+
+            <div class="sidebar-item" onclick="switchTab('documents')" data-tab="documents">
+                <i class="fas fa-file-alt"></i>
+                <span>Documents</span>
+            </div>
+
+            <div class="sidebar-item" onclick="switchTab('website')" data-tab="website">
+                <i class="fas fa-globe"></i>
+                <span>Website</span>
+            </div>
+
+            <div class="sidebar-item" onclick="switchTab('customers')" data-tab="customers">
+                <i class="fas fa-users"></i>
+                <span>Customers</span>
+            </div>
+
+            <!-- Field Sales Management -->
+            <div class="px-4 py-2 mt-4">
+                <p class="text-white/40 text-xs font-semibold uppercase tracking-wider sidebar-text">Field Sales</p>
+            </div>
+
+            <div class="sidebar-item" onclick="switchTab('visits')" data-tab="visits">
+                <i class="fas fa-map-marker-alt"></i>
+                <span>Visits</span>
+            </div>
+
+            <div class="sidebar-item" onclick="switchTab('salesmen')" data-tab="salesmen">
+                <i class="fas fa-user-tie"></i>
+                <span>Sales Team</span>
+            </div>
+
+            <div class="sidebar-item" onclick="switchTab('targets')" data-tab="targets">
+                <i class="fas fa-bullseye"></i>
+                <span>Targets</span>
+            </div>
+
+            <div class="sidebar-item" onclick="switchTab('branches')" data-tab="branches">
+                <i class="fas fa-building"></i>
+                <span>Branches</span>
+            </div>
+
+            <!-- System -->
+            <div class="px-4 py-2 mt-4">
+                <p class="text-white/40 text-xs font-semibold uppercase tracking-wider sidebar-text">System</p>
+            </div>
+
+            <div class="sidebar-item" onclick="switchTab('settings')" data-tab="settings">
+                <i class="fas fa-cog"></i>
+                <span>Settings</span>
+            </div>
+
+            <div class="sidebar-item" onclick="switchTab('analytics')" data-tab="analytics">
+                <i class="fas fa-chart-bar"></i>
+                <span>Analytics</span>
+            </div>
+
+            <div class="sidebar-item" onclick="switchTab('reports')" data-tab="reports">
+                <i class="fas fa-clipboard-check"></i>
+                <span>Reports</span>
+            </div>
+
+            <div class="sidebar-item" onclick="switchTab('activity-feed')" data-tab="activity-feed">
+                <i class="fas fa-stream"></i>
+                <span>Activity Feed</span>
+            </div>
+
+            <div class="sidebar-item" onclick="switchTab('audit-logs')" data-tab="audit-logs">
+                <i class="fas fa-history"></i>
+                <span>Audit Logs</span>
+            </div>
+        </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main id="mainContent" class="main-content px-8 py-6">
+        <!-- Stats Section (Visible on Overview Only) -->
+        <section id="statsSection" class="mb-8">
+            <div id="statsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+                <!-- Stats loaded dynamically -->
+            </div>
+        </section>
+
+        <!-- Main Tab Content (Legacy tabs) -->
+        <div id="tabContent" class="hidden animate-fade-in">
+            <!-- Content loaded dynamically by legacy scripts -->
+        </div>
+
+        <!-- Modular Tab Containers -->
+        <!-- Note: These are loaded/managed by their respective modules via router -->
+    </main>
+
+    <!-- Include legacy tab content structures from original dashboard -->
+    <!-- This file can be further split, but keeping compatibility for now -->
+    
+    <!-- PLACEHOLDER: Include individual tab HTML structures here if needed -->
+    <!-- For now, they're loaded dynamically via modules -->
+
+    <!-- Modular JavaScript - Load as ES6 Modules -->
+    <script type="module" src="/js/app.js"></script>
+    
+    <!-- Legacy Scripts (to be migrated gradually) -->
+    <!-- Keeping original dashboard.html script temporarily for compatibility -->
+    <script src="/js/legacy/dashboard-functions.js" defer></script>
+
+</body>
+</html>

@@ -1,0 +1,309 @@
+/**
+ * Import Targets from Supabase JSON Export
+ * Usage: node import-targets-json.js
+ */
+
+const Database = require('better-sqlite3');
+const path = require('path');
+
+const LOCAL_DB_PATH = path.join(__dirname, 'local-database.db');
+const DEFAULT_TENANT_ID = '101f04af63cbefc2bf8f0a98b9ae1205'; // SAK Solution tenant
+
+// Targets data from Supabase
+const targetsData = [
+  {
+    "id": "52703ce7-132e-4905-b7c5-a7164823763c",
+    "salesman_id": "227a6a69-3243-4fe1-b57f-4f0b8917be8d",
+    "month": 11,
+    "year": 2025,
+    "visits_per_month": 60,
+    "visits_per_day": "5.00",
+    "new_visits_per_month": 3,
+    "repeat_visits_per_month": 2,
+    "orders_per_month": 5,
+    "order_value_per_month": "100000.00",
+    "product_targets": [],
+    "created_at": "2025-11-22 20:42:57.941728+00",
+    "updated_at": "2025-11-22 20:42:57.941728+00",
+    "created_by": null,
+    "tenant_id": "84c1ba8d-53ab-43ef-9483-d997682f3072",
+    "deleted_at": "2025-11-24 17:26:49.128+00",
+    "plant": [
+      null
+    ],
+    "working_days": 25
+  },
+  {
+    "id": "03ff9bb6-c919-4826-81f8-41cd1f235961",
+    "salesman_id": "b4cc8d15-2099-43e2-b1f8-435e31b69658",
+    "month": 11,
+    "year": 2025,
+    "visits_per_month": 48,
+    "visits_per_day": "3.00",
+    "new_visits_per_month": 30,
+    "repeat_visits_per_month": 18,
+    "orders_per_month": 5,
+    "order_value_per_month": "500000.00",
+    "product_targets": [],
+    "created_at": "2025-11-23 05:43:46.841781+00",
+    "updated_at": "2025-11-23 05:43:46.841781+00",
+    "created_by": null,
+    "tenant_id": "112f12b8-55e9-4de8-9fda-d58e37c75796",
+    "deleted_at": null,
+    "plant": [
+      "5d3b1922-ea5d-48f0-a15a-896cc1a97670"
+    ],
+    "working_days": 25
+  },
+  {
+    "id": "a5aede89-80a5-413c-9aef-c16be0785500",
+    "salesman_id": "4543539d-6c4f-439b-84e9-a279e1b1d8e4",
+    "month": 11,
+    "year": 2025,
+    "visits_per_month": 20,
+    "visits_per_day": "3.00",
+    "new_visits_per_month": 12,
+    "repeat_visits_per_month": 7,
+    "orders_per_month": 3,
+    "order_value_per_month": "100000.00",
+    "product_targets": [],
+    "created_at": "2025-11-24 12:16:07.725874+00",
+    "updated_at": "2025-11-24 12:16:07.725874+00",
+    "created_by": null,
+    "tenant_id": "84c1ba8d-53ab-43ef-9483-d997682f3072",
+    "deleted_at": null,
+    "plant": [
+      "daf4f8ab-bd64-40e4-8a60-5d9e9fdf56b4"
+    ],
+    "working_days": 25
+  },
+  {
+    "id": "71bb7019-36be-48c2-baa4-75b859c45d14",
+    "salesman_id": "2e98c401-f120-4461-a0af-48538cea25ef",
+    "month": 11,
+    "year": 2025,
+    "visits_per_month": 30,
+    "visits_per_day": "5.00",
+    "new_visits_per_month": 10,
+    "repeat_visits_per_month": 19,
+    "orders_per_month": 5,
+    "order_value_per_month": "70000.00",
+    "product_targets": [],
+    "created_at": "2025-11-25 07:51:15.70559+00",
+    "updated_at": "2025-11-25 07:51:15.70559+00",
+    "created_by": null,
+    "tenant_id": "84c1ba8d-53ab-43ef-9483-d997682f3072",
+    "deleted_at": null,
+    "plant": [
+      "daf4f8ab-bd64-40e4-8a60-5d9e9fdf56b4"
+    ],
+    "working_days": 25
+  },
+  {
+    "id": "a804b5ed-5331-43ce-8bbe-ef2e09cb444c",
+    "salesman_id": "fb1fd619-73d1-46ad-b03d-37c3e2eb78cc",
+    "month": 12,
+    "year": 2025,
+    "visits_per_month": 0,
+    "visits_per_day": "0.00",
+    "new_visits_per_month": 0,
+    "repeat_visits_per_month": 0,
+    "orders_per_month": 3,
+    "order_value_per_month": "300000.00",
+    "product_targets": [],
+    "created_at": "2025-11-26 07:08:02.871444+00",
+    "updated_at": "2025-11-26 07:08:02.871444+00",
+    "created_by": null,
+    "tenant_id": "112f12b8-55e9-4de8-9fda-d58e37c75796",
+    "deleted_at": null,
+    "plant": null,
+    "working_days": 25
+  },
+  {
+    "id": "ba6e4efa-0d98-4a53-8371-8ef24d890005",
+    "salesman_id": "d22bf296-af49-4812-bee6-9c7a3df8d116",
+    "month": 12,
+    "year": 2025,
+    "visits_per_month": 0,
+    "visits_per_day": "0.00",
+    "new_visits_per_month": 0,
+    "repeat_visits_per_month": 0,
+    "orders_per_month": 5,
+    "order_value_per_month": "500000.00",
+    "product_targets": [],
+    "created_at": "2025-11-26 07:08:40.098418+00",
+    "updated_at": "2025-11-26 07:08:40.098418+00",
+    "created_by": null,
+    "tenant_id": "112f12b8-55e9-4de8-9fda-d58e37c75796",
+    "deleted_at": null,
+    "plant": null,
+    "working_days": 25
+  },
+  {
+    "id": "f949ecec-a355-4f20-ac23-c6025e04ffe6",
+    "salesman_id": "5b91a0e2-4a5e-47f1-aab6-f71f0b187c3e",
+    "month": 12,
+    "year": 2025,
+    "visits_per_month": 5,
+    "visits_per_day": "0.00",
+    "new_visits_per_month": 0,
+    "repeat_visits_per_month": 0,
+    "orders_per_month": 3,
+    "order_value_per_month": "300000.00",
+    "product_targets": [],
+    "created_at": "2025-11-26 07:09:06.444064+00",
+    "updated_at": "2025-11-26 07:09:06.444064+00",
+    "created_by": null,
+    "tenant_id": "112f12b8-55e9-4de8-9fda-d58e37c75796",
+    "deleted_at": null,
+    "plant": null,
+    "working_days": 25
+  },
+  {
+    "id": "1eb92d75-1c74-4ee3-92d2-34f83f87ae1e",
+    "salesman_id": "69c332ba-36b7-4e32-b0ce-beab3d787736",
+    "month": 12,
+    "year": 2025,
+    "visits_per_month": 5,
+    "visits_per_day": "0.00",
+    "new_visits_per_month": 0,
+    "repeat_visits_per_month": 0,
+    "orders_per_month": 5,
+    "order_value_per_month": "200000.00",
+    "product_targets": [],
+    "created_at": "2025-11-26 07:09:40.086556+00",
+    "updated_at": "2025-11-26 07:09:40.086556+00",
+    "created_by": null,
+    "tenant_id": "112f12b8-55e9-4de8-9fda-d58e37c75796",
+    "deleted_at": null,
+    "plant": null,
+    "working_days": 25
+  },
+  {
+    "id": "e79eb337-aeaf-457b-adeb-67ecf587d3da",
+    "salesman_id": "1aaec88c-025d-4027-b3f7-63bcae500d6d",
+    "month": 11,
+    "year": 2025,
+    "visits_per_month": 2,
+    "visits_per_day": "0.00",
+    "new_visits_per_month": 0,
+    "repeat_visits_per_month": 0,
+    "orders_per_month": 3,
+    "order_value_per_month": "1000000.00",
+    "product_targets": [],
+    "created_at": "2025-11-26 07:19:31.220611+00",
+    "updated_at": "2025-11-26 07:19:31.220611+00",
+    "created_by": null,
+    "tenant_id": "112f12b8-55e9-4de8-9fda-d58e37c75796",
+    "deleted_at": null,
+    "plant": null,
+    "working_days": 25
+  },
+  {
+    "id": "5c7edd01-e649-4f81-9d7c-6b4506c88cb5",
+    "salesman_id": "0b07d411-7ec8-4ec8-a831-1c0da2399fcc",
+    "month": 12,
+    "year": 2025,
+    "visits_per_month": 140,
+    "visits_per_day": "10.00",
+    "new_visits_per_month": 10,
+    "repeat_visits_per_month": 0,
+    "orders_per_month": 20,
+    "order_value_per_month": "500000.00",
+    "product_targets": [],
+    "created_at": "2025-12-13 11:20:11.545512+00",
+    "updated_at": "2025-12-13 11:20:11.545512+00",
+    "created_by": null,
+    "tenant_id": "fa47fd9f-253f-44c6-af02-86165f018321",
+    "deleted_at": null,
+    "plant": null,
+    "working_days": 14
+  }
+];
+
+const db = new Database(LOCAL_DB_PATH);
+
+// Disable foreign key checks for import
+db.pragma('foreign_keys = OFF');
+
+console.log('========================================');
+console.log('  Importing Targets from JSON');
+console.log('========================================\n');
+
+try {
+  // Filter out deleted targets
+  const activeTargets = targetsData.filter(t => !t.deleted_at);
+  console.log(`Total targets: ${targetsData.length}`);
+  console.log(`Active targets: ${activeTargets.length}`);
+  console.log(`Deleted (skipped): ${targetsData.length - activeTargets.length}\n`);
+
+  const insertStmt = db.prepare(`
+    INSERT OR REPLACE INTO salesman_targets (
+      id, tenant_id, salesman_id, plant_id, period,
+      target_visits, target_orders, target_revenue,
+      achieved_visits, achieved_orders, achieved_revenue,
+      target_new_customers, achieved_new_customers,
+      created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+
+  const transaction = db.transaction((targets) => {
+    let imported = 0;
+    for (const target of targets) {
+      // Format period as YYYY-MM
+      const period = `${target.year}-${String(target.month).padStart(2, '0')}`;
+      
+      // Get first plant_id from array (if exists)
+      const plantId = Array.isArray(target.plant) && target.plant.length > 0 && target.plant[0]
+        ? target.plant[0] 
+        : null;
+
+      insertStmt.run(
+        target.id,
+        DEFAULT_TENANT_ID, // Map all to SAK Solution tenant
+        target.salesman_id,
+        plantId,
+        period,
+        target.visits_per_month || 0,
+        target.orders_per_month || 0,
+        parseFloat(target.order_value_per_month || 0),
+        0, // achieved_visits (starts at 0)
+        0, // achieved_orders (starts at 0)
+        0.0, // achieved_revenue (starts at 0)
+        target.new_visits_per_month || 0,
+        0, // achieved_new_customers (starts at 0)
+        target.created_at,
+        target.updated_at
+      );
+      imported++;
+    }
+    return imported;
+  });
+
+  const imported = transaction(activeTargets);
+
+  console.log(`✅ Imported ${imported} targets successfully!\n`);
+
+  // Verify
+  const count = db.prepare('SELECT COUNT(*) as count FROM salesman_targets').get();
+  console.log(`Total targets in database: ${count.count}\n`);
+
+  // Show breakdown by period
+  const breakdown = db.prepare(`
+    SELECT period, COUNT(*) as count 
+    FROM salesman_targets 
+    GROUP BY period 
+    ORDER BY period
+  `).all();
+  
+  console.log('Breakdown by period:');
+  breakdown.forEach(row => {
+    console.log(`  ${row.period}: ${row.count} targets`);
+  });
+
+} catch (error) {
+  console.error('❌ Error:', error.message);
+  process.exit(1);
+} finally {
+  db.close();
+}

@@ -1,0 +1,80 @@
+<!-- Targets Tab Container -->
+<div id="targetsTab" class="hidden">
+    <div class="max-w-7xl mx-auto">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-white text-2xl font-bold">Monthly Targets</h2>
+            <div class="flex gap-3">
+                <input type="month" id="targetMonthFilter" class="px-4 py-2 rounded-lg bg-white/10 text-white border border-white/20" />
+                <button onclick="window.targetsManager.showSetModal()" class="px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg text-white">
+                    <i class="fas fa-plus mr-2"></i>Set Target
+                </button>
+            </div>
+        </div>
+
+        <!-- Summary Stats -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div class="stat-card p-4 rounded-xl">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-white/60 text-sm">Total Targets</p>
+                        <p class="text-white text-2xl font-bold" id="totalTargetsCount">0</p>
+                    </div>
+                    <i class="fas fa-bullseye text-blue-400 text-3xl"></i>
+                </div>
+            </div>
+            <div class="stat-card p-4 rounded-xl">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-white/60 text-sm">Achieved</p>
+                        <p class="text-white text-2xl font-bold" id="achievedTargetsCount">0</p>
+                    </div>
+                    <i class="fas fa-trophy text-green-400 text-3xl"></i>
+                </div>
+            </div>
+            <div class="stat-card p-4 rounded-xl">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-white/60 text-sm">In Progress</p>
+                        <p class="text-white text-2xl font-bold" id="inProgressTargetsCount">0</p>
+                    </div>
+                    <i class="fas fa-spinner text-yellow-400 text-3xl"></i>
+                </div>
+            </div>
+            <div class="stat-card p-4 rounded-xl">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-white/60 text-sm">Avg. Achievement</p>
+                        <p class="text-white text-2xl font-bold" id="avgAchievementPercent">0%</p>
+                    </div>
+                    <i class="fas fa-chart-line text-purple-400 text-3xl"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Targets Table -->
+        <div class="glass-effect rounded-xl p-6 overflow-x-auto">
+            <table class="w-full">
+                <thead>
+                    <tr class="text-white/60 text-sm border-b border-white/10">
+                        <th class="text-left py-3 px-4">Salesman</th>
+                        <th class="text-left py-3 px-4">Month</th>
+                        <th class="text-left py-3 px-4">Visit Target</th>
+                        <th class="text-left py-3 px-4">Achieved Visits</th>
+                        <th class="text-left py-3 px-4">Order Target</th>
+                        <th class="text-left py-3 px-4">Achieved Orders</th>
+                        <th class="text-left py-3 px-4">Revenue Target</th>
+                        <th class="text-left py-3 px-4">Achieved Revenue</th>
+                        <th class="text-left py-3 px-4">Progress</th>
+                    </tr>
+                </thead>
+                <tbody id="targetsTableBody">
+                    <tr>
+                        <td colspan="9" class="text-center py-8 text-white/60">
+                            <i class="fas fa-spinner fa-spin mr-2"></i>Loading targets...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

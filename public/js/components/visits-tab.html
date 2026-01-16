@@ -1,0 +1,89 @@
+<!-- Visits Tab Container -->
+<div id="visitsTab" class="hidden">
+    <div class="max-w-7xl mx-auto">
+        <!-- Header with filters -->
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+            <h2 class="text-white text-2xl font-bold">Field Visits</h2>
+            <div class="flex flex-wrap gap-3">
+                <select id="visitBranchFilter" class="px-4 py-2 rounded-lg bg-white/10 text-white border border-white/20">
+                    <option value="">All Branches</option>
+                </select>
+                <select id="visitSalesmanFilter" class="px-4 py-2 rounded-lg bg-white/10 text-white border border-white/20">
+                    <option value="">All Salesmen</option>
+                </select>
+                <input type="date" id="visitDateFrom" class="px-4 py-2 rounded-lg bg-white/10 text-white border border-white/20" />
+                <input type="date" id="visitDateTo" class="px-4 py-2 rounded-lg bg-white/10 text-white border border-white/20" />
+                <button onclick="window.visitsManager.exportToExcel()" class="px-4 py-2 bg-green-500 hover:bg-green-600 rounded-lg text-white">
+                    <i class="fas fa-download mr-2"></i>Export Excel
+                </button>
+            </div>
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div class="stat-card p-4 rounded-xl">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-white/60 text-sm">Total Visits</p>
+                        <p class="text-white text-2xl font-bold" id="totalVisitsCount">0</p>
+                    </div>
+                    <i class="fas fa-map-marker-alt text-blue-400 text-3xl"></i>
+                </div>
+            </div>
+            <div class="stat-card p-4 rounded-xl">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-white/60 text-sm">Completed Today</p>
+                        <p class="text-white text-2xl font-bold" id="todayVisitsCount">0</p>
+                    </div>
+                    <i class="fas fa-check-circle text-green-400 text-3xl"></i>
+                </div>
+            </div>
+            <div class="stat-card p-4 rounded-xl">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-white/60 text-sm">Active Salesmen</p>
+                        <p class="text-white text-2xl font-bold" id="activeSalesmenCount">0</p>
+                    </div>
+                    <i class="fas fa-user-tie text-purple-400 text-3xl"></i>
+                </div>
+            </div>
+            <div class="stat-card p-4 rounded-xl">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-white/60 text-sm">Avg. Visit Duration</p>
+                        <p class="text-white text-2xl font-bold" id="avgVisitDuration">0</p>
+                        <p class="text-white/60 text-xs">minutes</p>
+                    </div>
+                    <i class="fas fa-clock text-yellow-400 text-3xl"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Visits Table -->
+        <div class="glass-effect rounded-xl p-6 overflow-x-auto">
+            <table class="w-full" id="visitsTable">
+                <thead>
+                    <tr class="text-white/60 text-sm border-b border-white/10">
+                        <th class="text-left py-3 px-4">Date</th>
+                        <th class="text-left py-3 px-4">Customer</th>
+                        <th class="text-left py-3 px-4">Salesman</th>
+                        <th class="text-left py-3 px-4">Branch</th>
+                        <th class="text-left py-3 px-4">Type</th>
+                        <th class="text-left py-3 px-4">Duration</th>
+                        <th class="text-left py-3 px-4">Potential</th>
+                        <th class="text-left py-3 px-4">Status</th>
+                        <th class="text-left py-3 px-4">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="visitsTableBody">
+                    <tr>
+                        <td colspan="9" class="text-center py-8 text-white/60">
+                            <i class="fas fa-spinner fa-spin mr-2"></i>Loading visits...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
