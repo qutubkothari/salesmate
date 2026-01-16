@@ -792,9 +792,9 @@
     
     <!-- Visits Tab -->
     <div id="visitsTab" class="hidden">
-        <div class="max-w-7xl mx-auto px-6 py-8">
+        <div class="max-w-7xl mx-auto px-6 py-4">
             <!-- Header with filters -->
-            <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4">
                 <h2 class="text-white text-2xl font-bold">Field Visits</h2>
                 <div class="flex flex-wrap gap-3">
                     <select id="visitBranchFilter" onchange="loadVisits()" class="px-4 py-2 rounded-lg bg-white/10 text-white border border-white/20">
@@ -882,7 +882,7 @@
 
     <!-- Salesmen Tab -->
     <div id="salesmenTab" class="hidden">
-        <div class="max-w-7xl mx-auto px-6 py-8">
+        <div class="max-w-7xl mx-auto px-6 py-4">
             <div class="flex justify-between items-center mb-6">
                 <h2 class="text-white text-2xl font-bold">Sales Team</h2>
                 <button onclick="showAddSalesmanModal()" class="px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg text-white">
@@ -949,7 +949,7 @@
 
     <!-- Targets Tab -->
     <div id="targetsTab" class="hidden">
-        <div class="max-w-7xl mx-auto px-6 py-8">
+        <div class="max-w-7xl mx-auto px-6 py-4">
             <div class="flex justify-between items-center mb-6">
                 <h2 class="text-white text-2xl font-bold">Monthly Targets</h2>
                 <div class="flex gap-3">
@@ -8005,8 +8005,8 @@
             };
             
             const params = new URLSearchParams();
-            if (filters.branch) params.append('branch', filters.branch);
-            if (filters.salesman) params.append('salesman', filters.salesman);
+            if (filters.branch) params.append('plant_id', filters.branch);
+            if (filters.salesman) params.append('salesman_id', filters.salesman);
             if (filters.dateFrom) params.append('start_date', filters.dateFrom);
             if (filters.dateTo) params.append('end_date', filters.dateTo);
             
@@ -8091,10 +8091,14 @@
                     salesmen.map(s => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
             }
             
-            // For now, using single branch - future enhancement for multi-branch
+            // Load plants/branches for filter
+            const plantsResp = await fetch('/api/fsm/plants');
+            const plantsData = await plantsResp.json();
+            const plants = plantsData.data || [];
             const branchFilter = document.getElementById('visitBranchFilter');
             if (branchFilter) {
-                branchFilter.innerHTML = '<option value="">All Branches</option>';
+                branchFilter.innerHTML = '<option value="">All Plants/Branches</option>' + 
+                    plants.map(p => `<option value="${p.plant_id}">${escapeHtml(p.plant_id)} (${p.salesman_count} salesmen)</option>`).join('');
             }
         } catch (error) {
             console.error('Error populating filters:', error);

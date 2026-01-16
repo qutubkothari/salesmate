@@ -15,7 +15,7 @@ db.pragma('journal_mode = WAL');
 // Get all visits with optional filtering
 router.get('/visits', async (req, res) => {
   try {
-    const { salesman_id, start_date, end_date, visit_type, limit = 100 } = req.query;
+    const { salesman_id, plant_id, start_date, end_date, visit_type, limit = 100 } = req.query;
     
     let query = 'SELECT * FROM visits WHERE 1=1';
     const params = [];
@@ -23,6 +23,11 @@ router.get('/visits', async (req, res) => {
     if (salesman_id) {
       query += ' AND salesman_id = ?';
       params.push(salesman_id);
+    }
+    
+    if (plant_id) {
+      query += ' AND plant_id = ?';
+      params.push(plant_id);
     }
     
     if (start_date) {
@@ -376,6 +381,34 @@ router.get('/salesmen/:id/performance', async (req, res) => {
     });
   } catch (error) {
     console.error('[FSM_API] Error fetching salesman performance:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Get all plants/branches
+router.get('/plants', async (req, res) => {
+  try {
+    // Get distinct plant_ids from salesmen where plant_id is not null
+    const plants = db.prepare(`
+      SELECT DISTINCT 
+        plant_id,
+        COUNT(*) as salesman_count
+      FROM salesmen 
+      WHERE plant_id IS NOT NULL AND plant_id != ''
+      GROUP BY plant_id
+      ORDER BY plant_id
+    `).all();
+    
+    res.json({
+      success: true,
+      data: plants,
+      count: plants.length
+    });
+  } catch (error) {
+    console.error('[FSM_API] Error fetching plants:', error);
     res.status(500).json({
       success: false,
       error: error.message
