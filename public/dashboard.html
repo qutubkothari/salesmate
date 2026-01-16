@@ -831,6 +831,87 @@
             </div>
         </div>
     </div>
+
+    <!-- Visit Details Modal -->
+    <div id="visitModal" class="modal hidden fixed inset-0 z-50 flex items-center justify-center p-4" onclick="if(event.target === this) this.classList.add('hidden')">
+        <div class="modal-backdrop absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
+        <div class="modal-content relative w-full max-w-3xl bg-gradient-to-br from-gray-900 to-purple-900 rounded-2xl shadow-2xl overflow-hidden">
+            <!-- Modal Header -->
+            <header class="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-6">
+                <div class="flex justify-between items-start">
+                    <div class="flex-1">
+                        <h2 class="text-2xl font-bold">Visit Details</h2>
+                        <div id="visitModalMeta" class="text-white/80 text-sm mt-1"></div>
+                    </div>
+                    <button onclick="document.getElementById('visitModal').classList.add('hidden')" class="ml-4 w-10 h-10 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center transition-colors">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Visit Content -->
+            <div class="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
+                <!-- Basic Info Grid -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-white/10 rounded-lg p-4">
+                        <div class="text-white/60 text-sm mb-1">Customer</div>
+                        <div id="visitCustomer" class="text-white font-semibold text-lg">-</div>
+                    </div>
+                    <div class="bg-white/10 rounded-lg p-4">
+                        <div class="text-white/60 text-sm mb-1">Salesman</div>
+                        <div id="visitSalesman" class="text-white font-semibold">-</div>
+                    </div>
+                    <div class="bg-white/10 rounded-lg p-4">
+                        <div class="text-white/60 text-sm mb-1">Branch</div>
+                        <div id="visitBranch" class="text-white font-semibold">-</div>
+                    </div>
+                    <div class="bg-white/10 rounded-lg p-4">
+                        <div class="text-white/60 text-sm mb-1">Visit Type</div>
+                        <div id="visitType" class="text-white font-semibold">-</div>
+                    </div>
+                    <div class="bg-white/10 rounded-lg p-4">
+                        <div class="text-white/60 text-sm mb-1">Date & Time</div>
+                        <div id="visitDateTime" class="text-white font-semibold">-</div>
+                    </div>
+                    <div class="bg-white/10 rounded-lg p-4">
+                        <div class="text-white/60 text-sm mb-1">Duration</div>
+                        <div id="visitDuration" class="text-white font-semibold">-</div>
+                    </div>
+                    <div class="bg-white/10 rounded-lg p-4">
+                        <div class="text-white/60 text-sm mb-1">Status</div>
+                        <div id="visitStatus" class="text-white font-semibold">-</div>
+                    </div>
+                    <div class="bg-white/10 rounded-lg p-4">
+                        <div class="text-white/60 text-sm mb-1">Potential</div>
+                        <div id="visitPotential" class="text-white font-semibold">-</div>
+                    </div>
+                </div>
+
+                <!-- Location -->
+                <div class="bg-white/10 rounded-lg p-4">
+                    <div class="text-white/60 text-sm mb-2">Location</div>
+                    <div id="visitLocation" class="text-white">-</div>
+                </div>
+
+                <!-- Notes -->
+                <div class="bg-white/10 rounded-lg p-4">
+                    <div class="text-white/60 text-sm mb-2">Notes</div>
+                    <div id="visitNotes" class="text-white whitespace-pre-wrap">-</div>
+                </div>
+
+                <!-- Images -->
+                <div id="visitImagesSection" class="hidden">
+                    <div class="text-white/60 text-sm mb-3">Visit Images</div>
+                    <div id="visitImages" class="grid grid-cols-2 md:grid-cols-3 gap-3">
+                        <!-- Images loaded dynamically -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Conversation Modal -->
     <!-- Conversation Details Modal -->
     <div id="conversationModal" class="modal hidden fixed inset-0 z-50 flex items-center justify-center p-4" onclick="if(event.target === this) this.classList.add('hidden')">
@@ -8327,9 +8408,88 @@
         }
     }
     
-    function viewVisitDetails(visitId) {
-        // TODO: Implement visit details modal
-        showNotification('Visit details feature coming soon', 'info');
+    async function viewVisitDetails(visitId) {
+        try {
+            // Show modal with loading state
+            const modal = document.getElementById('visitModal');
+            modal.classList.remove('hidden');
+            
+            // Fetch visit details
+            const response = await fetch(`/api/fsm/visits/${visitId}`);
+            const result = await response.json();
+            
+            if (!result.success) {
+                showNotification('Failed to load visit details', 'error');
+                modal.classList.add('hidden');
+                return;
+            }
+            
+            const visit = result.data;
+            
+            // Populate modal
+            document.getElementById('visitModalMeta').textContent = `Visit ID: ${visit.id}`;
+            document.getElementById('visitCustomer').textContent = visit.customer_name || '-';
+            document.getElementById('visitSalesman').textContent = visit.salesman_name || '-';
+            document.getElementById('visitBranch').textContent = visit.branch_name || visit.plant_name || '-';
+            document.getElementById('visitType').textContent = visit.visit_type || '-';
+            
+            // Format date and time
+            if (visit.visit_date) {
+                const date = new Date(visit.visit_date);
+                const timeStr = visit.visit_time ? ` at ${visit.visit_time}` : '';
+                document.getElementById('visitDateTime').textContent = date.toLocaleDateString() + timeStr;
+            } else {
+                document.getElementById('visitDateTime').textContent = '-';
+            }
+            
+            document.getElementById('visitDuration').textContent = visit.duration ? `${visit.duration} min` : '-';
+            
+            // Status with color
+            const statusEl = document.getElementById('visitStatus');
+            statusEl.textContent = visit.status || '-';
+            if (visit.status === 'completed') {
+                statusEl.className = 'text-green-400 font-semibold';
+            } else if (visit.status === 'pending') {
+                statusEl.className = 'text-yellow-400 font-semibold';
+            } else {
+                statusEl.className = 'text-white font-semibold';
+            }
+            
+            document.getElementById('visitPotential').textContent = visit.potential || '-';
+            
+            // Location
+            const locationParts = [];
+            if (visit.latitude && visit.longitude) {
+                locationParts.push(`${visit.latitude}, ${visit.longitude}`);
+            }
+            if (visit.address) {
+                locationParts.push(visit.address);
+            }
+            document.getElementById('visitLocation').textContent = locationParts.length > 0 ? locationParts.join(' • ') : '-';
+            
+            // Notes
+            document.getElementById('visitNotes').textContent = visit.notes || 'No notes';
+            
+            // Images
+            const imagesSection = document.getElementById('visitImagesSection');
+            const imagesContainer = document.getElementById('visitImages');
+            if (visit.images && visit.images.length > 0) {
+                imagesSection.classList.remove('hidden');
+                imagesContainer.innerHTML = visit.images.map(img => `
+                    <a href="${img.image_url}" target="_blank" class="block">
+                        <img src="${img.image_url}" alt="Visit image" class="w-full h-32 object-cover rounded-lg hover:opacity-80 transition-opacity">
+                    </a>
+                `).join('');
+            } else {
+                imagesSection.classList.add('hidden');
+                imagesContainer.innerHTML = '';
+            }
+            
+        } catch (error) {
+            console.error('Error loading visit details:', error);
+            showNotification('Error loading visit details', 'error');
+            document.getElementById('visitModal').classList.add('hidden');
+        }
     }
     
     function exportVisitsExcel() {
