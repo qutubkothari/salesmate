@@ -913,6 +913,71 @@
         </div>
     </div>
 
+    <!-- Salesman Details Modal -->
+    <div id="salesmanModal" class="modal hidden fixed inset-0 z-50 flex items-center justify-center p-4" onclick="if(event.target === this) this.classList.add('hidden')">
+        <div class="modal-backdrop absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
+        <div class="modal-content relative w-full max-w-2xl bg-gradient-to-br from-gray-900 to-purple-900 rounded-2xl shadow-2xl overflow-hidden">
+            <!-- Modal Header -->
+            <header class="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-6">
+                <div class="flex justify-between items-start">
+                    <div class="flex-1">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                                <i class="fas fa-user-tie text-2xl"></i>
+                            </div>
+                            <div>
+                                <h2 id="salesmanModalName" class="text-2xl font-bold">Salesman Details</h2>
+                                <div id="salesmanModalPhone" class="text-white/80 text-sm mt-1"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <button onclick="document.getElementById('salesmanModal').classList.add('hidden')" class="ml-4 w-10 h-10 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center transition-colors">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Salesman Content -->
+            <div class="p-6 space-y-6">
+                <!-- Info Cards -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-white/10 rounded-lg p-4">
+                        <div class="text-white/60 text-sm mb-1">Branch</div>
+                        <div id="salesmanBranch" class="text-white font-semibold">-</div>
+                    </div>
+                    <div class="bg-white/10 rounded-lg p-4">
+                        <div class="text-white/60 text-sm mb-1">Status</div>
+                        <div id="salesmanStatus" class="text-white font-semibold">-</div>
+                    </div>
+                </div>
+
+                <!-- Visit Statistics -->
+                <div class="bg-white/10 rounded-lg p-4">
+                    <h3 class="text-white font-semibold mb-3 flex items-center">
+                        <i class="fas fa-chart-line mr-2 text-blue-400"></i>
+                        Visit Statistics
+                    </h3>
+                    <div class="grid grid-cols-3 gap-4">
+                        <div class="text-center">
+                            <div id="salesmanTotalVisits" class="text-3xl font-bold text-blue-400">0</div>
+                            <div class="text-white/60 text-sm mt-1">Total Visits</div>
+                        </div>
+                        <div class="text-center">
+                            <div id="salesmanMonthVisits" class="text-3xl font-bold text-green-400">0</div>
+                            <div class="text-white/60 text-sm mt-1">This Month</div>
+                        </div>
+                        <div class="text-center">
+                            <div id="salesmanTodayVisits" class="text-3xl font-bold text-purple-400">0</div>
+                            <div class="text-white/60 text-sm mt-1">Today</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Conversation Modal -->
     <!-- Conversation Details Modal -->
     <div id="conversationModal" class="modal hidden fixed inset-0 z-50 flex items-center justify-center p-4" onclick="if(event.target === this) this.classList.add('hidden')">
@@ -8563,7 +8628,7 @@
             const plantsResp = await fetch(`/api/fsm/plants?tenant_id=${encodeURIComponent(state.session?.tenantId || '')}`);
             const plantsData = await plantsResp.json();
             const plants = plantsData.data || [];
-            const plantMap = new Map(plants.map(p => [p.id, p.name]));
+            const plantMap = new Map(plants.map(p => [p.plant_id || p.id, p.plant_name || p.name]));
             
             tbody.innerHTML = salesmen.map(salesman => {
                 const salesmanVisits = allVisits.filter(v => v.salesman_id === salesman.id);
@@ -8582,7 +8647,13 @@
                     ? '<span class="px-2 py-1 rounded text-xs bg-green-500/20 text-green-300">Active</span>'
                     : '<span class="px-2 py-1 rounded text-xs bg-gray-500/20 text-gray-300">Inactive</span>';
                 
-                const branchName = salesman.plant_id ? (plantMap.get(salesman.plant_id) || salesman.plant_id) : '-';
+                // Try multiple fields to get plant name
+                let branchName = '-';
+                if (salesman.plant_id) {
+                    branchName = plantMap.get(salesman.plant_id) || salesman.plant_id;
+                } else if (salesman.plant_name) {
+                    branchName = salesman.plant_name;
+                }
                 
                 return `
                     <tr class="text-white border-b border-white/10 hover:bg-white/5">
@@ -8618,12 +8689,17 @@
     
     async function viewSalesmanDetails(salesmanId) {
         try {
+            // Show modal
+            const modal = document.getElementById('salesmanModal');
+            modal.classList.remove('hidden');
+            
             // Fetch salesman details
             const salesmanResp = await fetch(`/api/fsm/salesmen?tenant_id=${encodeURIComponent(state.session?.tenantId || '')}`);
             const salesmanData = await salesmanResp.json();
             const salesman = (salesmanData.data || []).find(s => s.id === salesmanId);
             
             if (!salesman) {
+                modal.classList.add('hidden');
                 showNotification('Salesman not found', 'error');
                 return;
             }
@@ -8638,8 +8714,11 @@
             if (salesman.plant_id) {
                 const plantsResp = await fetch(`/api/fsm/plants?tenant_id=${encodeURIComponent(state.session?.tenantId || '')}`);
                 const plantsData = await plantsResp.json();
-                const plant = (plantsData.data || []).find(p => p.id === salesman.plant_id);
-                branchName = plant ? plant.name : salesman.plant_id;
+                const plants = plantsData.data || [];
+                const plant = plants.find(p => (p.plant_id || p.id) === salesman.plant_id);
+                branchName = plant ? (plant.plant_name || plant.name) : salesman.plant_id;
+            } else if (salesman.plant_name) {
+                branchName = salesman.plant_name;
             }
             
             // Calculate stats
@@ -8651,23 +8730,21 @@
             });
             const todayVisits = visits.filter(v => v.visit_date === today);
             
-            // Show details in a simple alert for now (can be enhanced with a modal later)
-            const details = `
-Salesman: ${salesman.name || 'N/A'}
-Phone: ${salesman.phone || '-'}
-Branch: ${branchName}
-Status: ${salesman.is_active ? 'Active' : 'Inactive'}
-
-Visit Statistics:
-- Total Visits: ${visits.length}
-- This Month: ${monthVisits.length}
-- Today: ${todayVisits.length}
-            `;
+            // Populate modal
+            document.getElementById('salesmanModalName').textContent = salesman.name || 'N/A';
+            document.getElementById('salesmanModalPhone').textContent = salesman.phone || '-';
+            document.getElementById('salesmanBranch').textContent = branchName;
+            document.getElementById('salesmanStatus').innerHTML = salesman.is_active 
+                ? '<span class="px-2 py-1 rounded text-xs bg-green-500/20 text-green-300">Active</span>'
+                : '<span class="px-2 py-1 rounded text-xs bg-gray-500/20 text-gray-300">Inactive</span>';
             
-            alert(details.trim());
+            document.getElementById('salesmanTotalVisits').textContent = visits.length;
+            document.getElementById('salesmanMonthVisits').textContent = monthVisits.length;
+            document.getElementById('salesmanTodayVisits').textContent = todayVisits.length;
             
         } catch (error) {
             console.error('Error loading salesman details:', error);
+            document.getElementById('salesmanModal').classList.add('hidden');
             showNotification('Error loading salesman details', 'error');
         }
     }
