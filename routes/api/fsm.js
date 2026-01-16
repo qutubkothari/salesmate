@@ -15,7 +15,7 @@ db.pragma('journal_mode = WAL');
 // Get all visits with optional filtering
 router.get('/visits', async (req, res) => {
   try {
-    const { salesman_id, plant_id, start_date, end_date, visit_type, limit = 300, role, user_plant_id } = req.query;
+    const { tenant_id, salesman_id, plant_id, start_date, end_date, visit_type, limit = 300, role, user_plant_id } = req.query;
     
     let query = `
       SELECT 
@@ -30,6 +30,12 @@ router.get('/visits', async (req, res) => {
     `;
     const params = [];
     
+    // Tenant filtering
+    if (tenant_id) {
+      query += ' AND v.tenant_id = ?';
+      params.push(tenant_id);
+    }
+
     // Role-based filtering
     // - 'super_admin' or 'admin': See all data
     // - 'plant_admin': See only their plant
@@ -91,10 +97,15 @@ router.get('/visits', async (req, res) => {
 // Get visit statistics
 router.get('/visits/stats', async (req, res) => {
   try {
-    const { start_date, end_date } = req.query;
+    const { tenant_id, start_date, end_date } = req.query;
     
     let query = 'SELECT COUNT(*) as total FROM visits WHERE 1=1';
     const params = [];
+
+    if (tenant_id) {
+      query += ' AND tenant_id = ?';
+      params.push(tenant_id);
+    }
     
     if (start_date) {
       query += ' AND visit_date >= ?';
@@ -111,21 +122,23 @@ router.get('/visits/stats', async (req, res) => {
     
     // Get today's visits
     const today = new Date().toISOString().split('T')[0];
-    const todayResult = db.prepare('SELECT COUNT(*) as count FROM visits WHERE visit_date = ?').get(today);
+    const todayResult = db.prepare(
+      'SELECT COUNT(*) as count FROM visits WHERE visit_date = ?' + (tenant_id ? ' AND tenant_id = ?' : '')
+    ).get(...(tenant_id ? [today, tenant_id] : [today]));
     const today_visits = todayResult?.count || 0;
     
     // Get unique salesmen active today
     const activeTodayResult = db.prepare(
-      'SELECT COUNT(DISTINCT salesman_id) as count FROM visits WHERE visit_date = ?'
-    ).get(today);
+      'SELECT COUNT(DISTINCT salesman_id) as count FROM visits WHERE visit_date = ?' + (tenant_id ? ' AND tenant_id = ?' : '')
+    ).get(...(tenant_id ? [today, tenant_id] : [today]));
     const active_today = activeTodayResult?.count || 0;
     
     // Average visits per day (last 30 days)
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     const avgResult = db.prepare(
-      'SELECT COUNT(*) as count FROM visits WHERE visit_date >= ?'
-    ).get(thirtyDaysAgo.toISOString().split('T')[0]);
+      'SELECT COUNT(*) as count FROM visits WHERE visit_date >= ?' + (tenant_id ? ' AND tenant_id = ?' : '')
+    ).get(...(tenant_id ? [thirtyDaysAgo.toISOString().split('T')[0], tenant_id] : [thirtyDaysAgo.toISOString().split('T')[0]]));
     const avg_per_day = Math.round((avgResult?.count || 0) / 30);
     
     res.json({
@@ -149,10 +162,15 @@ router.get('/visits/stats', async (req, res) => {
 // Get all salesmen
 router.get('/salesmen', async (req, res) => {
   try {
-    const { is_active, limit = 100 } = req.query;
+    const { tenant_id, is_active, limit = 100 } = req.query;
     
     let query = 'SELECT * FROM salesmen WHERE 1=1';
     const params = [];
+
+    if (tenant_id) {
+      query += ' AND tenant_id = ?';
+      params.push(tenant_id);
+    }
     
     if (is_active !== undefined) {
       query += ' AND is_active = ?';
@@ -181,17 +199,22 @@ router.get('/salesmen', async (req, res) => {
 // Get salesman statistics
 router.get('/salesmen/stats', async (req, res) => {
   try {
-    const totalResult = db.prepare('SELECT COUNT(*) as count FROM salesmen').get();
+    const { tenant_id } = req.query;
+    const totalResult = db.prepare(
+      'SELECT COUNT(*) as count FROM salesmen' + (tenant_id ? ' WHERE tenant_id = ?' : '')
+    ).get(...(tenant_id ? [tenant_id] : []));
     const total = totalResult?.count || 0;
     
-    const activeResult = db.prepare('SELECT COUNT(*) as count FROM salesmen WHERE is_active = 1').get();
+    const activeResult = db.prepare(
+      'SELECT COUNT(*) as count FROM salesmen WHERE is_active = 1' + (tenant_id ? ' AND tenant_id = ?' : '')
+    ).get(...(tenant_id ? [tenant_id] : []));
     const active = activeResult?.count || 0;
     
     // Get active today (visited today)
     const today = new Date().toISOString().split('T')[0];
     const activeTodayResult = db.prepare(
-      'SELECT COUNT(DISTINCT salesman_id) as count FROM visits WHERE visit_date = ?'
-    ).get(today);
+      'SELECT COUNT(DISTINCT salesman_id) as count FROM visits WHERE visit_date = ?' + (tenant_id ? ' AND tenant_id = ?' : '')
+    ).get(...(tenant_id ? [today, tenant_id] : [today]));
     const active_today = activeTodayResult?.count || 0;
     
     res.json({
@@ -215,10 +238,15 @@ router.get('/salesmen/stats', async (req, res) => {
 // Get all targets
 router.get('/targets', async (req, res) => {
   try {
-    const { salesman_id, period, limit = 100 } = req.query;
+    const { tenant_id, salesman_id, period, limit = 100 } = req.query;
     
     let query = 'SELECT * FROM salesman_targets WHERE 1=1';
     const params = [];
+
+    if (tenant_id) {
+      query += ' AND tenant_id = ?';
+      params.push(tenant_id);
+    }
     
     if (salesman_id) {
       query += ' AND salesman_id = ?';
@@ -252,20 +280,23 @@ router.get('/targets', async (req, res) => {
 // Get target statistics
 router.get('/targets/stats', async (req, res) => {
   try {
-    const totalResult = db.prepare('SELECT COUNT(*) as count FROM salesman_targets').get();
+    const { tenant_id } = req.query;
+    const totalResult = db.prepare(
+      'SELECT COUNT(*) as count FROM salesman_targets' + (tenant_id ? ' WHERE tenant_id = ?' : '')
+    ).get(...(tenant_id ? [tenant_id] : []));
     const total = totalResult?.count || 0;
     
     // Get current month's targets
     const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
     const currentMonthResult = db.prepare(
-      'SELECT COUNT(*) as count FROM salesman_targets WHERE period = ?'
-    ).get(currentMonth);
+      'SELECT COUNT(*) as count FROM salesman_targets WHERE period = ?' + (tenant_id ? ' AND tenant_id = ?' : '')
+    ).get(...(tenant_id ? [currentMonth, tenant_id] : [currentMonth]));
     const current_month = currentMonthResult?.count || 0;
     
     // Get achieved count (achieved_visits >= target_visits)
     const achievedResult = db.prepare(
-      'SELECT COUNT(*) as count FROM salesman_targets WHERE achieved_visits >= target_visits'
-    ).get();
+      'SELECT COUNT(*) as count FROM salesman_targets WHERE achieved_visits >= target_visits' + (tenant_id ? ' AND tenant_id = ?' : '')
+    ).get(...(tenant_id ? [tenant_id] : []));
     const achieved = achievedResult?.count || 0;
     
     // Calculate average achievement percentage
@@ -273,7 +304,8 @@ router.get('/targets/stats', async (req, res) => {
       SELECT AVG(CAST(achieved_visits AS FLOAT) / NULLIF(target_visits, 0) * 100) as avg_pct
       FROM salesman_targets
       WHERE target_visits > 0
-    `).get();
+      ${tenant_id ? 'AND tenant_id = ?' : ''}
+    `).get(...(tenant_id ? [tenant_id] : []));
     const avg_achievement = Math.round(avgResult?.avg_pct || 0);
     
     res.json({
@@ -415,6 +447,7 @@ router.get('/salesmen/:id/performance', async (req, res) => {
 // Get all plants/branches
 router.get('/plants', async (req, res) => {
   try {
+    const { tenant_id } = req.query;
     // Prefer plant names from plants table when available
     const plants = db.prepare(`
       SELECT 
@@ -424,9 +457,10 @@ router.get('/plants', async (req, res) => {
       FROM salesmen s
       LEFT JOIN plants p ON p.id = s.plant_id
       WHERE s.plant_id IS NOT NULL AND s.plant_id != ''
+      ${tenant_id ? 'AND s.tenant_id = ?' : ''}
       GROUP BY s.plant_id
       ORDER BY plant_name
-    `).all();
+    `).all(...(tenant_id ? [tenant_id] : []));
     
     res.json({
       success: true,

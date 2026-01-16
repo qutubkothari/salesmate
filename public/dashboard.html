@@ -8079,6 +8079,8 @@
             if (filters.dateFrom) params.append('start_date', filters.dateFrom);
             if (filters.dateTo) params.append('end_date', filters.dateTo);
             
+            if (state.session?.tenantId) params.append('tenant_id', state.session.tenantId);
+
             const response = await fetch(`/api/fsm/visits?${params}`);
             const result = await response.json();
             const visits = result.data || [];
@@ -8118,7 +8120,7 @@
     async function populateVisitFilters() {
         try {
             // Load salesmen for filter
-            const salesmenResp = await fetch('/api/fsm/salesmen');
+            const salesmenResp = await fetch(`/api/fsm/salesmen?tenant_id=${encodeURIComponent(state.session?.tenantId || '')}`);
             const salesmenData = await salesmenResp.json();
             const salesmen = salesmenData.data || [];
             const salesmanFilter = document.getElementById('visitSalesmanFilter');
@@ -8135,7 +8137,7 @@
             }
             
             // Load plants/branches for filter
-            const plantsResp = await fetch('/api/fsm/plants');
+            const plantsResp = await fetch(`/api/fsm/plants?tenant_id=${encodeURIComponent(state.session?.tenantId || '')}`);
             const plantsData = await plantsResp.json();
             let plants = plantsData.data || [];
 
@@ -8331,7 +8333,7 @@
     // Load Salesmen
     async function loadSalesmen() {
         try {
-            const response = await fetch('/api/fsm/salesmen');
+            const response = await fetch(`/api/fsm/salesmen?tenant_id=${encodeURIComponent(state.session?.tenantId || '')}`);
             const result = await response.json();
             const salesmen = result.data || [];
             
@@ -8340,14 +8342,14 @@
             
             const today = new Date().toISOString().split('T')[0];
             // Get today's active salesmen (those with visits today)
-            const visitsResp = await fetch(`/api/fsm/visits?start_date=${today}&end_date=${today}`);
+            const visitsResp = await fetch(`/api/fsm/visits?start_date=${today}&end_date=${today}&tenant_id=${encodeURIComponent(state.session?.tenantId || '')}`);
             const visitsResult = await visitsResp.json();
             const todayVisits = visitsResult.data || [];
             const activeTodaySet = new Set(todayVisits.map(v => v.salesman_id));
             document.getElementById('activeTodayCount').textContent = activeTodaySet.size;
             
             // Get targets to calculate "on target" count
-            const targetsResp = await fetch('/api/fsm/targets');
+            const targetsResp = await fetch(`/api/fsm/targets?tenant_id=${encodeURIComponent(state.session?.tenantId || '')}`);
             const targetsResult = await targetsResp.json();
             const targets = targetsResult.data || [];
             const onTarget = targets.filter(t => {
@@ -8429,7 +8431,7 @@
                 monthFilter.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
             }
             
-            const response = await fetch('/api/fsm/targets');
+            const response = await fetch(`/api/fsm/targets?tenant_id=${encodeURIComponent(state.session?.tenantId || '')}`);
             const result = await response.json();
             const targets = result.data || [];
             
