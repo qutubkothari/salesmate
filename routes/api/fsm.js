@@ -405,15 +405,17 @@ router.get('/salesmen/:id/performance', async (req, res) => {
 // Get all plants/branches
 router.get('/plants', async (req, res) => {
   try {
-    // Get distinct plant_ids from salesmen where plant_id is not null
+    // Prefer plant names from plants table when available
     const plants = db.prepare(`
-      SELECT DISTINCT 
-        plant_id,
+      SELECT 
+        s.plant_id as plant_id,
+        COALESCE(p.name, s.plant_id) as plant_name,
         COUNT(*) as salesman_count
-      FROM salesmen 
-      WHERE plant_id IS NOT NULL AND plant_id != ''
-      GROUP BY plant_id
-      ORDER BY plant_id
+      FROM salesmen s
+      LEFT JOIN plants p ON p.id = s.plant_id
+      WHERE s.plant_id IS NOT NULL AND s.plant_id != ''
+      GROUP BY s.plant_id
+      ORDER BY plant_name
     `).all();
     
     res.json({

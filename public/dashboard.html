@@ -1192,7 +1192,8 @@
                 status: true,
                 actions: true
             }
-        }
+        },
+        fsmPlantsMap: {}
     };
     // ---------- API Helpers ----------
     const api = {
@@ -1253,6 +1254,18 @@
             return await response.json();
         }
     };
+
+    function isUuid(value) {
+        return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(value || ''));
+    }
+
+    function formatPlantLabel(plantId) {
+        if (!plantId) return '-';
+        const key = String(plantId);
+        if (state.fsmPlantsMap[key]) return state.fsmPlantsMap[key];
+        if (isUuid(key)) return `Branch ${key.slice(0, 8)}`;
+        return key;
+    }
 
     // ---------- Utilities ----------
     function showNotification(message, type = 'info') {
@@ -8142,8 +8155,12 @@
 
             const branchFilter = document.getElementById('visitBranchFilter');
             if (branchFilter) {
+                state.fsmPlantsMap = {};
+                plants.forEach(p => {
+                    if (p.plant_id) state.fsmPlantsMap[p.plant_id] = p.plant_name || p.name || p.plant_id;
+                });
                 branchFilter.innerHTML = '<option value="">All Plants/Branches</option>' + 
-                    plants.map(p => `<option value="${p.plant_id}">${escapeHtml(p.plant_id)} (${p.salesman_count} salesmen)</option>`).join('');
+                    plants.map(p => `<option value="${p.plant_id}">${escapeHtml(formatPlantLabel(p.plant_id))} (${p.salesman_count} salesmen)</option>`).join('');
             }
         } catch (error) {
             console.error('Error populating filters:', error);
@@ -8187,7 +8204,7 @@
                     <td class="py-3 px-4" data-col="date">${visitDate}</td>
                     <td class="py-3 px-4" data-col="customer">${escapeHtml(visit.customer_name || 'N/A')}</td>
                     <td class="py-3 px-4" data-col="salesman">${escapeHtml(visit.salesman_name || 'N/A')}</td>
-                    <td class="py-3 px-4" data-col="branch">${escapeHtml(visit.plant_name || visit.plant_id || '-')}</td>
+                    <td class="py-3 px-4" data-col="branch">${escapeHtml(formatPlantLabel(visit.plant_name || visit.plant_id))}</td>
                     <td class="py-3 px-4" data-col="type">
                         <span class="px-2 py-1 rounded text-xs bg-blue-500/20 text-blue-300">${visit.visit_type || 'Regular'}</span>
                     </td>
