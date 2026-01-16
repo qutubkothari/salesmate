@@ -15,7 +15,9 @@ db.pragma('journal_mode = WAL');
 // Get all visits with optional filtering
 router.get('/visits', async (req, res) => {
   try {
-    const { tenant_id, salesman_id, plant_id, start_date, end_date, visit_type, limit = 300, role, user_plant_id } = req.query;
+    const DEFAULT_TENANT_ID = process.env.FSM_DEFAULT_TENANT_ID || '112f12b8-55e9-4de8-9fda-d58e37c75796';
+    const tenant_id = req.query.tenant_id || DEFAULT_TENANT_ID;
+    const { salesman_id, plant_id, start_date, end_date, visit_type, limit = 300, role, user_plant_id } = req.query;
     
     let query = `
       SELECT 
@@ -31,10 +33,8 @@ router.get('/visits', async (req, res) => {
     const params = [];
     
     // Tenant filtering
-    if (tenant_id) {
-      query += ' AND v.tenant_id = ?';
-      params.push(tenant_id);
-    }
+    query += ' AND v.tenant_id = ?';
+    params.push(tenant_id);
 
     // Role-based filtering
     // - 'super_admin' or 'admin': See all data
@@ -97,7 +97,9 @@ router.get('/visits', async (req, res) => {
 // Get visit statistics
 router.get('/visits/stats', async (req, res) => {
   try {
-    const { tenant_id, start_date, end_date } = req.query;
+    const DEFAULT_TENANT_ID = process.env.FSM_DEFAULT_TENANT_ID || '112f12b8-55e9-4de8-9fda-d58e37c75796';
+    const tenant_id = req.query.tenant_id || DEFAULT_TENANT_ID;
+    const { start_date, end_date } = req.query;
     
     let query = 'SELECT COUNT(*) as total FROM visits WHERE 1=1';
     const params = [];
@@ -162,7 +164,9 @@ router.get('/visits/stats', async (req, res) => {
 // Get all salesmen
 router.get('/salesmen', async (req, res) => {
   try {
-    const { tenant_id, is_active, limit = 100 } = req.query;
+    const DEFAULT_TENANT_ID = process.env.FSM_DEFAULT_TENANT_ID || '112f12b8-55e9-4de8-9fda-d58e37c75796';
+    const tenant_id = req.query.tenant_id || DEFAULT_TENANT_ID;
+    const { is_active, limit = 100 } = req.query;
     
     let query = 'SELECT * FROM salesmen WHERE 1=1';
     const params = [];
@@ -199,7 +203,8 @@ router.get('/salesmen', async (req, res) => {
 // Get salesman statistics
 router.get('/salesmen/stats', async (req, res) => {
   try {
-    const { tenant_id } = req.query;
+    const DEFAULT_TENANT_ID = process.env.FSM_DEFAULT_TENANT_ID || '112f12b8-55e9-4de8-9fda-d58e37c75796';
+    const tenant_id = req.query.tenant_id || DEFAULT_TENANT_ID;
     const totalResult = db.prepare(
       'SELECT COUNT(*) as count FROM salesmen' + (tenant_id ? ' WHERE tenant_id = ?' : '')
     ).get(...(tenant_id ? [tenant_id] : []));
@@ -238,7 +243,9 @@ router.get('/salesmen/stats', async (req, res) => {
 // Get all targets
 router.get('/targets', async (req, res) => {
   try {
-    const { tenant_id, salesman_id, period, limit = 100 } = req.query;
+    const DEFAULT_TENANT_ID = process.env.FSM_DEFAULT_TENANT_ID || '112f12b8-55e9-4de8-9fda-d58e37c75796';
+    const tenant_id = req.query.tenant_id || DEFAULT_TENANT_ID;
+    const { salesman_id, period, limit = 100 } = req.query;
     
     let query = 'SELECT * FROM salesman_targets WHERE 1=1';
     const params = [];
@@ -280,7 +287,8 @@ router.get('/targets', async (req, res) => {
 // Get target statistics
 router.get('/targets/stats', async (req, res) => {
   try {
-    const { tenant_id } = req.query;
+    const DEFAULT_TENANT_ID = process.env.FSM_DEFAULT_TENANT_ID || '112f12b8-55e9-4de8-9fda-d58e37c75796';
+    const tenant_id = req.query.tenant_id || DEFAULT_TENANT_ID;
     const totalResult = db.prepare(
       'SELECT COUNT(*) as count FROM salesman_targets' + (tenant_id ? ' WHERE tenant_id = ?' : '')
     ).get(...(tenant_id ? [tenant_id] : []));
@@ -447,7 +455,8 @@ router.get('/salesmen/:id/performance', async (req, res) => {
 // Get all plants/branches
 router.get('/plants', async (req, res) => {
   try {
-    const { tenant_id } = req.query;
+    const DEFAULT_TENANT_ID = process.env.FSM_DEFAULT_TENANT_ID || '112f12b8-55e9-4de8-9fda-d58e37c75796';
+    const tenant_id = req.query.tenant_id || DEFAULT_TENANT_ID;
     // Prefer plant names from plants table when available
     const plants = db.prepare(`
       SELECT 
