@@ -8554,8 +8554,9 @@
             }
             
             // Get visit counts for each salesman
-            const allVisitsResp = await fetch('/api/visits');
-            const allVisits = await allVisitsResp.json();
+            const allVisitsResp = await fetch(`/api/fsm/visits?tenant_id=${encodeURIComponent(state.session?.tenantId || '')}`);
+            const allVisitsResult = await allVisitsResp.json();
+            const allVisits = allVisitsResult.data || [];
             
             tbody.innerHTML = salesmen.map(salesman => {
                 const salesmanVisits = allVisits.filter(v => v.salesman_id === salesman.id);
