@@ -8429,46 +8429,91 @@
             // Populate modal
             document.getElementById('visitModalMeta').textContent = `Visit ID: ${visit.id}`;
             document.getElementById('visitCustomer').textContent = visit.customer_name || '-';
-            document.getElementById('visitSalesman').textContent = visit.salesman_name || '-';
-            document.getElementById('visitBranch').textContent = visit.branch_name || visit.plant_name || '-';
+            
+            // Get salesman name - try different fields
+            let salesmanName = '-';
+            if (visit.salesman_name) {
+                salesmanName = visit.salesman_name;
+            } else if (visit.salesman_id) {
+                // Fetch salesman details
+                try {
+                    const sResp = await fetch(`/api/fsm/salesmen?tenant_id=${encodeURIComponent(visit.tenant_id)}`);
+                    const sData = await sResp.json();
+                    const salesman = (sData.data || []).find(s => s.id === visit.salesman_id);
+                    if (salesman) salesmanName = salesman.name || salesman.phone || visit.salesman_id;
+                } catch (e) {
+                    salesmanName = visit.salesman_id;
+                }
+            }
+            document.getElementById('visitSalesman').textContent = salesmanName;
+            
+            // Get branch/plant name
+            let branchName = '-';
+            if (visit.plant_name) {
+                branchName = visit.plant_name;
+            } else if (visit.plant_id) {
+                try {
+                    const pResp = await fetch(`/api/fsm/plants?tenant_id=${encodeURIComponent(visit.tenant_id)}`);
+                    const pData = await pResp.json();
+                    const plant = (pData.data || []).find(p => p.id === visit.plant_id);
+                    if (plant) branchName = plant.name || visit.plant_id;
+                } catch (e) {
+                    branchName = visit.plant_id;
+                }
+            }
+            document.getElementById('visitBranch').textContent = branchName;
+            
             document.getElementById('visitType').textContent = visit.visit_type || '-';
             
             // Format date and time
             if (visit.visit_date) {
                 const date = new Date(visit.visit_date);
-                const timeStr = visit.visit_time ? ` at ${visit.visit_time}` : '';
+                let timeStr = '';
+                if (visit.time_in) {
+                    const timeIn = new Date(visit.time_in);
+                    timeStr = ` at ${timeIn.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`;
+                }
                 document.getElementById('visitDateTime').textContent = date.toLocaleDateString() + timeStr;
             } else {
                 document.getElementById('visitDateTime').textContent = '-';
             }
             
-            document.getElementById('visitDuration').textContent = visit.duration ? `${visit.duration} min` : '-';
+            // Calculate duration from time_in and time_out, or use duration_minutes
+            let durationText = '-';
+            if (visit.duration_minutes) {
+                durationText = `${visit.duration_minutes} min`;
+            } else if (visit.time_in && visit.time_out) {
+                const timeIn = new Date(visit.time_in);
+                const timeOut = new Date(visit.time_out);
+                const mins = Math.floor((timeOut - timeIn) / 60000);
+                durationText = `${mins} min`;
+            }
+            document.getElementById('visitDuration').textContent = durationText;
             
-            // Status with color
+            // Status with color - visits don't have explicit status, derive from time_out
             const statusEl = document.getElementById('visitStatus');
-            statusEl.textContent = visit.status || '-';
-            if (visit.status === 'completed') {
+            if (visit.time_out) {
+                statusEl.textContent = 'Completed';
                 statusEl.className = 'text-green-400 font-semibold';
-            } else if (visit.status === 'pending') {
-                statusEl.className = 'text-yellow-400 font-semibold';
             } else {
-                statusEl.className = 'text-white font-semibold';
+                statusEl.textContent = 'In Progress';
+                statusEl.className = 'text-yellow-400 font-semibold';
             }
             
             document.getElementById('visitPotential').textContent = visit.potential || '-';
             
             // Location
             const locationParts = [];
-            if (visit.latitude && visit.longitude) {
-                locationParts.push(`${visit.latitude}, ${visit.longitude}`);
+            if (visit.gps_latitude && visit.gps_longitude) {
+                locationParts.push(`${visit.gps_latitude.toFixed(6)}, ${visit.gps_longitude.toFixed(6)}`);
             }
-            if (visit.address) {
-                locationParts.push(visit.address);
+            if (visit.customer_address) {
+                locationParts.push(visit.customer_address);
             }
             document.getElementById('visitLocation').textContent = locationParts.length > 0 ? locationParts.join(' • ') : '-';
             
-            // Notes
-            document.getElementById('visitNotes').textContent = visit.notes || 'No notes';
+            // Notes - check remarks field
+            document.getElementById('visitNotes').textContent = visit.remarks || visit.notes || 'No notes';
             
             // Images
             const imagesSection = document.getElementById('visitImagesSection');
