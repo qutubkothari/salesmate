@@ -147,11 +147,13 @@ router.post('/salesman/login', (req, res) => {
 
         if (!device_id) return res.status(400).json({ success: false, error: 'device_id is required' });
 
+        const phoneDigits = normalizePhoneDigits(phone);
+        if (!phoneDigits) return res.status(400).json({ success: false, error: 'Phone number is invalid' });
+        if (!password) return res.status(400).json({ success: false, error: 'Password is required' });
+
         // New: allow login via { phone, password } (no tenant/salesman selection)
-        if ((!tenantId || !salesman_id) && phone) {
-            const inputDigits = normalizePhoneDigits(phone);
-            if (!inputDigits) return res.status(400).json({ success: false, error: 'Phone number is invalid' });
-            if (!password) return res.status(400).json({ success: false, error: 'Password is required' });
+        if (!tenantId || !salesman_id) {
+            const inputDigits = phoneDigits;
 
             let matchedUser = null;
             try {
@@ -224,10 +226,44 @@ router.post('/salesman/login', (req, res) => {
         if (!salesman) return res.status(404).json({ success: false, error: 'Salesman not found' });
         if (salesman.is_active === 0) return res.status(403).json({ success: false, error: 'Salesman inactive' });
 
-        const providedPhone = normalizePhoneDigits(phone);
+        const providedPhone = phoneDigits;
         const dbPhone = normalizePhoneDigits(salesman.phone);
         if (providedPhone && dbPhone && providedPhone !== dbPhone) {
             return res.status(401).json({ success: false, error: 'Phone number does not match' });
+        }
+
+        // Enforce password for all login modes (validate against linked users row)
+        let userRow = null;
+        try {
+            if (salesman.user_id) {
+                userRow = dbGet('SELECT * FROM users WHERE id = ? AND tenant_id = ?', [salesman.user_id, tenantId]) || null;
+            }
+            if (!userRow) {
+                const allUsers = dbAll('SELECT * FROM users WHERE tenant_id = ?', [tenantId]);
+                const matches = allUsers.filter((u) => {
+                    const digits = normalizePhoneDigits(u.phone);
+                    return digits && (digits === providedPhone || digits.endsWith(providedPhone));
+                });
+                if (matches.length === 1) userRow = matches[0];
+                else if (matches.length > 1) userRow = matches.find((u) => normalizePhoneDigits(u.phone) === providedPhone) || matches[0] || null;
+            }
+        } catch (e) {
+            console.warn('[FSM_SALESMAN] User lookup for password check failed:', e?.message || e);
+        }
+
+        if (!userRow) {
+            return res.status(401).json({ success: false, error: 'Invalid phone number or password' });
+        }
+        if (Number(userRow.is_active ?? 1) === 0) {
+            return res.status(403).json({ success: false, error: 'Account is inactive' });
+        }
+        const rawRole = String(userRow.role || '').toLowerCase();
+        if (rawRole !== 'salesman') {
+            return res.status(403).json({ success: false, error: 'Not a salesman account. Please use admin login.' });
+        }
+        const ok = verifyUserPassword(userRow, password);
+        if (!ok) {
+            return res.status(401).json({ success: false, error: 'Invalid phone number or password' });
         }
 
         const token = crypto.randomBytes(32).toString('hex');
