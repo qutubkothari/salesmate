@@ -119,6 +119,97 @@
 				"Auto-deploy: add salesman password tool"
 			],
 			"isBackground": false
+		},
+		{
+			"label": "SSH: set salesman pwd 8484830022",
+			"type": "shell",
+			"command": "powershell.exe",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-Command",
+				"$key = Join-Path $env:USERPROFILE '.ssh\\hostinger_ed25519'; ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i $key qutubk@72.62.192.228 \"cd /var/www/salesmate-ai && node tools/set_salesman_password_sqlite.js --phone 8484830022 --password 'Sales@1234'\""
+			],
+			"isBackground": false
+		},
+		{
+			"label": "SSH: set salesman pwd 8484830022 (fixed quoting)",
+			"type": "shell",
+			"command": "powershell.exe",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-Command",
+				"$key = Join-Path $env:USERPROFILE \".ssh\\hostinger_ed25519\"; ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i $key qutubk@72.62.192.228 \"cd /var/www/salesmate-ai; node tools/set_salesman_password_sqlite.js --phone 8484830022 --password \\\"Sales@1234\\\"\""
+			],
+			"isBackground": false
+		},
+		{
+			"label": "SSH: verify salesman/user rows 8484830022",
+			"type": "shell",
+			"command": "powershell.exe",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-Command",
+				"$key = Join-Path $env:USERPROFILE \".ssh\\hostinger_ed25519\"; ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i $key qutubk@72.62.192.228 \"cd /var/www/salesmate-ai; sqlite3 local-database.db \\\"select s.id, s.tenant_id, s.user_id, s.phone, u.phone, u.role, length(u.password_hash) as pw_len from salesmen s left join users u on u.id = s.user_id where s.id = '27a44053-3f43-4ba3-9213-2dae0870de11' limit 1;\\\"\""
+			],
+			"isBackground": false
+		},
+		{
+			"label": "SSH: verify salesman/user rows 8484830022 (fixed)",
+			"type": "shell",
+			"command": "powershell.exe",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-Command",
+				"$key = Join-Path $env:USERPROFILE \".ssh\\hostinger_ed25519\"; ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i $key qutubk@72.62.192.228 \"cd /var/www/salesmate-ai; sqlite3 local-database.db 'select s.id, s.tenant_id, s.user_id, s.phone, u.phone, u.role, length(u.password_hash) as pw_len from salesmen s left join users u on u.id = s.user_id where s.phone like ''%8484830022%'' limit 5;'\""
+			],
+			"isBackground": false
+		},
+		{
+			"label": "Kill all node.exe",
+			"type": "shell",
+			"command": "powershell.exe",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-Command",
+				"taskkill /F /IM node.exe"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "SSH: inspect users phone 8484830022",
+			"type": "shell",
+			"command": "powershell.exe",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-Command",
+				"$key = Join-Path $env:USERPROFILE \".ssh\\hostinger_ed25519\"; ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i $key qutubk@72.62.192.228 \"cd /var/www/salesmate-ai; sqlite3 -header -column local-database.db \\\"select id, tenant_id, phone, role, is_active, length(password_hash) as pw_len from users where phone like '%8484830022%' or phone like '%484830022%';\\\"\""
+			],
+			"isBackground": false
+		},
+		{
+			"label": "SSH: inspect users phone 8484830022 (fixed)",
+			"type": "shell",
+			"command": "powershell.exe",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-Command",
+				"$key = Join-Path $env:USERPROFILE \".ssh\\hostinger_ed25519\"; ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i $key qutubk@72.62.192.228 \"cd /var/www/salesmate-ai; sqlite3 -header -column local-database.db 'select id, tenant_id, phone, role, is_active, length(password_hash) as pw_len from users where phone like ''%8484830022%'' or phone like ''%484830022%'';'\""
+			],
+			"isBackground": false
 		}
 	],
 	"inputs": [

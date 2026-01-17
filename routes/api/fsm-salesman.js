@@ -162,6 +162,8 @@ function authenticateSalesman(req, res, next) {
 // Login (creates a session token)
 router.post('/salesman/login', (req, res) => {
     try {
+        console.log('[FSM_SALESMAN_LOGIN] Request received:', { phone: req.body?.phone, has_password: !!req.body?.password, device_id: req.body?.device_id });
+        
         let tenantId = getTenantId(req);
         let { salesman_id, phone, password, device_id, device_type, device_name, app_version, platform, fcm_token } = req.body || {};
 
@@ -171,6 +173,8 @@ router.post('/salesman/login', (req, res) => {
         if (!phoneDigits) return res.status(400).json({ success: false, error: 'Phone number is invalid' });
         if (!password) return res.status(400).json({ success: false, error: 'Password is required' });
 
+        console.log('[FSM_SALESMAN_LOGIN] Normalized phone:', phoneDigits);
+
         // New: allow login via { phone, password } (no tenant/salesman selection)
         if (!tenantId || !salesman_id) {
             const inputDigits = phoneDigits;
@@ -178,19 +182,26 @@ router.post('/salesman/login', (req, res) => {
             let matchedUser = null;
             try {
                 const allUsers = dbAll('SELECT * FROM users');
+                console.log('[FSM_SALESMAN_LOGIN] Total users in DB:', allUsers.length);
+                
                 const matches = allUsers.filter((u) => {
                     return phonesMatch(u.phone, inputDigits);
                 });
+
+                console.log('[FSM_SALESMAN_LOGIN] Phone matches found:', matches.length, matches.map(u => ({ id: u.id, phone: u.phone, role: u.role })));
 
                 if (matches.length === 1) matchedUser = matches[0];
                 else if (matches.length > 1) {
                     matchedUser = matches.find((u) => normalizePhoneDigits(u.phone) === inputDigits) || matches[0] || null;
                 }
             } catch (e) {
-                console.warn('[FSM_SALESMAN] Users lookup failed:', e?.message || e);
+                console.error('[FSM_SALESMAN_LOGIN] Users lookup failed:', e?.message || e, e?.stack);
             }
 
+            console.log('[FSM_SALESMAN_LOGIN] Matched user:', matchedUser ? { id: matchedUser.id, phone: matchedUser.phone, role: matchedUser.role, has_hash: !!matchedUser.password_hash } : 'NONE');
+
             if (!matchedUser) {
+                console.log('[FSM_SALESMAN_LOGIN] FAILED: No matching user');
                 return res.status(401).json({ success: false, error: 'Invalid phone number or password' });
             }
             if (Number(matchedUser.is_active ?? 1) === 0) {
