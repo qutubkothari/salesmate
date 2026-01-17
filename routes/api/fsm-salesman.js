@@ -426,15 +426,14 @@ router.get('/salesman/:id/dashboard', authenticateSalesman, (req, res) => {
             [id, tenantId, targetDate]
         );
 
-        // Get pending visits
+        // Get pending visits (future or not checked out)
         const pendingVisits = dbAll(
             `SELECT v.*, c.business_name as customer_name, c.phone, cl.address 
              FROM visits v
              LEFT JOIN customer_profiles_new c ON v.customer_id = c.id
              LEFT JOIN customer_locations cl ON c.id = cl.customer_id
              WHERE v.salesman_id = ? AND v.tenant_id = ? 
-             AND v.status = 'scheduled' 
-             AND DATE(v.visit_date) >= ?
+             AND (DATE(v.visit_date) >= ? OR v.time_out IS NULL)
              ORDER BY v.visit_date ASC
              LIMIT 10`,
             [id, tenantId, targetDate]
@@ -455,9 +454,9 @@ router.get('/salesman/:id/dashboard', authenticateSalesman, (req, res) => {
                 salesman: salesman ? { id: salesman.id, name: salesman.name, phone: salesman.phone } : null,
                 today: {
                     date: targetDate,
-                    visits_completed: todayVisits.filter(v => v.status === 'completed').length,
-                    visits_scheduled: todayVisits.filter(v => v.status === 'scheduled').length,
-                    orders_taken: todayVisits.filter(v => v.outcome === 'Order').length
+                    visits_completed: todayVisits.filter(v => v.time_out != null).length,
+                    visits_scheduled: todayVisits.filter(v => v.time_out == null).length,
+                    orders_taken: todayVisits.filter(v => v.order_id != null).length
                 },
                 month: {
                     period: monthStart.substring(0, 7),
