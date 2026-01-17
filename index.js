@@ -1152,6 +1152,10 @@ app.use('/api/broadcast', broadcastRouter);
 const fsmRouter = require('./routes/api/fsm');
 app.use('/api/fsm', fsmRouter);
 
+// FSM Salesman API (Mobile/Desktop App Support)
+const fsmSalesmanRouter = require('./routes/api/fsm-salesman');
+app.use('/api/fsm', fsmSalesmanRouter);
+
 // CRM API (feature-flagged by tier + tenant overrides)
 const crmRouter = require('./routes/api/crm');
 app.use('/api/crm', crmRouter);

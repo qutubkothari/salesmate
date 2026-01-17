@@ -1,6 +1,11 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../../services/database');
+const Database = require('better-sqlite3');
+const path = require('path');
+
+// Direct SQLite connection
+const db = new Database(path.join(__dirname, '../../local-database.db'));
+db.pragma('journal_mode = WAL');
 
 // ============================================
 // SALESMAN EMPOWERMENT API ROUTES
