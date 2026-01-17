@@ -295,6 +295,8 @@
         }
 
         function detectDeviceView() {
+            const forced = new URLSearchParams(window.location.search).get('view');
+            if (forced === 'mobile' || forced === 'desktop') return forced;
             const isSmall = window.matchMedia && window.matchMedia('(max-width: 768px)').matches;
             return isSmall ? 'mobile' : 'desktop';
         }

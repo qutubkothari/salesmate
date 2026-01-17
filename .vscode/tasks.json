@@ -91,6 +91,20 @@
 				"Auto-deploy: enforce salesman phone+password"
 			],
 			"isBackground": false
+		},
+		{
+			"label": "Deploy to Hostinger VPS",
+			"type": "shell",
+			"command": "powershell.exe",
+			"args": [
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				"${workspaceFolder}/deploy-salesmate-hostinger.ps1",
+				"-Message",
+				"Auto-deploy: fix salesman phone match"
+			],
+			"isBackground": false
 		}
 	],
 	"inputs": [

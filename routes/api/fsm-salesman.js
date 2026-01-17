@@ -32,6 +32,26 @@ function normalizePhoneDigits(value) {
     return withoutSuffix.replace(/\D/g, '');
 }
 
+function phonesMatch(a, b) {
+    const ad = normalizePhoneDigits(a);
+    const bd = normalizePhoneDigits(b);
+    if (!ad || !bd) return false;
+    if (ad === bd) return true;
+
+    // Compare by suffix to tolerate country code / leading zero differences.
+    const suffixLen = 9;
+    if (ad.length >= suffixLen && bd.length >= suffixLen) {
+        return ad.slice(-suffixLen) === bd.slice(-suffixLen);
+    }
+
+    const minLen = Math.min(ad.length, bd.length);
+    if (minLen >= 7) {
+        return ad.slice(-minLen) === bd.slice(-minLen);
+    }
+
+    return false;
+}
+
 function verifyUserPassword(userRow, password) {
     if (!userRow) return false;
     if (userRow.password_hash) {
@@ -159,8 +179,7 @@ router.post('/salesman/login', (req, res) => {
             try {
                 const allUsers = dbAll('SELECT * FROM users');
                 const matches = allUsers.filter((u) => {
-                    const digits = normalizePhoneDigits(u.phone);
-                    return digits && (digits === inputDigits || digits.endsWith(inputDigits));
+                    return phonesMatch(u.phone, inputDigits);
                 });
 
                 if (matches.length === 1) matchedUser = matches[0];
@@ -200,8 +219,7 @@ router.post('/salesman/login', (req, res) => {
                 if (!salesman && inputDigits) {
                     const allSalesmen = dbAll('SELECT * FROM salesmen');
                     const matches = allSalesmen.filter((s) => {
-                        const digits = normalizePhoneDigits(s.phone);
-                        return digits && (digits === inputDigits || digits.endsWith(inputDigits));
+                        return phonesMatch(s.phone, inputDigits);
                     });
                     salesman = matches.find((s) => normalizePhoneDigits(s.phone) === inputDigits) || matches[0] || null;
                 }
@@ -228,7 +246,7 @@ router.post('/salesman/login', (req, res) => {
 
         const providedPhone = phoneDigits;
         const dbPhone = normalizePhoneDigits(salesman.phone);
-        if (providedPhone && dbPhone && providedPhone !== dbPhone) {
+        if (providedPhone && dbPhone && !phonesMatch(providedPhone, dbPhone)) {
             return res.status(401).json({ success: false, error: 'Phone number does not match' });
         }
 
@@ -241,8 +259,7 @@ router.post('/salesman/login', (req, res) => {
             if (!userRow) {
                 const allUsers = dbAll('SELECT * FROM users WHERE tenant_id = ?', [tenantId]);
                 const matches = allUsers.filter((u) => {
-                    const digits = normalizePhoneDigits(u.phone);
-                    return digits && (digits === providedPhone || digits.endsWith(providedPhone));
+                    return phonesMatch(u.phone, providedPhone);
                 });
                 if (matches.length === 1) userRow = matches[0];
                 else if (matches.length > 1) userRow = matches.find((u) => normalizePhoneDigits(u.phone) === providedPhone) || matches[0] || null;

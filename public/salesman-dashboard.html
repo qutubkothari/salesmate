@@ -434,18 +434,16 @@
         const urlParams = new URLSearchParams(window.location.search);
 
         // Get salesman ID from URL or localStorage
-        const salesmanId = urlParams.get('id') || localStorage.getItem('salesmanId') || 'b458cac6-e311-4ad6-9c2e-76792ef8fef8';
-
-        const DEFAULT_TENANT_ID = '101f04af63cbefc2bf8f0a98b9ae1205';
+        const salesmanId = urlParams.get('id') || localStorage.getItem('salesmanId');
 
         function getTenantId() {
             const urlTenantId = urlParams.get('tenant_id');
             const storedTenantId = localStorage.getItem('tenantId');
-            return urlTenantId || storedTenantId || DEFAULT_TENANT_ID;
+            return urlTenantId || storedTenantId || '';
         }
 
         const tenantId = getTenantId();
-        localStorage.setItem('tenantId', tenantId);
+        if (tenantId) localStorage.setItem('tenantId', tenantId);
 
         const salesmanToken = localStorage.getItem('salesmanToken');
 
@@ -469,8 +467,9 @@
         }
 
         // Require auth token
-        if (!salesmanToken) {
-            window.location.href = `/salesman-login.html?tenant_id=${encodeURIComponent(tenantId)}`;
+        if (!tenantId || !salesmanId || !salesmanToken) {
+            const qs = tenantId ? `?tenant_id=${encodeURIComponent(tenantId)}` : '';
+            window.location.href = `/salesman-login.html${qs}`;
         }
 
         // Load dashboard data
