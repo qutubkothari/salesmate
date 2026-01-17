@@ -428,9 +428,10 @@ router.get('/salesman/:id/dashboard', authenticateSalesman, (req, res) => {
 
         // Get pending visits
         const pendingVisits = dbAll(
-            `SELECT v.*, c.name as customer_name, c.phone, c.address 
+            `SELECT v.*, c.business_name as customer_name, c.phone, cl.address 
              FROM visits v
-             LEFT JOIN customers_engaged_new c ON v.customer_id = c.id
+             LEFT JOIN customer_profiles_new c ON v.customer_id = c.id
+             LEFT JOIN customer_locations cl ON c.id = cl.customer_id
              WHERE v.salesman_id = ? AND v.tenant_id = ? 
              AND v.status = 'scheduled' 
              AND DATE(v.visit_date) >= ?
@@ -502,11 +503,11 @@ router.get('/salesman/:id/sync-data', authenticateSalesman, (req, res) => {
         // Get customers assigned to this salesman
         const customers = dbAll(
             `SELECT c.*, cl.latitude, cl.longitude, cl.address as gps_address
-             FROM customers_engaged_new c
+             FROM customer_profiles_new c
              LEFT JOIN customer_locations cl ON c.id = cl.customer_id
              WHERE c.tenant_id = ? 
              ${last_sync_timestamp ? 'AND c.updated_at > ?' : ''}
-             ORDER BY c.name`,
+             ORDER BY c.business_name`,
             last_sync_timestamp ? [tenantId, last_sync_timestamp] : [tenantId]
         );
 
@@ -651,10 +652,10 @@ router.get('/salesman/:id/route-plan', authenticateSalesman, (req, res) => {
 
         // Get scheduled visits for the day
         const visits = dbAll(
-            `SELECT v.*, c.name as customer_name, 
+            `SELECT v.*, c.business_name as customer_name, 
                     cl.latitude, cl.longitude, cl.address
              FROM visits v
-             LEFT JOIN customers_engaged_new c ON v.customer_id = c.id
+             LEFT JOIN customer_profiles_new c ON v.customer_id = c.id
              LEFT JOIN customer_locations cl ON c.id = cl.customer_id
              WHERE v.salesman_id = ? AND v.tenant_id = ? 
              AND DATE(v.visit_date) = ?
@@ -705,9 +706,9 @@ router.get('/salesman/:id/visits', authenticateSalesman, (req, res) => {
         const { id } = req.params;
         const limit = Math.min(parseInt(req.query.limit || '100', 10), 500);
         const visits = dbAll(
-            `SELECT v.*, c.name as customer_name
+            `SELECT v.*, c.business_name as customer_name
              FROM visits v
-             LEFT JOIN customers_engaged_new c ON c.id = v.customer_id
+             LEFT JOIN customer_profiles_new c ON c.id = v.customer_id
              WHERE v.tenant_id = ? AND v.salesman_id = ?
              ORDER BY v.visit_date DESC, v.created_at DESC
              LIMIT ?`,
@@ -734,10 +735,10 @@ router.get('/salesman/:id/customers', authenticateSalesman, (req, res) => {
                 MAX(v.visit_date) as last_visit_date,
                 COUNT(v.id) as total_visits
              FROM visits v
-             JOIN customers_engaged_new c ON c.id = v.customer_id
+             JOIN customer_profiles_new c ON c.id = v.customer_id
              WHERE v.tenant_id = ? AND v.salesman_id = ?
              GROUP BY c.id
-             ORDER BY c.name
+             ORDER BY c.business_name
              LIMIT ?`,
             [tenantId, id, limit]
         );
@@ -924,7 +925,7 @@ router.get('/salesman/:id/nearby-customers', authenticateSalesman, (req, res) =>
                     (6371 * acos(cos(radians(?)) * cos(radians(cl.latitude)) * 
                      cos(radians(cl.longitude) - radians(?)) + 
                      sin(radians(?)) * sin(radians(cl.latitude)))) AS distance
-             FROM customers_engaged_new c
+             FROM customer_profiles_new c
              LEFT JOIN customer_locations cl ON c.id = cl.customer_id
              WHERE c.tenant_id = ? 
              AND cl.latitude IS NOT NULL
@@ -1041,11 +1042,11 @@ function processCustomerChange(action, data, tenantId) {
     
     if (action === 'create') {
         dbRun(
-            `INSERT INTO customers_engaged_new 
-             (id, tenant_id, name, phone, email, address, city, state, pincode, customer_type) 
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [id, tenantId, data.name, data.phone, data.email, data.address, 
-             data.city, data.state, data.pincode, data.customer_type]
+            `INSERT INTO customer_profiles_new 
+             (id, tenant_id, business_name, contact_person, phone, email, city, state, gst_number) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [id, tenantId, data.business_name || data.name, data.contact_person, data.phone, data.email, 
+             data.city, data.state, data.gst_number]
         );
         
         // Add location if provided
