@@ -339,7 +339,7 @@
             try {
                 const deviceId = getOrCreateDeviceId();
                 const view = detectDeviceView();
-                const deviceType = view === 'mobile' ? 'web_mobile' : 'web_desktop';
+                const deviceType = view === 'mobile' ? 'mobile' : 'desktop';
                 const resp = await fetch('/api/fsm/salesman/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
