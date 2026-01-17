@@ -6,8 +6,8 @@ const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 
 // Direct SQLite connection
-// __dirname is <repo>/routes/api, so go to repo root for local-database.db
-const db = new Database(path.join(__dirname, '../../../local-database.db'));
+// __dirname is <repo>/routes/api, so go up 2 levels to reach repo root
+const db = new Database(path.join(__dirname, '../../local-database.db'));
 db.pragma('journal_mode = WAL');
 
 function dbAll(sql, params = []) {
