@@ -112,6 +112,10 @@ function generateVisitTrendChart(visits, startDate, endDate) {
     }
     
     const canvas = document.getElementById('visitTrendChart');
+    if (!canvas) {
+        console.error('Visit trend chart canvas not found');
+        return;
+    }
     const ctx = canvas.getContext('2d');
     
     visitTrendChartInstance = new Chart(ctx, {
@@ -135,7 +139,8 @@ function generateVisitTrendChart(visits, startDate, endDate) {
         },
         options: {
             responsive: true,
-            maintainAspectRatio: false,
+            maintainAspectRatio: true,
+            aspectRatio: 2.5,
             plugins: {
                 legend: {
                     display: true,
@@ -209,6 +214,10 @@ function generateVisitTypeChart(visits) {
     ];
     
     const canvas = document.getElementById('visitTypeChart');
+    if (!canvas) {
+        console.error('Visit type chart canvas not found');
+        return;
+    }
     const ctx = canvas.getContext('2d');
     
     visitTypeChartInstance = new Chart(ctx, {
@@ -224,7 +233,8 @@ function generateVisitTypeChart(visits) {
         },
         options: {
             responsive: true,
-            maintainAspectRatio: false,
+            maintainAspectRatio: true,
+            aspectRatio: 1.3,
             plugins: {
                 legend: {
                     position: 'right',
