@@ -497,44 +497,369 @@
                     </div>
                 </div>
 
-                <!-- Other pages will load here -->
+                <!-- Visits Page -->
                 <div id="visits" class="page">
-                    <div class="empty-state">
-                        <i class="fas fa-map-marked-alt"></i>
-                        <h3>Visit Management</h3>
-                        <p>Coming soon...</p>
+                    <div class="stats-grid" style="margin-bottom: 20px;">
+                        <div class="stat-card">
+                            <div class="stat-header">
+                                <span class="stat-label">Total Visits</span>
+                                <div class="stat-icon"><i class="fas fa-calendar-check"></i></div>
+                            </div>
+                            <div class="stat-value" id="visitsTotal">0</div>
+                            <div class="stat-subtext">This month</div>
+                        </div>
+                        <div class="stat-card success">
+                            <div class="stat-header">
+                                <span class="stat-label">Completed</span>
+                                <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
+                            </div>
+                            <div class="stat-value" id="visitsCompleted">0</div>
+                            <div class="stat-subtext">Success rate</div>
+                        </div>
+                        <div class="stat-card warning">
+                            <div class="stat-header">
+                                <span class="stat-label">Pending</span>
+                                <div class="stat-icon"><i class="fas fa-clock"></i></div>
+                            </div>
+                            <div class="stat-value" id="visitsPending">0</div>
+                            <div class="stat-subtext">Need attention</div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">All Visits</h3>
+                            <button class="btn btn-primary" onclick="alert('New visit feature - Add customer, schedule time, set purpose')">
+                                <i class="fas fa-plus"></i> Schedule Visit
+                            </button>
+                        </div>
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Customer</th>
+                                    <th>Type</th>
+                                    <th>Duration</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="visitsTableBody">
+                                <tr><td colspan="6"><div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Loading visits...</p></div></td></tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
 
+                <!-- Customers Page -->
                 <div id="customers" class="page">
-                    <div class="empty-state">
-                        <i class="fas fa-users"></i>
-                        <h3>Customer Management</h3>
-                        <p>Coming soon...</p>
+                    <div class="stats-grid" style="margin-bottom: 20px;">
+                        <div class="stat-card info">
+                            <div class="stat-header">
+                                <span class="stat-label">Total Customers</span>
+                                <div class="stat-icon"><i class="fas fa-users"></i></div>
+                            </div>
+                            <div class="stat-value" id="customersTotal">0</div>
+                            <div class="stat-subtext">In your territory</div>
+                        </div>
+                        <div class="stat-card success">
+                            <div class="stat-header">
+                                <span class="stat-label">Active Customers</span>
+                                <div class="stat-icon"><i class="fas fa-user-check"></i></div>
+                            </div>
+                            <div class="stat-value" id="customersActive">0</div>
+                            <div class="stat-subtext">Recent orders</div>
+                        </div>
+                        <div class="stat-card warning">
+                            <div class="stat-header">
+                                <span class="stat-label">Needs Follow-up</span>
+                                <div class="stat-icon"><i class="fas fa-exclamation-triangle"></i></div>
+                            </div>
+                            <div class="stat-value" id="customersFollowup">0</div>
+                            <div class="stat-subtext">Inactive 30+ days</div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">My Customers</h3>
+                            <div style="display: flex; gap: 10px;">
+                                <input type="text" id="customerSearch" placeholder="Search customers..." style="padding: 8px 12px; border: 2px solid var(--border); border-radius: 8px; width: 250px;">
+                                <button class="btn btn-primary" onclick="alert('Add new customer - Name, phone, address, business type')">
+                                    <i class="fas fa-plus"></i> Add Customer
+                                </button>
+                            </div>
+                        </div>
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Customer Name</th>
+                                    <th>Phone</th>
+                                    <th>Location</th>
+                                    <th>Last Visit</th>
+                                    <th>Total Orders</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="customersTableBody">
+                                <tr><td colspan="6"><div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Loading customers...</p></div></td></tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
 
+                <!-- Targets Page -->
                 <div id="targets" class="page">
-                    <div class="empty-state">
-                        <i class="fas fa-bullseye"></i>
-                        <h3>Target Tracking</h3>
-                        <p>Coming soon...</p>
+                    <div class="card" style="margin-bottom: 20px;">
+                        <div class="card-header">
+                            <h3 class="card-title">🎯 January 2026 Target</h3>
+                        </div>
+                        <div id="targetProgressDetail" style="padding: 20px;">
+                            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 30px; margin-bottom: 30px;">
+                                <div style="text-align: center; padding: 20px; background: var(--bg-light); border-radius: 12px;">
+                                    <div style="font-size: 14px; color: var(--text-muted); margin-bottom: 8px;">Target Amount</div>
+                                    <div style="font-size: 32px; font-weight: bold; color: var(--primary);" id="targetAmount">₹0</div>
+                                </div>
+                                <div style="text-align: center; padding: 20px; background: var(--bg-light); border-radius: 12px;">
+                                    <div style="font-size: 14px; color: var(--text-muted); margin-bottom: 8px;">Achieved</div>
+                                    <div style="font-size: 32px; font-weight: bold; color: var(--success);" id="achievedAmount">₹0</div>
+                                </div>
+                                <div style="text-align: center; padding: 20px; background: var(--bg-light); border-radius: 12px;">
+                                    <div style="font-size: 14px; color: var(--text-muted); margin-bottom: 8px;">Remaining</div>
+                                    <div style="font-size: 32px; font-weight: bold; color: var(--danger);" id="remainingAmount">₹0</div>
+                                </div>
+                            </div>
+                            <div style="margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-size: 16px; font-weight: 600;">Progress</span>
+                                <span style="font-size: 24px; font-weight: bold; color: var(--primary);" id="achievementPercent">0%</span>
+                            </div>
+                            <div style="height: 30px; background: #e2e8f0; border-radius: 15px; overflow: hidden;">
+                                <div id="progressBar" style="height: 100%; background: linear-gradient(90deg, var(--primary) 0%, var(--primary-dark) 100%); width: 0%; transition: width 1s ease;"></div>
+                            </div>
+                            <div style="margin-top: 20px; padding: 15px; background: #f0fff4; border-left: 4px solid var(--success); border-radius: 8px;">
+                                <div style="font-size: 14px; color: var(--text-muted); margin-bottom: 5px;">Daily Target (Remaining days)</div>
+                                <div style="font-size: 20px; font-weight: 600; color: var(--text-dark);" id="dailyTarget">₹0 per day</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Target History</h3>
+                        </div>
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Month</th>
+                                    <th>Target</th>
+                                    <th>Achieved</th>
+                                    <th>Achievement %</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="targetHistoryBody">
+                                <tr><td colspan="5"><div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Loading history...</p></div></td></tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
 
+                <!-- Expenses Page -->
                 <div id="expenses" class="page">
-                    <div class="empty-state">
-                        <i class="fas fa-receipt"></i>
-                        <h3>Expense Management</h3>
-                        <p>Coming soon...</p>
+                    <div class="stats-grid" style="margin-bottom: 20px;">
+                        <div class="stat-card warning">
+                            <div class="stat-header">
+                                <span class="stat-label">This Month</span>
+                                <div class="stat-icon"><i class="fas fa-receipt"></i></div>
+                            </div>
+                            <div class="stat-value">₹2,450</div>
+                            <div class="stat-subtext">Total expenses</div>
+                        </div>
+                        <div class="stat-card success">
+                            <div class="stat-header">
+                                <span class="stat-label">Approved</span>
+                                <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
+                            </div>
+                            <div class="stat-value">₹1,800</div>
+                            <div class="stat-subtext">6 claims</div>
+                        </div>
+                        <div class="stat-card info">
+                            <div class="stat-header">
+                                <span class="stat-label">Pending</span>
+                                <div class="stat-icon"><i class="fas fa-clock"></i></div>
+                            </div>
+                            <div class="stat-value">₹650</div>
+                            <div class="stat-subtext">2 claims</div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Submit Expense</h3>
+                        </div>
+                        <form style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;" onsubmit="submitExpense(event)">
+                            <div>
+                                <label style="display: block; margin-bottom: 5px; font-weight: 600; font-size: 14px;">Category</label>
+                                <select style="width: 100%; padding: 10px; border: 2px solid var(--border); border-radius: 8px;">
+                                    <option>Travel</option>
+                                    <option>Food & Accommodation</option>
+                                    <option>Client Entertainment</option>
+                                    <option>Communication</option>
+                                    <option>Other</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label style="display: block; margin-bottom: 5px; font-weight: 600; font-size: 14px;">Amount</label>
+                                <input type="number" placeholder="₹ 0" style="width: 100%; padding: 10px; border: 2px solid var(--border); border-radius: 8px;">
+                            </div>
+                            <div style="grid-column: 1 / -1;">
+                                <label style="display: block; margin-bottom: 5px; font-weight: 600; font-size: 14px;">Description</label>
+                                <textarea placeholder="Describe the expense..." style="width: 100%; padding: 10px; border: 2px solid var(--border); border-radius: 8px; resize: vertical; min-height: 80px;"></textarea>
+                            </div>
+                            <div style="grid-column: 1 / -1;">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-paper-plane"></i> Submit Expense
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Recent Expenses</h3>
+                        </div>
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Category</th>
+                                    <th>Description</th>
+                                    <th>Amount</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Jan 16, 2026</td>
+                                    <td>Travel</td>
+                                    <td>Client visit - Fuel</td>
+                                    <td>₹450</td>
+                                    <td><span class="badge badge-warning">Pending</span></td>
+                                </tr>
+                                <tr>
+                                    <td>Jan 15, 2026</td>
+                                    <td>Food</td>
+                                    <td>Lunch with client</td>
+                                    <td>₹350</td>
+                                    <td><span class="badge badge-success">Approved</span></td>
+                                </tr>
+                                <tr>
+                                    <td>Jan 14, 2026</td>
+                                    <td>Communication</td>
+                                    <td>Mobile recharge</td>
+                                    <td>₹200</td>
+                                    <td><span class="badge badge-success">Approved</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
 
+                <!-- Reports Page -->
                 <div id="reports" class="page">
-                    <div class="empty-state">
-                        <i class="fas fa-chart-bar"></i>
-                        <h3>Reports & Analytics</h3>
-                        <p>Coming soon...</p>
+                    <div class="card" style="margin-bottom: 20px;">
+                        <div class="card-header">
+                            <h3 class="card-title">Performance Overview</h3>
+                        </div>
+                        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; padding: 20px;">
+                            <div style="text-align: center; padding: 20px; background: var(--bg-light); border-radius: 12px;">
+                                <div style="font-size: 14px; color: var(--text-muted); margin-bottom: 8px;">Visits This Month</div>
+                                <div style="font-size: 28px; font-weight: bold; color: var(--primary);">24</div>
+                                <div style="font-size: 12px; color: var(--success); margin-top: 5px;">↑ 12% vs last month</div>
+                            </div>
+                            <div style="text-align: center; padding: 20px; background: var(--bg-light); border-radius: 12px;">
+                                <div style="font-size: 14px; color: var(--text-muted); margin-bottom: 8px;">Orders</div>
+                                <div style="font-size: 28px; font-weight: bold; color: var(--success);">18</div>
+                                <div style="font-size: 12px; color: var(--success); margin-top: 5px;">75% conversion</div>
+                            </div>
+                            <div style="text-align: center; padding: 20px; background: var(--bg-light); border-radius: 12px;">
+                                <div style="font-size: 14px; color: var(--text-muted); margin-bottom: 8px;">Avg. Order Value</div>
+                                <div style="font-size: 28px; font-weight: bold; color: var(--warning);">₹12,500</div>
+                                <div style="font-size: 12px; color: var(--success); margin-top: 5px;">↑ ₹1,200</div>
+                            </div>
+                            <div style="text-align: center; padding: 20px; background: var(--bg-light); border-radius: 12px;">
+                                <div style="font-size: 14px; color: var(--text-muted); margin-bottom: 8px;">Customer Satisfaction</div>
+                                <div style="font-size: 28px; font-weight: bold; color: var(--info);">4.8/5</div>
+                                <div style="font-size: 12px; color: var(--success); margin-top: 5px;">Excellent</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                        <div class="card">
+                            <div class="card-header">
+                                <h3 class="card-title">Top Customers</h3>
+                            </div>
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Customer</th>
+                                        <th>Orders</th>
+                                        <th>Value</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr><td>ABC Industries</td><td>5</td><td>₹85,000</td></tr>
+                                    <tr><td>XYZ Corporation</td><td>4</td><td>₹62,000</td></tr>
+                                    <tr><td>Patel Enterprises</td><td>3</td><td>₹45,000</td></tr>
+                                    <tr><td>Kumar & Sons</td><td>3</td><td>₹38,000</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="card">
+                            <div class="card-header">
+                                <h3 class="card-title">Activity Summary</h3>
+                            </div>
+                            <div style="padding: 20px;">
+                                <div style="margin-bottom: 20px;">
+                                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                                        <span style="font-size: 14px;">Visit Completion Rate</span>
+                                        <span style="font-weight: 600;">92%</span>
+                                    </div>
+                                    <div style="height: 10px; background: #e2e8f0; border-radius: 5px; overflow: hidden;">
+                                        <div style="height: 100%; background: var(--success); width: 92%;"></div>
+                                    </div>
+                                </div>
+                                <div style="margin-bottom: 20px;">
+                                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                                        <span style="font-size: 14px;">Order Conversion</span>
+                                        <span style="font-weight: 600;">75%</span>
+                                    </div>
+                                    <div style="height: 10px; background: #e2e8f0; border-radius: 5px; overflow: hidden;">
+                                        <div style="height: 100%; background: var(--primary); width: 75%;"></div>
+                                    </div>
+                                </div>
+                                <div style="margin-bottom: 20px;">
+                                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                                        <span style="font-size: 14px;">Customer Retention</span>
+                                        <span style="font-weight: 600;">88%</span>
+                                    </div>
+                                    <div style="height: 10px; background: #e2e8f0; border-radius: 5px; overflow: hidden;">
+                                        <div style="height: 100%; background: var(--info); width: 88%;"></div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                                        <span style="font-size: 14px;">Target Achievement</span>
+                                        <span style="font-weight: 600;">65%</span>
+                                    </div>
+                                    <div style="height: 10px; background: #e2e8f0; border-radius: 5px; overflow: hidden;">
+                                        <div style="height: 100%; background: var(--warning); width: 65%;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -591,9 +916,185 @@
                 const data = await response.json();
                 
                 renderDashboard(data);
+                renderVisitsPage(data);
+                renderCustomersPage();
+                renderTargetsPage(data);
             } catch (error) {
                 console.error('Error loading dashboard:', error);
             }
+        }
+
+        function renderVisitsPage(data) {
+            // Update stats
+            const month = data.month_stats || {};
+            document.getElementById('visitsTotal').textContent = month.total_visits || 0;
+            document.getElementById('visitsCompleted').textContent = month.completed_visits || 0;
+            document.getElementById('visitsPending').textContent = (data.pending_visits || []).length;
+
+            // Load all visits
+            loadAllVisits();
+        }
+
+        async function loadAllVisits() {
+            try {
+                const response = await fetch(`/api/fsm/visits?tenant_id=${tenantId}&salesman_id=${salesmanId}&limit=50`);
+                const data = await response.json();
+                const visits = data.visits || [];
+
+                const tbody = document.getElementById('visitsTableBody');
+                if (visits.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><i class="fas fa-calendar-check"></i><h3>No visits found</h3><p>Start by scheduling your first visit!</p></div></td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = visits.map(visit => {
+                    const duration = visit.checkout_time && visit.checkin_time 
+                        ? Math.round((new Date(visit.checkout_time) - new Date(visit.checkin_time)) / 60000) + ' mins'
+                        : '-';
+                    
+                    let statusBadge = 'badge-warning';
+                    if (visit.status === 'completed') statusBadge = 'badge-success';
+                    else if (visit.status === 'cancelled') statusBadge = 'badge-danger';
+
+                    return `
+                        <tr>
+                            <td>${new Date(visit.created_at).toLocaleDateString()}</td>
+                            <td><strong>${visit.customer_name || 'Unknown'}</strong></td>
+                            <td>${visit.visit_type || 'Regular'}</td>
+                            <td>${duration}</td>
+                            <td><span class="badge ${statusBadge}">${visit.status || 'Pending'}</span></td>
+                            <td><button class="btn btn-outline" style="padding: 6px 12px; font-size: 12px;" onclick="viewVisit('${visit.id}')">View</button></td>
+                        </tr>
+                    `;
+                }).join('');
+            } catch (error) {
+                console.error('Error loading visits:', error);
+            }
+        }
+
+        async function renderCustomersPage() {
+            try {
+                const response = await fetch(`/api/fsm/customers?tenant_id=${tenantId}&salesman_id=${salesmanId}&limit=100`);
+                const data = await response.json();
+                const customers = data.customers || [];
+
+                // Update stats
+                document.getElementById('customersTotal').textContent = customers.length;
+                document.getElementById('customersActive').textContent = customers.filter(c => c.status === 'active').length;
+                document.getElementById('customersFollowup').textContent = customers.filter(c => c.status === 'inactive').length;
+
+                // Render table
+                const tbody = document.getElementById('customersTableBody');
+                if (customers.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><i class="fas fa-users"></i><h3>No customers found</h3><p>Add your first customer to get started!</p></div></td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = customers.map(customer => {
+                    const lastVisit = customer.last_visit_date 
+                        ? new Date(customer.last_visit_date).toLocaleDateString()
+                        : 'Never';
+
+                    return `
+                        <tr>
+                            <td><strong>${customer.name}</strong></td>
+                            <td>${customer.phone || '-'}</td>
+                            <td>${customer.location || '-'}</td>
+                            <td>${lastVisit}</td>
+                            <td>${customer.total_orders || 0}</td>
+                            <td>
+                                <button class="btn btn-outline" style="padding: 6px 12px; font-size: 12px;" onclick="viewCustomer('${customer.id}')">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+
+                // Add search functionality
+                document.getElementById('customerSearch').addEventListener('input', function(e) {
+                    const search = e.target.value.toLowerCase();
+                    const rows = tbody.querySelectorAll('tr');
+                    rows.forEach(row => {
+                        const text = row.textContent.toLowerCase();
+                        row.style.display = text.includes(search) ? '' : 'none';
+                    });
+                });
+            } catch (error) {
+                console.error('Error loading customers:', error);
+            }
+        }
+
+        function renderTargetsPage(data) {
+            const month = data.month_stats || {};
+            const target = month.target_value || 0;
+            const achieved = month.achieved_value || 0;
+            const remaining = target - achieved;
+            const percent = target > 0 ? Math.round((achieved / target) * 100) : 0;
+
+            document.getElementById('targetAmount').textContent = '₹' + target.toLocaleString();
+            document.getElementById('achievedAmount').textContent = '₹' + achieved.toLocaleString();
+            document.getElementById('remainingAmount').textContent = '₹' + remaining.toLocaleString();
+            document.getElementById('achievementPercent').textContent = percent + '%';
+            document.getElementById('progressBar').style.width = Math.min(percent, 100) + '%';
+
+            // Calculate daily target
+            const today = new Date();
+            const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+            const remainingDays = daysInMonth - today.getDate() + 1;
+            const dailyTarget = remainingDays > 0 ? Math.round(remaining / remainingDays) : 0;
+            document.getElementById('dailyTarget').textContent = '₹' + dailyTarget.toLocaleString() + ' per day (' + remainingDays + ' days left)';
+
+            // Load target history
+            loadTargetHistory();
+        }
+
+        async function loadTargetHistory() {
+            try {
+                const response = await fetch(`/api/fsm/targets?tenant_id=${tenantId}&salesman_id=${salesmanId}&limit=6`);
+                const data = await response.json();
+                const targets = data.targets || [];
+
+                const tbody = document.getElementById('targetHistoryBody');
+                if (targets.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state"><i class="fas fa-bullseye"></i><p>No target history available</p></div></td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = targets.map(target => {
+                    const achieved = target.achieved_value || 0;
+                    const targetVal = target.target_value || 0;
+                    const percent = targetVal > 0 ? Math.round((achieved / targetVal) * 100) : 0;
+                    const statusBadge = percent >= 100 ? 'badge-success' : percent >= 75 ? 'badge-info' : 'badge-warning';
+                    const statusText = percent >= 100 ? 'Achieved' : percent >= 75 ? 'Good' : 'In Progress';
+
+                    return `
+                        <tr>
+                            <td>${target.target_month || '-'}</td>
+                            <td>₹${targetVal.toLocaleString()}</td>
+                            <td>₹${achieved.toLocaleString()}</td>
+                            <td>${percent}%</td>
+                            <td><span class="badge ${statusBadge}">${statusText}</span></td>
+                        </tr>
+                    `;
+                }).join('');
+            } catch (error) {
+                console.error('Error loading target history:', error);
+            }
+        }
+
+        function submitExpense(event) {
+            event.preventDefault();
+            alert('Expense submitted successfully! Your manager will review it shortly.');
+            event.target.reset();
+        }
+
+        function viewVisit(id) {
+            alert('Visit details coming soon! ID: ' + id);
+        }
+
+        function viewCustomer(id) {
+            alert('Customer details coming soon! ID: ' + id);
         }
 
         function renderDashboard(data) {
