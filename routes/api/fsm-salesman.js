@@ -502,7 +502,7 @@ router.get('/salesman/:id/sync-data', authenticateSalesman, (req, res) => {
         // Get customers assigned to this salesman
         const customers = dbAll(
             `SELECT c.*, cl.latitude, cl.longitude, cl.address as gps_address
-             FROM customers c
+             FROM customers_engaged_new c
              LEFT JOIN customer_locations cl ON c.id = cl.customer_id
              WHERE c.tenant_id = ? 
              ${last_sync_timestamp ? 'AND c.updated_at > ?' : ''}
@@ -924,7 +924,7 @@ router.get('/salesman/:id/nearby-customers', authenticateSalesman, (req, res) =>
                     (6371 * acos(cos(radians(?)) * cos(radians(cl.latitude)) * 
                      cos(radians(cl.longitude) - radians(?)) + 
                      sin(radians(?)) * sin(radians(cl.latitude)))) AS distance
-             FROM customers c
+             FROM customers_engaged_new c
              LEFT JOIN customer_locations cl ON c.id = cl.customer_id
              WHERE c.tenant_id = ? 
              AND cl.latitude IS NOT NULL
