@@ -1,5 +1,9 @@
 // FSM Reports Module
-// Handles all reporting and analytics functionality
+// Handles all reporting and analytics functionality with proper charts
+
+// Store chart instances to destroy them before recreation
+let visitTrendChartInstance = null;
+let visitTypeChartInstance = null;
 
 async function loadFSMReports() {
     console.log('📈 loadFSMReports() started');
@@ -59,7 +63,7 @@ async function loadFSMReports() {
         document.getElementById('reportHitRatio').textContent = hitRatio + '%';
         document.getElementById('reportTargetAchievement').textContent = targetAchievement + '%';
         
-        // Generate charts
+        // Generate charts with Chart.js
         console.log('📈 Generating charts...');
         generateVisitTrendChart(visits, startDate, endDate);
         generateVisitTypeChart(visits);
@@ -81,55 +85,182 @@ async function loadFSMReports() {
 }
 
 function generateVisitTrendChart(visits, startDate, endDate) {
+    // Destroy previous chart instance
+    if (visitTrendChartInstance) {
+        visitTrendChartInstance.destroy();
+    }
+    
+    // Group visits by date
     const visitsByDate = {};
     visits.forEach(v => {
         const date = v.visit_date;
         visitsByDate[date] = (visitsByDate[date] || 0) + 1;
     });
     
-    const dates = [];
-    const counts = [];
+    // Generate date range and counts
+    const labels = [];
+    const data = [];
     const start = new Date(startDate);
     const end = new Date(endDate);
     
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
         const dateStr = d.toISOString().split('T')[0];
-        dates.push(dateStr);
-        counts.push(visitsByDate[dateStr] || 0);
+        const dateObj = new Date(dateStr);
+        const label = `${dateObj.getDate()} ${dateObj.toLocaleDateString('en', { month: 'short' })}`;
+        labels.push(label);
+        data.push(visitsByDate[dateStr] || 0);
     }
     
     const canvas = document.getElementById('visitTrendChart');
     const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = '#fff';
-    ctx.font = '14px Arial';
-    ctx.textAlign = 'center';
-    ctx.fillText(`Visit Trend: ${counts.reduce((a,b) => a+b, 0)} total visits`, canvas.width/2, canvas.height/2);
+    
+    visitTrendChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Daily Visits',
+                data: data,
+                borderColor: 'rgb(59, 130, 246)',
+                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                borderWidth: 2,
+                fill: true,
+                tension: 0.4,
+                pointBackgroundColor: 'rgb(59, 130, 246)',
+                pointBorderColor: '#fff',
+                pointBorderWidth: 2,
+                pointRadius: 4,
+                pointHoverRadius: 6
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: true,
+                    labels: {
+                        color: '#fff',
+                        font: {
+                            size: 12
+                        }
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    titleColor: '#fff',
+                    bodyColor: '#fff',
+                    borderColor: 'rgba(59, 130, 246, 0.5)',
+                    borderWidth: 1
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        color: '#fff',
+                        stepSize: 1
+                    },
+                    grid: {
+                        color: 'rgba(255, 255, 255, 0.1)'
+                    }
+                },
+                x: {
+                    ticks: {
+                        color: '#fff',
+                        maxRotation: 45,
+                        minRotation: 45
+                    },
+                    grid: {
+                        color: 'rgba(255, 255, 255, 0.1)'
+                    }
+                }
+            }
+        }
+    });
 }
 
 function generateVisitTypeChart(visits) {
+    // Destroy previous chart instance
+    if (visitTypeChartInstance) {
+        visitTypeChartInstance.destroy();
+    }
+    
+    // Group visits by type
     const types = {};
     visits.forEach(v => {
         const type = v.visit_type || 'Unknown';
         types[type] = (types[type] || 0) + 1;
     });
     
+    const labels = Object.keys(types);
+    const data = Object.values(types);
+    
+    // Generate colors for each type
+    const colors = [
+        'rgba(59, 130, 246, 0.8)',   // Blue
+        'rgba(16, 185, 129, 0.8)',   // Green
+        'rgba(245, 158, 11, 0.8)',   // Yellow
+        'rgba(239, 68, 68, 0.8)',    // Red
+        'rgba(139, 92, 246, 0.8)',   // Purple
+        'rgba(236, 72, 153, 0.8)',   // Pink
+        'rgba(20, 184, 166, 0.8)',   // Teal
+        'rgba(251, 146, 60, 0.8)'    // Orange
+    ];
+    
     const canvas = document.getElementById('visitTypeChart');
     const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = '#fff';
-    ctx.font = '14px Arial';
-    ctx.textAlign = 'center';
     
-    const typeEntries = Object.entries(types);
-    typeEntries.forEach(([type, count], idx) => {
-        ctx.fillText(`${type}: ${count}`, canvas.width/2, 50 + (idx * 30));
+    visitTypeChartInstance = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: data,
+                backgroundColor: colors,
+                borderColor: '#1e293b',
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'right',
+                    labels: {
+                        color: '#fff',
+                        padding: 15,
+                        font: {
+                            size: 12
+                        }
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    titleColor: '#fff',
+                    bodyColor: '#fff',
+                    borderColor: 'rgba(255, 255, 255, 0.2)',
+                    borderWidth: 1,
+                    callbacks: {
+                        label: function(context) {
+                            const label = context.label || '';
+                            const value = context.parsed || 0;
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const percentage = ((value / total) * 100).toFixed(1);
+                            return `${label}: ${value} (${percentage}%)`;
+                        }
+                    }
+                }
+            }
+        }
     });
 }
 
 function generateSalesmanPerformanceTable(salesmen, visits, targets) {
     const tbody = document.getElementById('salesmanPerformanceBody');
     
+    // Calculate performance metrics for each salesman
     const performance = salesmen.map(salesman => {
         const salesmanVisits = visits.filter(v => v.salesman_id === salesman.id);
         const target = targets.find(t => t.salesman_id === salesman.id);
@@ -144,18 +275,41 @@ function generateSalesmanPerformanceTable(salesmen, visits, targets) {
         
         const highPotential = salesmanVisits.filter(v => v.potential === 'High').length;
         
+        // Performance score calculation (weighted):
+        // - Visit count: 40% weight
+        // - Achievement %: 30% weight
+        // - High potential visits: 20% weight (2 points each)
+        // - Average duration: 10% weight (bonus if > 30 min)
+        const visitScore = visitCount * 10;
+        const achievementScore = achievement * 3;
+        const highPotScore = highPotential * 20;
+        const durationBonus = avgDuration >= 30 ? 50 : avgDuration >= 20 ? 25 : 0;
+        
+        const score = visitScore + achievementScore + highPotScore + durationBonus;
+        
         return {
+            id: salesman.id,
             name: salesman.name,
             visitCount,
             targetVisits,
             achievement,
             avgDuration,
             highPotential,
-            score: achievement + (highPotential * 2)
+            score
         };
     });
     
-    performance.sort((a, b) => b.score - a.score);
+    // Sort by performance score (highest first)
+    performance.sort((a, b) => {
+        // Primary: Score
+        if (b.score !== a.score) return b.score - a.score;
+        // Tie-breaker 1: Visit count
+        if (b.visitCount !== a.visitCount) return b.visitCount - a.visitCount;
+        // Tie-breaker 2: Achievement percentage
+        if (b.achievement !== a.achievement) return b.achievement - a.achievement;
+        // Tie-breaker 3: High potential visits
+        return b.highPotential - a.highPotential;
+    });
     
     if (performance.length === 0) {
         tbody.innerHTML = '<tr><td colspan="8" class="text-center py-8 text-white/60">No performance data available</td></tr>';
@@ -164,35 +318,57 @@ function generateSalesmanPerformanceTable(salesmen, visits, targets) {
     
     tbody.innerHTML = performance.map((p, idx) => {
         const rank = idx + 1;
-        const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank;
+        
+        // Medal/rank display
+        let rankDisplay;
+        if (rank === 1) rankDisplay = '<span class="text-4xl">🥇</span>';
+        else if (rank === 2) rankDisplay = '<span class="text-4xl">🥈</span>';
+        else if (rank === 3) rankDisplay = '<span class="text-4xl">🥉</span>';
+        else rankDisplay = `<span class="text-xl font-bold text-white/80">${rank}</span>`;
+        
+        // Color coding based on achievement
         const performanceColor = p.achievement >= 100 ? 'text-green-400' : 
             p.achievement >= 80 ? 'text-blue-400' : 
             p.achievement >= 50 ? 'text-yellow-400' : 'text-red-400';
         
+        const progressColor = p.achievement >= 100 ? 'bg-green-500' : 
+            p.achievement >= 80 ? 'bg-blue-500' : 
+            p.achievement >= 50 ? 'bg-yellow-500' : 'bg-red-500';
+        
         return `
-            <tr class="text-white border-b border-white/10 hover:bg-white/5">
-                <td class="py-3 px-4 text-2xl">${medal}</td>
-                <td class="py-3 px-4 font-semibold">${escapeHtml(p.name)}</td>
-                <td class="py-3 px-4">${p.visitCount}</td>
+            <tr class="text-white border-b border-white/10 hover:bg-white/5 ${rank <= 3 ? 'bg-white/5' : ''}">
+                <td class="py-3 px-4 text-center">${rankDisplay}</td>
+                <td class="py-3 px-4">
+                    <div class="font-semibold">${escapeHtml(p.name)}</div>
+                    ${rank <= 3 ? '<div class="text-xs text-yellow-400">⭐ Top Performer</div>' : ''}
+                </td>
+                <td class="py-3 px-4">
+                    <span class="font-bold text-blue-400">${p.visitCount}</span>
+                </td>
                 <td class="py-3 px-4">${p.targetVisits}</td>
                 <td class="py-3 px-4">
                     <div class="flex items-center gap-2">
                         <div class="w-24 bg-white/10 rounded-full h-2">
-                            <div class="bg-blue-500 h-2 rounded-full" style="width: ${Math.min(p.achievement, 100)}%"></div>
+                            <div class="${progressColor} h-2 rounded-full transition-all" style="width: ${Math.min(p.achievement, 100)}%"></div>
                         </div>
                         <span class="${performanceColor} font-bold">${p.achievement}%</span>
                     </div>
                 </td>
-                <td class="py-3 px-4">${p.avgDuration} min</td>
                 <td class="py-3 px-4">
-                    <span class="px-2 py-1 rounded text-xs bg-orange-500/20 text-orange-300">
-                        ${p.highPotential} visits
+                    <span class="${p.avgDuration >= 30 ? 'text-green-400' : 'text-white'}">${p.avgDuration} min</span>
+                </td>
+                <td class="py-3 px-4">
+                    <span class="px-2 py-1 rounded text-xs ${p.highPotential > 0 ? 'bg-orange-500/20 text-orange-300' : 'bg-gray-500/20 text-gray-400'}">
+                        ${p.highPotential} ${p.highPotential === 1 ? 'visit' : 'visits'}
                     </span>
                 </td>
                 <td class="py-3 px-4">
-                    <span class="px-3 py-1 rounded-full text-sm font-bold ${performanceColor}">
-                        ${p.score} pts
-                    </span>
+                    <div class="flex flex-col items-start">
+                        <span class="px-3 py-1 rounded-full text-sm font-bold ${performanceColor} bg-white/10">
+                            ${p.score} pts
+                        </span>
+                        ${rank === 1 ? '<div class="text-xs text-yellow-400 mt-1">🏆 Champion</div>' : ''}
+                    </div>
                 </td>
             </tr>
         `;
@@ -212,32 +388,46 @@ function generateBranchPerformanceTable(plants, salesmen, visits) {
         const highPotential = branchVisits.filter(v => v.potential === 'High').length;
         const highPotentialPct = totalVisits > 0 ? Math.round((highPotential / totalVisits) * 100) : 0;
         
+        // Branch score: weighted combination of metrics
+        const score = (avgVisits * 10) + (highPotentialPct * 2) + (totalVisits * 0.5);
+        
         return {
             name: plant.plant_name || plant.name || 'Unknown',
             salesmenCount: branchSalesmen.length,
             totalVisits,
             avgVisits,
             highPotentialPct,
-            score: avgVisits + highPotentialPct
+            score: Math.round(score)
         };
     });
     
-    branchPerformance.sort((a, b) => b.score - a.score);
+    // Sort by score (highest first)
+    branchPerformance.sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        if (b.totalVisits !== a.totalVisits) return b.totalVisits - a.totalVisits;
+        return b.avgVisits - a.avgVisits;
+    });
     
     if (branchPerformance.length === 0) {
         tbody.innerHTML = '<tr><td colspan="6" class="text-center py-8 text-white/60">No branch data available</td></tr>';
         return;
     }
     
-    tbody.innerHTML = branchPerformance.map(b => {
+    tbody.innerHTML = branchPerformance.map((b, idx) => {
+        const rank = idx + 1;
         const scoreColor = b.score >= 100 ? 'text-green-400' : 
             b.score >= 50 ? 'text-blue-400' : 'text-yellow-400';
         
         return `
-            <tr class="text-white border-b border-white/10 hover:bg-white/5">
-                <td class="py-3 px-4 font-semibold">${escapeHtml(b.name)}</td>
+            <tr class="text-white border-b border-white/10 hover:bg-white/5 ${rank === 1 ? 'bg-white/5' : ''}">
+                <td class="py-3 px-4">
+                    <div class="font-semibold">${escapeHtml(b.name)}</div>
+                    ${rank === 1 ? '<div class="text-xs text-green-400">🏆 Top Branch</div>' : ''}
+                </td>
                 <td class="py-3 px-4">${b.salesmenCount}</td>
-                <td class="py-3 px-4">${b.totalVisits}</td>
+                <td class="py-3 px-4">
+                    <span class="font-bold text-blue-400">${b.totalVisits}</span>
+                </td>
                 <td class="py-3 px-4">${b.avgVisits}</td>
                 <td class="py-3 px-4">
                     <span class="px-2 py-1 rounded text-xs ${b.highPotentialPct >= 30 ? 'bg-green-500/20 text-green-300' : 'bg-yellow-500/20 text-yellow-300'}">
