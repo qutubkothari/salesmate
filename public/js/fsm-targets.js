@@ -13,6 +13,7 @@ let targetsState = {
 
 async function loadTargets() {
     try {
+        console.log('📊 Loading targets...');
         const monthFilter = document.getElementById('targetMonthFilter');
         if (monthFilter && !monthFilter.value) {
             const now = new Date();
@@ -21,13 +22,16 @@ async function loadTargets() {
         
         const response = await fetch(`/api/fsm/targets?tenant_id=${encodeURIComponent(state.session?.tenantId || '')}`);
         const result = await response.json();
+        console.log('📊 Targets API response:', result);
         targetsState.allTargets = result.data || [];
+        console.log('📊 Loaded targets count:', targetsState.allTargets.length);
         
         // Load salesman filter options
         await loadSalesmanFilter();
         
         // Apply filters
         applyTargetFilters();
+        console.log('📊 Filtered targets count:', targetsState.filteredTargets.length);
         
         // Update stats
         updateTargetStats();
@@ -61,12 +65,22 @@ function applyTargetFilters() {
     const salesmanFilter = document.getElementById('targetSalesmanFilter')?.value;
     const monthFilter = document.getElementById('targetMonthFilter')?.value;
     
+    console.log('🔍 Applying filters - Salesman:', salesmanFilter, 'Month:', monthFilter);
+    
     targetsState.filteredTargets = targetsState.allTargets.filter(target => {
+        // Check salesman filter
         if (salesmanFilter && target.salesman_id !== salesmanFilter) return false;
-        if (monthFilter && target.target_month !== monthFilter) return false;
+        
+        // Check month filter - handle both period and target_month fields
+        if (monthFilter) {
+            const targetMonth = target.target_month || target.period || '';
+            if (targetMonth !== monthFilter) return false;
+        }
+        
         return true;
     });
     
+    console.log('✅ Filtered results:', targetsState.filteredTargets.length, 'targets');
     targetsState.currentPage = 1; // Reset to first page
 }
 
