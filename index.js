@@ -1156,6 +1156,10 @@ app.use('/api/admin', adminRouter);
 const pricingRouter = require('./routes/api/pricing');
 app.use('/api/pricing', pricingRouter);
 
+// RBAC API (Role-Based Access Control)
+const rbacRouter = require('./routes/api/rbac');
+app.use('/api/rbac', rbacRouter);
+
 // FSM (Field Sales Management) API
 const fsmRouter = require('./routes/api/fsm');
 app.use('/api/fsm', fsmRouter);
