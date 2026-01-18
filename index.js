@@ -1180,6 +1180,10 @@ app.use('/api/erp', erpRouter);
 const documentsRouter = require('./routes/api/documents');
 app.use('/api/documents', documentsRouter);
 
+// WhatsApp AI Enhancements API (Smart Replies, Broadcast, Conversation AI)
+const whatsappAIRouter = require('./routes/api/whatsapp-ai');
+app.use('/api/whatsapp-ai', whatsappAIRouter);
+
 // FSM (Field Sales Management) API
 const fsmRouter = require('./routes/api/fsm');
 app.use('/api/fsm', fsmRouter);
