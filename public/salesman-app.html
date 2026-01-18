@@ -760,17 +760,33 @@
                     </div>
 
                     <div class="card">
-                        <div class="card-header">
+                        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
                             <h3 class="card-title">All Visits</h3>
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <label style="font-size: 14px; color: var(--text-secondary);">Show:</label>
+                                <select id="visitsPerPage" onchange="changeVisitsPerPage()" style="padding: 6px 10px; border: 2px solid var(--border); border-radius: 6px; background: white;">
+                                    <option value="10">10</option>
+                                    <option value="25" selected>25</option>
+                                    <option value="50">50</option>
+                                </select>
+                            </div>
                         </div>
                         <table class="table">
                             <thead>
                                 <tr>
-                                    <th>Date</th>
-                                    <th>Customer</th>
-                                    <th>Type</th>
+                                    <th onclick="sortVisits('date')" style="cursor: pointer; user-select: none;">
+                                        Date <i class="fas fa-sort" id="sort-date"></i>
+                                    </th>
+                                    <th onclick="sortVisits('customer')" style="cursor: pointer; user-select: none;">
+                                        Customer <i class="fas fa-sort" id="sort-customer"></i>
+                                    </th>
+                                    <th onclick="sortVisits('type')" style="cursor: pointer; user-select: none;">
+                                        Type <i class="fas fa-sort" id="sort-type"></i>
+                                    </th>
                                     <th>Duration</th>
-                                    <th>Status</th>
+                                    <th onclick="sortVisits('status')" style="cursor: pointer; user-select: none;">
+                                        Status <i class="fas fa-sort" id="sort-status"></i>
+                                    </th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
@@ -778,6 +794,28 @@
                                 <tr><td colspan="6"><div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Loading visits...</p></div></td></tr>
                             </tbody>
                         </table>
+                        <div id="visitsPagination" style="display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; border-top: 1px solid var(--border);">
+                            <div style="color: var(--text-secondary); font-size: 14px;">
+                                Showing <span id="visitsShowingStart">0</span> to <span id="visitsShowingEnd">0</span> of <span id="visitsTotalCount">0</span> visits
+                            </div>
+                            <div style="display: flex; gap: 5px;">
+                                <button class="btn btn-outline" onclick="changeVisitsPage('first')" id="visitsFirstBtn" style="padding: 6px 12px;">
+                                    <i class="fas fa-angle-double-left"></i>
+                                </button>
+                                <button class="btn btn-outline" onclick="changeVisitsPage('prev')" id="visitsPrevBtn" style="padding: 6px 12px;">
+                                    <i class="fas fa-angle-left"></i>
+                                </button>
+                                <span style="padding: 6px 12px; color: var(--text-secondary);">
+                                    Page <span id="visitsCurrentPage">1</span> of <span id="visitsTotalPages">1</span>
+                                </span>
+                                <button class="btn btn-outline" onclick="changeVisitsPage('next')" id="visitsNextBtn" style="padding: 6px 12px;">
+                                    <i class="fas fa-angle-right"></i>
+                                </button>
+                                <button class="btn btn-outline" onclick="changeVisitsPage('last')" id="visitsLastBtn" style="padding: 6px 12px;">
+                                    <i class="fas fa-angle-double-right"></i>
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -1467,40 +1505,154 @@
             loadAllVisits();
         }
 
+        // Visits pagination and sorting state
+        let allVisitsData = [];
+        let currentVisitsPage = 1;
+        let visitsPerPage = 25;
+        let visitsSortField = 'date';
+        let visitsSortDirection = 'desc';
+
         async function loadAllVisits() {
             try {
-                const response = await apiFetch(`/api/fsm/salesman/${encodeURIComponent(salesmanId)}/visits?tenant_id=${encodeURIComponent(tenantId)}&limit=50`);
-                const visits = response.data || [];
-
-                const tbody = document.getElementById('visitsTableBody');
-                if (visits.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><i class="fas fa-calendar-check"></i><h3>No visits found</h3><p>Start by scheduling your first visit!</p></div></td></tr>';
-                    return;
-                }
-
-                tbody.innerHTML = visits.map(visit => {
-                    const duration = visit.checkout_time && visit.checkin_time 
-                        ? Math.round((new Date(visit.checkout_time) - new Date(visit.checkin_time)) / 60000) + ' mins'
-                        : '-';
-                    
-                    let statusBadge = 'badge-warning';
-                    if (visit.status === 'completed') statusBadge = 'badge-success';
-                    else if (visit.status === 'cancelled') statusBadge = 'badge-danger';
-
-                    return `
-                        <tr>
-                            <td>${new Date(visit.created_at).toLocaleDateString()}</td>
-                            <td><strong>${visit.customer_name || 'Unknown'}</strong></td>
-                            <td>${visit.visit_type || 'Regular'}</td>
-                            <td>${duration}</td>
-                            <td><span class="badge ${statusBadge}">${visit.status || 'Pending'}</span></td>
-                            <td><button class="btn btn-outline" style="padding: 6px 12px; font-size: 12px;" onclick="viewVisit('${visit.id}')">View</button></td>
-                        </tr>
-                    `;
-                }).join('');
+                const response = await apiFetch(`/api/fsm/salesman/${encodeURIComponent(salesmanId)}/visits?tenant_id=${encodeURIComponent(tenantId)}&limit=1000`);
+                allVisitsData = response.data || [];
+                currentVisitsPage = 1;
+                renderVisitsTable();
             } catch (error) {
                 console.error('Error loading visits:', error);
+                document.getElementById('visitsTableBody').innerHTML = '<tr><td colspan="6"><div class="empty-state"><i class="fas fa-exclamation-triangle"></i><h3>Error loading visits</h3><p>Please refresh the page</p></div></td></tr>';
             }
+        }
+
+        function sortVisits(field) {
+            if (visitsSortField === field) {
+                visitsSortDirection = visitsSortDirection === 'asc' ? 'desc' : 'asc';
+            } else {
+                visitsSortField = field;
+                visitsSortDirection = 'asc';
+            }
+            
+            // Update sort icons
+            document.querySelectorAll('[id^="sort-"]').forEach(icon => {
+                icon.className = 'fas fa-sort';
+            });
+            const icon = document.getElementById(`sort-${field}`);
+            if (icon) {
+                icon.className = `fas fa-sort-${visitsSortDirection === 'asc' ? 'up' : 'down'}`;
+            }
+            
+            currentVisitsPage = 1;
+            renderVisitsTable();
+        }
+
+        function changeVisitsPerPage() {
+            visitsPerPage = parseInt(document.getElementById('visitsPerPage').value);
+            currentVisitsPage = 1;
+            renderVisitsTable();
+        }
+
+        function changeVisitsPage(action) {
+            const totalPages = Math.ceil(allVisitsData.length / visitsPerPage);
+            
+            switch(action) {
+                case 'first':
+                    currentVisitsPage = 1;
+                    break;
+                case 'prev':
+                    if (currentVisitsPage > 1) currentVisitsPage--;
+                    break;
+                case 'next':
+                    if (currentVisitsPage < totalPages) currentVisitsPage++;
+                    break;
+                case 'last':
+                    currentVisitsPage = totalPages;
+                    break;
+            }
+            
+            renderVisitsTable();
+        }
+
+        function renderVisitsTable() {
+            const tbody = document.getElementById('visitsTableBody');
+            
+            if (allVisitsData.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><i class="fas fa-calendar-check"></i><h3>No visits found</h3><p>Start by scheduling your first visit!</p></div></td></tr>';
+                document.getElementById('visitsPagination').style.display = 'none';
+                return;
+            }
+
+            // Sort data
+            const sortedVisits = [...allVisitsData].sort((a, b) => {
+                let aVal, bVal;
+                
+                switch(visitsSortField) {
+                    case 'date':
+                        aVal = new Date(a.created_at);
+                        bVal = new Date(b.created_at);
+                        break;
+                    case 'customer':
+                        aVal = (a.customer_name || '').toLowerCase();
+                        bVal = (b.customer_name || '').toLowerCase();
+                        break;
+                    case 'type':
+                        aVal = (a.visit_type || '').toLowerCase();
+                        bVal = (b.visit_type || '').toLowerCase();
+                        break;
+                    case 'status':
+                        aVal = (a.status || '').toLowerCase();
+                        bVal = (b.status || '').toLowerCase();
+                        break;
+                    default:
+                        return 0;
+                }
+                
+                if (aVal < bVal) return visitsSortDirection === 'asc' ? -1 : 1;
+                if (aVal > bVal) return visitsSortDirection === 'asc' ? 1 : -1;
+                return 0;
+            });
+
+            // Paginate
+            const totalPages = Math.ceil(sortedVisits.length / visitsPerPage);
+            const startIndex = (currentVisitsPage - 1) * visitsPerPage;
+            const endIndex = Math.min(startIndex + visitsPerPage, sortedVisits.length);
+            const paginatedVisits = sortedVisits.slice(startIndex, endIndex);
+
+            // Render table
+            tbody.innerHTML = paginatedVisits.map(visit => {
+                const duration = visit.checkout_time && visit.checkin_time 
+                    ? Math.round((new Date(visit.checkout_time) - new Date(visit.checkin_time)) / 60000) + ' mins'
+                    : '-';
+                
+                let statusBadge = 'badge-warning';
+                if (visit.status === 'completed') statusBadge = 'badge-success';
+                else if (visit.status === 'cancelled') statusBadge = 'badge-danger';
+
+                return `
+                    <tr>
+                        <td>${new Date(visit.created_at).toLocaleDateString()}</td>
+                        <td><strong>${visit.customer_name || 'Unknown'}</strong></td>
+                        <td>${visit.visit_type || 'Regular'}</td>
+                        <td>${duration}</td>
+                        <td><span class="badge ${statusBadge}">${visit.status || 'Pending'}</span></td>
+                        <td><button class="btn btn-outline" style="padding: 6px 12px; font-size: 12px;" onclick="viewVisit('${visit.id}')">View</button></td>
+                    </tr>
+                `;
+            }).join('');
+
+            // Update pagination info
+            document.getElementById('visitsShowingStart').textContent = startIndex + 1;
+            document.getElementById('visitsShowingEnd').textContent = endIndex;
+            document.getElementById('visitsTotalCount').textContent = sortedVisits.length;
+            document.getElementById('visitsCurrentPage').textContent = currentVisitsPage;
+            document.getElementById('visitsTotalPages').textContent = totalPages;
+
+            // Update button states
+            document.getElementById('visitsFirstBtn').disabled = currentVisitsPage === 1;
+            document.getElementById('visitsPrevBtn').disabled = currentVisitsPage === 1;
+            document.getElementById('visitsNextBtn').disabled = currentVisitsPage === totalPages;
+            document.getElementById('visitsLastBtn').disabled = currentVisitsPage === totalPages;
+            
+            document.getElementById('visitsPagination').style.display = 'flex';
         }
 
         async function renderCustomersPage() {
