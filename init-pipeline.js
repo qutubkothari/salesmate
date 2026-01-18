@@ -112,12 +112,12 @@ try {
     db.prepare(`
       INSERT INTO deals (
         id, tenant_id, pipeline_id, stage_id, owner_id,
-        deal_name, deal_value, expected_revenue, expected_close_date,
+        deal_name, contact_person, deal_value, expected_revenue, expected_close_date,
         priority, temperature, status, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       dealId, tenantId, pipelineId, stageId, sampleUserId,
-      deal.name, deal.value, expectedRevenue, deal.closeDate,
+      deal.name, deal.customer, deal.value, expectedRevenue, deal.closeDate,
       deal.priority, deal.temp, 'open',
       new Date().toISOString(), new Date().toISOString()
     );
