@@ -710,6 +710,21 @@ router.post('/salesman/:id/visits', authenticateSalesman, (req, res) => {
             ]
         );
 
+        // Emit real-time notification via WebSocket
+        try {
+            const websocketService = require('../../services/websocket-service');
+            const visit = {
+                id: visitId,
+                customer_name,
+                salesman_id: id,
+                visit_type: visit_type || ((meeting_types && meeting_types.length > 0) ? meeting_types[0] : 'regular'),
+                created_at: new Date().toISOString()
+            };
+            websocketService.emitVisitCreated(visit, tenantId);
+        } catch (wsError) {
+            console.warn('[WS] Failed to emit visit created:', wsError.message);
+        }
+
         res.json({ success: true, visit_id: visitId });
     } catch (error) {
         console.error('Error creating visit:', error);

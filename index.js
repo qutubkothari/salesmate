@@ -1192,6 +1192,10 @@ app.use('/api/mobile-app', mobileAppRouter);
 const performanceRouter = require('./routes/api/performance');
 app.use('/api/performance', performanceRouter);
 
+// WebSocket API (Real-time Communication, Statistics, Connection Management)
+const websocketRouter = require('./routes/api/websocket');
+app.use('/api/websocket', websocketRouter);
+
 // FSM (Field Sales Management) API
 const fsmRouter = require('./routes/api/fsm');
 app.use('/api/fsm', fsmRouter);
@@ -2450,6 +2454,16 @@ app.use((err, req, res, next) => {
 // --- Start Server ---
 const server = app.listen(PORT, async () => {
     console.log(`Server listening on port ${PORT}`);
+    
+    // Initialize WebSocket service
+    try {
+        const websocketService = require('./services/websocket-service');
+        console.log('[STARTUP] Initializing WebSocket service...');
+        websocketService.initialize(server);
+        console.log('[STARTUP] WebSocket service initialization complete');
+    } catch (error) {
+        console.error('[STARTUP] WebSocket service initialization failed:', error.message);
+    }
     
     // Initialize Redis cache
     try {
