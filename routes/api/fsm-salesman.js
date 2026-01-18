@@ -665,10 +665,10 @@ router.post('/salesman/:id/visits', authenticateSalesman, (req, res) => {
     try {
         const { id } = req.params;
         const { 
-            customer_name, contact_person, email, plant_ids,
+            customer_name, contact_person, customer_phone,
             meeting_types, products_discussed,
             next_action, next_action_date, potential, competitor_name,
-            can_be_switched, remarks, time_in, gps_latitude, gps_longitude
+            can_be_switched, remarks, time_in, gps_latitude, gps_longitude, visit_type, plant_id
         } = req.body;
         const tenantId = getTenantId(req);
 
@@ -680,23 +680,23 @@ router.post('/salesman/:id/visits', authenticateSalesman, (req, res) => {
         const visitId = generateId();
         const visitDate = new Date().toISOString().split('T')[0];
 
-        // Insert visit
+        // Insert visit - using only columns that exist in the table
         dbRun(
             `INSERT INTO visits 
-             (id, tenant_id, salesman_id, customer_name, contact_person, email,
-              visit_type, visit_date, time_in, 
-              meeting_types, products_discussed, plant_ids, next_action, next_action_date,
+             (id, tenant_id, salesman_id, customer_name, contact_person, customer_phone,
+              visit_type, visit_date, time_in, plant_id,
+              meeting_types, products_discussed, next_action, next_action_date,
               potential, competitor_name, can_be_switched, remarks,
               gps_latitude, gps_longitude, location_accuracy,
               synced, created_at, updated_at, checkin_time)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, datetime('now'), datetime('now'), ?)`,
             [
-                visitId, tenantId, id, customer_name, contact_person || null, email || null,
-                (meeting_types && meeting_types.length > 0) ? meeting_types[0] : 'regular',
+                visitId, tenantId, id, customer_name, contact_person || null, customer_phone || null,
+                visit_type || ((meeting_types && meeting_types.length > 0) ? meeting_types[0] : 'regular'),
                 visitDate, time_in || new Date().toISOString(),
+                plant_id || null,
                 JSON.stringify(meeting_types || []),
                 JSON.stringify(products_discussed || []),
-                JSON.stringify(plant_ids || []),
                 next_action || null,
                 next_action_date || null,
                 potential || 'Low',
