@@ -1160,6 +1160,10 @@ app.use('/api/pricing', pricingRouter);
 const rbacRouter = require('./routes/api/rbac');
 app.use('/api/rbac', rbacRouter);
 
+// Pipeline Management API (Sales pipeline, deals, forecasting)
+const pipelineRouter = require('./routes/api/pipeline');
+app.use('/api/pipeline', pipelineRouter);
+
 // FSM (Field Sales Management) API
 const fsmRouter = require('./routes/api/fsm');
 app.use('/api/fsm', fsmRouter);
