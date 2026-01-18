@@ -164,6 +164,21 @@ router.post('/rate-limit/check', async (req, res) => {
 // ===== API METRICS =====
 
 /**
+ * GET /api/performance/metrics
+ * Get metrics (alias for /metrics/api)
+ */
+router.get('/metrics', async (req, res) => {
+  try {
+    const { tenantId, startDate, endDate } = req.query;
+    const metrics = await PerformanceService.getAPIMetrics(tenantId, startDate, endDate);
+    res.json({ success: true, ...metrics });
+  } catch (error) {
+    console.error('Get metrics error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
  * POST /api/performance/metrics/track
  * Track API request
  */
@@ -195,6 +210,20 @@ router.get('/metrics/api', async (req, res) => {
 });
 
 // ===== HEALTH CHECKS =====
+
+/**
+ * GET /api/performance/health
+ * Quick health check (alias for /health/status)
+ */
+router.get('/health', async (req, res) => {
+  try {
+    const health = await PerformanceService.getSystemHealth();
+    res.json({ success: true, ...health });
+  } catch (error) {
+    console.error('Health check error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
 
 /**
  * POST /api/performance/health/check
