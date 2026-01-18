@@ -1168,6 +1168,10 @@ app.use('/api/pipeline', pipelineRouter);
 const aiIntelligenceRouter = require('./routes/api/ai-intelligence');
 app.use('/api/ai-intelligence', aiIntelligenceRouter);
 
+// Analytics & Reporting API (Dashboards, KPIs, reports, insights)
+const analyticsRouter = require('./routes/api/analytics');
+app.use('/api/analytics', analyticsRouter);
+
 // FSM (Field Sales Management) API
 const fsmRouter = require('./routes/api/fsm');
 app.use('/api/fsm', fsmRouter);
