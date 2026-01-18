@@ -91,7 +91,7 @@ class PerformanceService {
   /**
    * Set cache entry
    */
-  static setCache(key, value, options = {}) {
+  static async setCache(key, value, options = {}) {
     const {
       ttl = 3600,
       type = 'query_result',
