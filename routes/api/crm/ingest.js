@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 
-const { supabase } = require('../../../services/config');
+const { dbClient: supabase } = require('../../../services/config');
 const { requireCrmAuth } = require('../../../middleware/crmAuth');
 const { requireCrmFeature } = require('../../../middleware/requireCrmFeature');
 const { CRM_FEATURES } = require('../../../services/crmFeatureFlags');

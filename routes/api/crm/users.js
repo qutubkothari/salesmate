@@ -2,7 +2,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const router = express.Router();
 
-const { supabase } = require('../../../services/config');
+const { dbClient: supabase } = require('../../../services/config');
 const { requireCrmAuth, requireRole } = require('../../../middleware/crmAuth');
 const { requireCrmFeature } = require('../../../middleware/requireCrmFeature');
 const { CRM_FEATURES } = require('../../../services/crmFeatureFlags');
