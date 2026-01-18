@@ -170,7 +170,7 @@ router.post('/rate-limit/check', async (req, res) => {
 router.get('/metrics', async (req, res) => {
   try {
     const { tenantId, startDate, endDate } = req.query;
-    const metrics = PerformanceService.getAPIMetrics(tenantId, startDate, endDate);
+    const metrics = PerformanceService.getApiMetrics(startDate, endDate);
     res.json({ success: true, ...metrics });
   } catch (error) {
     console.error('Get metrics error:', error);
