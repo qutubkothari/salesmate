@@ -5,6 +5,9 @@
 
 const crypto = require('crypto');
 const { db } = require('./config');
+const redisService = require('./redis-service');
+
+let useRedis = false;
 
 class PerformanceService {
   
@@ -12,13 +15,40 @@ class PerformanceService {
   static memoryCache = new Map();
   static cacheStats = { hits: 0, misses: 0 };
   
+  /**
+   * Initialize Redis cache (call on server startup)
+   */
+  static async initializeCache() {
+    try {
+      await redisService.connect();
+      useRedis = true;
+      console.log('✅ Redis cache initialized');
+    } catch (error) {
+      console.warn('⚠️ Redis not available, using memory/DB cache:', error.message);
+      useRedis = false;
+    }
+  }
+  
   // ===== CACHING =====
   
   /**
-   * Get from cache (checks memory first, then DB)
+   * Get from cache (checks Redis -> memory -> DB)
    */
-  static getCache(key) {
-    // Check memory cache first
+  static async getCache(key) {
+    // Check Redis first (if enabled)
+    if (useRedis) {
+      try {
+        const redisValue = await redisService.get(key);
+        if (redisValue !== null) {
+          this.cacheStats.hits++;
+          return redisValue;
+        }
+      } catch (error) {
+        console.warn('Redis get error:', error.message);
+      }
+    }
+    
+    // Check memory cache
     if (this.memoryCache.has(key)) {
       const entry = this.memoryCache.get(key);
       if (new Date(entry.expires_at) > new Date()) {
@@ -93,6 +123,15 @@ class PerformanceService {
       `).run(id, key, serialized, type, ttl, expiresAt, sizeBytes, priority, canEvict ? 1 : 0);
     }
     
+    // Store in Redis (if enabled)
+    if (useRedis) {
+      try {
+        await redisService.set(key, value, ttl);
+      } catch (error) {
+        console.warn('Redis set error:', error.message);
+      }
+    }
+    
     // Store in memory cache
     this.memoryCache.set(key, {
       cache_value: serialized,
@@ -108,7 +147,16 @@ class PerformanceService {
   /**
    * Invalidate cache by key or pattern
    */
-  static invalidateCache(keyOrPattern) {
+  static async invalidateCache(keyOrPattern) {
+    // Clear from Redis (if enabled)
+    if (useRedis) {
+      try {
+        await redisService.delete(keyOrPattern);
+      } catch (error) {
+        console.warn('Redis delete error:', error.message);
+      }
+    }
+    
     if (keyOrPattern.includes('*')) {
       // Pattern matching
       const pattern = keyOrPattern.replace(/\*/g, '%');
@@ -166,7 +214,7 @@ class PerformanceService {
   /**
    * Get cache statistics
    */
-  static getCacheStats() {
+  static async getCacheStats() {
     const dbStats = db.prepare(`
       SELECT 
         COUNT(*) as total_entries,
@@ -181,7 +229,7 @@ class PerformanceService {
       ? (this.cacheStats.hits / (this.cacheStats.hits + this.cacheStats.misses) * 100).toFixed(2)
       : 0;
     
-    return {
+    const stats = {
       memory: {
         entries: this.memoryCache.size,
         hits: this.cacheStats.hits,
@@ -190,6 +238,17 @@ class PerformanceService {
       },
       database: dbStats
     };
+    
+    // Add Redis stats if enabled
+    if (useRedis) {
+      try {
+        stats.redis = await redisService.getStats();
+      } catch (error) {
+        stats.redis = { error: error.message };
+      }
+    }
+    
+    return stats;
   }
   
   // ===== QUERY PERFORMANCE =====

@@ -2451,6 +2451,16 @@ app.use((err, req, res, next) => {
 const server = app.listen(PORT, async () => {
     console.log(`Server listening on port ${PORT}`);
     
+    // Initialize Redis cache
+    try {
+        const PerformanceService = require('./services/performance-service');
+        console.log('[STARTUP] Initializing Redis cache...');
+        await PerformanceService.initializeCache();
+        console.log('[STARTUP] Redis cache initialization complete');
+    } catch (error) {
+        console.error('[STARTUP] Redis cache initialization failed:', error.message);
+    }
+    
     // Auto-initialize WhatsApp Web clients for connected tenants
     try {
         const { autoInitializeConnectedClients } = require('./services/whatsappWebService');

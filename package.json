@@ -39,6 +39,7 @@
     "puppeteer": "^24.30.0",
     "puppeteer18": "npm:puppeteer@18.2.1",
     "qrcode": "^1.5.4",
+    "redis": "^5.10.0",
     "whatsapp-web.js": "^1.34.2",
     "xlsx": "^0.18.5"
   }

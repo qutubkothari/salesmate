@@ -15,7 +15,7 @@ const PerformanceService = require('../../services/performance-service');
  */
 router.get('/cache/stats', async (req, res) => {
   try {
-    const stats = PerformanceService.getCacheStats();
+    const stats = await PerformanceService.getCacheStats();
     res.json({ success: true, ...stats });
   } catch (error) {
     console.error('Get cache stats error:', error);
@@ -29,7 +29,7 @@ router.get('/cache/stats', async (req, res) => {
  */
 router.get('/cache/:key', async (req, res) => {
   try {
-    const value = PerformanceService.getCache(req.params.key);
+    const value = await PerformanceService.getCache(req.params.key);
     
     if (value === null) {
       return res.status(404).json({ success: false, message: 'Cache miss' });
@@ -50,7 +50,7 @@ router.post('/cache', async (req, res) => {
   try {
     const { key, value, ttl, type, priority, canEvict } = req.body;
     
-    PerformanceService.setCache(key, value, { ttl, type, priority, canEvict });
+    await PerformanceService.setCache(key, value, { ttl, type, priority, canEvict });
     
     res.json({ success: true, message: 'Cache set successfully' });
   } catch (error) {
@@ -79,7 +79,7 @@ router.post('/cache/evict', async (req, res) => {
  */
 router.delete('/cache/:keyOrPattern', async (req, res) => {
   try {
-    PerformanceService.invalidateCache(req.params.keyOrPattern);
+    await PerformanceService.invalidateCache(req.params.keyOrPattern);
     res.json({ success: true, message: 'Cache invalidated' });
   } catch (error) {
     console.error('Invalidate cache error:', error);
