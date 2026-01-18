@@ -1152,6 +1152,10 @@ app.use('/api/broadcast', broadcastRouter);
 const adminRouter = require('./routes/api/admin');
 app.use('/api/admin', adminRouter);
 
+// Pricing Engine API (Enterprise pricing, tiers, discounts, promotions)
+const pricingRouter = require('./routes/api/pricing');
+app.use('/api/pricing', pricingRouter);
+
 // FSM (Field Sales Management) API
 const fsmRouter = require('./routes/api/fsm');
 app.use('/api/fsm', fsmRouter);
