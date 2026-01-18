@@ -603,9 +603,6 @@
                     <div class="card">
                         <div class="card-header">
                             <h3 class="card-title">All Visits</h3>
-                            <button class="btn btn-primary" onclick="scheduleVisit()">
-                                <i class="fas fa-plus"></i> Schedule Visit
-                            </button>
                         </div>
                         <table class="table">
                             <thead>
@@ -952,6 +949,33 @@
             </div>
             
             <form id="newVisitForm" onsubmit="event.preventDefault(); submitNewVisit();" style="padding:24px;">
+                <!-- Visit Type Toggle -->
+                <div style="margin-bottom:24px; padding:16px; background:#f8f9fa; border-radius:8px;">
+                    <label style="display:block; margin-bottom:12px; color:#333; font-weight:600; font-size:14px;">Visit Type</label>
+                    <div style="display:flex; gap:12px;">
+                        <div class="radio-item selected" data-value="now" onclick="toggleVisitType('now')" style="flex:1; text-align:center;">
+                            <i class="fas fa-play-circle"></i> Start Visit Now
+                        </div>
+                        <div class="radio-item" data-value="later" onclick="toggleVisitType('later')" style="flex:1; text-align:center;">
+                            <i class="fas fa-calendar-plus"></i> Schedule for Later
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Scheduled Date/Time (shown only for 'later') -->
+                <div id="scheduledDateTime" style="display:none; margin-bottom:20px; padding:16px; background:#fff3cd; border-radius:8px; border:2px solid #ffc107;">
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                        <div>
+                            <label style="display:block; margin-bottom:8px; color:#333; font-weight:600; font-size:14px;">Visit Date <span style="color:#e74c3c;">*</span></label>
+                            <input type="date" id="scheduledDate" style="width:100%; padding:12px; border:2px solid #ffc107; border-radius:8px; font-size:14px;">
+                        </div>
+                        <div>
+                            <label style="display:block; margin-bottom:8px; color:#333; font-weight:600; font-size:14px;">Visit Time</label>
+                            <input type="time" id="scheduledTime" style="width:100%; padding:12px; border:2px solid #ffc107; border-radius:8px; font-size:14px;">
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Customer Name -->
                 <div style="margin-bottom:20px;">
                     <label style="display:block; margin-bottom:8px; color:#333; font-weight:600; font-size:14px;">Customer Name <span style="color:#e74c3c;">*</span></label>
@@ -1057,73 +1081,6 @@
                 <div style="display:flex; gap:12px; justify-content:flex-end;">
                     <button type="button" onclick="closeNewVisitModal()" style="padding:12px 24px; border:2px solid #e0e0e0; background:white; border-radius:8px; cursor:pointer; font-weight:600; color:#666;">Cancel</button>
                     <button type="submit" id="submitVisitBtn" style="padding:12px 24px; border:none; background:linear-gradient(135deg, #667eea 0%, #764ba2 100%); color:white; border-radius:8px; cursor:pointer; font-weight:600; box-shadow:0 4px 12px rgba(102,126,234,0.4);">📍 Submit Visit</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- Schedule Visit Modal -->
-    <div id="scheduleVisitModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.7); z-index:9999; overflow-y:auto; padding:20px;">
-        <div style="background:white; border-radius:16px; max-width:600px; width:100%; margin:0 auto; box-shadow:0 8px 32px rgba(0,0,0,0.2);">
-            <div style="background:linear-gradient(135deg, #4CAF50 0%, #45a049 100%); padding:20px; border-radius:16px 16px 0 0; color:white;">
-                <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <h2 style="margin:0; font-size:24px;">📅 Schedule Visit</h2>
-                    <button onclick="closeScheduleVisitModal()" style="background:rgba(255,255,255,0.2); border:none; width:36px; height:36px; border-radius:50%; font-size:24px; cursor:pointer; color:white;">&times;</button>
-                </div>
-                <div style="margin-top:10px; font-size:14px; opacity:0.9;">Plan a visit for later</div>
-            </div>
-            
-            <form id="scheduleVisitForm" onsubmit="event.preventDefault(); submitScheduleVisit();" style="padding:24px;">
-                <!-- Customer Name -->
-                <div style="margin-bottom:20px;">
-                    <label style="display:block; margin-bottom:8px; color:#333; font-weight:600; font-size:14px;">Customer Name <span style="color:#e74c3c;">*</span></label>
-                    <input type="text" id="scheduleCustomer" required list="scheduleCustomerList" placeholder="Enter or select customer" style="width:100%; padding:12px; border:2px solid #e0e0e0; border-radius:8px; font-size:14px; transition:border-color 0.3s;" onfocus="this.style.borderColor='#4CAF50'" onblur="this.style.borderColor='#e0e0e0'">
-                    <datalist id="scheduleCustomerList"></datalist>
-                </div>
-
-                <!-- Scheduled Date -->
-                <div style="margin-bottom:20px;">
-                    <label style="display:block; margin-bottom:8px; color:#333; font-weight:600; font-size:14px;">Visit Date <span style="color:#e74c3c;">*</span></label>
-                    <input type="date" id="scheduleDate" required style="width:100%; padding:12px; border:2px solid #e0e0e0; border-radius:8px; font-size:14px; transition:border-color 0.3s;" onfocus="this.style.borderColor='#4CAF50'" onblur="this.style.borderColor='#e0e0e0'">
-                </div>
-
-                <!-- Scheduled Time -->
-                <div style="margin-bottom:20px;">
-                    <label style="display:block; margin-bottom:8px; color:#333; font-weight:600; font-size:14px;">Visit Time</label>
-                    <input type="time" id="scheduleTime" style="width:100%; padding:12px; border:2px solid #e0e0e0; border-radius:8px; font-size:14px; transition:border-color 0.3s;" onfocus="this.style.borderColor='#4CAF50'" onblur="this.style.borderColor='#e0e0e0'">
-                </div>
-
-                <!-- Visit Purpose -->
-                <div style="margin-bottom:20px;">
-                    <label style="display:block; margin-bottom:8px; color:#333; font-weight:600; font-size:14px;">Visit Purpose <span style="color:#e74c3c;">*</span></label>
-                    <div id="schedulePurpose" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(140px, 1fr)); gap:8px;">
-                        <div class="checkbox-item" data-value="Introduction">Introduction</div>
-                        <div class="checkbox-item" data-value="Enquiry">Enquiry</div>
-                        <div class="checkbox-item" data-value="Demo">Demo</div>
-                        <div class="checkbox-item" data-value="Price Discussion">Price Discussion</div>
-                        <div class="checkbox-item" data-value="Order">Order</div>
-                        <div class="checkbox-item" data-value="Payment">Payment</div>
-                        <div class="checkbox-item" data-value="Follow-up">Follow-up</div>
-                        <div class="checkbox-item" data-value="Meeting">Meeting</div>
-                    </div>
-                </div>
-
-                <!-- Contact Person -->
-                <div style="margin-bottom:20px;">
-                    <label style="display:block; margin-bottom:8px; color:#333; font-weight:600; font-size:14px;">Contact Person</label>
-                    <input type="text" id="scheduleContact" placeholder="Enter contact person name" style="width:100%; padding:12px; border:2px solid #e0e0e0; border-radius:8px; font-size:14px; transition:border-color 0.3s;" onfocus="this.style.borderColor='#4CAF50'" onblur="this.style.borderColor='#e0e0e0'">
-                </div>
-
-                <!-- Notes -->
-                <div style="margin-bottom:24px;">
-                    <label style="display:block; margin-bottom:8px; color:#333; font-weight:600; font-size:14px;">Notes</label>
-                    <textarea id="scheduleNotes" rows="3" placeholder="Any additional notes..." style="width:100%; padding:12px; border:2px solid #e0e0e0; border-radius:8px; font-size:14px; resize:vertical;"></textarea>
-                </div>
-
-                <!-- Submit Buttons -->
-                <div style="display:flex; gap:12px; justify-content:flex-end;">
-                    <button type="button" onclick="closeScheduleVisitModal()" style="padding:12px 24px; border:2px solid #e0e0e0; background:white; border-radius:8px; cursor:pointer; font-weight:600; color:#666;">Cancel</button>
-                    <button type="submit" id="submitScheduleBtn" style="padding:12px 24px; border:none; background:linear-gradient(135deg, #4CAF50 0%, #45a049 100%); color:white; border-radius:8px; cursor:pointer; font-weight:600; box-shadow:0 4px 12px rgba(76,175,80,0.4);">📅 Schedule Visit</button>
                 </div>
             </form>
         </div>
@@ -1774,6 +1731,51 @@
             }
         }
 
+        function toggleVisitType(type) {
+            // Update radio selection
+            document.querySelectorAll('#newVisitForm .radio-item[data-value="now"], #newVisitForm .radio-item[data-value="later"]').forEach(item => {
+                item.classList.remove('selected');
+            });
+            event.target.classList.add('selected');
+
+            const scheduledSection = document.getElementById('scheduledDateTime');
+            const timerSection = document.getElementById('visitTimer');
+            const scheduledDateInput = document.getElementById('scheduledDate');
+            const scheduledTimeInput = document.getElementById('scheduledTime');
+
+            if (type === 'later') {
+                // Show scheduled date/time fields
+                scheduledSection.style.display = 'block';
+                scheduledDateInput.required = true;
+                
+                // Set minimum date to today
+                const today = new Date().toISOString().split('T')[0];
+                scheduledDateInput.min = today;
+                
+                // Set default to tomorrow
+                const tomorrow = new Date();
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                scheduledDateInput.value = tomorrow.toISOString().split('T')[0];
+                
+                // Hide/stop timer
+                if (timerSection) timerSection.style.display = 'none';
+                if (visitTimerInterval) {
+                    clearInterval(visitTimerInterval);
+                    visitTimerInterval = null;
+                }
+            } else {
+                // Hide scheduled fields
+                scheduledSection.style.display = 'none';
+                scheduledDateInput.required = false;
+                scheduledDateInput.value = '';
+                scheduledTimeInput.value = '';
+                
+                // Show/start timer
+                if (timerSection) timerSection.style.display = 'block';
+                startVisitTimer();
+            }
+        }
+
         let visitTimerInterval = null;
         let visitStartTime = null;
 
@@ -1835,6 +1837,7 @@
         }
 
         async function submitNewVisit() {
+            const visitType = document.querySelector('#newVisitForm .radio-item.selected[data-value]')?.dataset.value || 'now';
             const customerName = document.getElementById('newVisitCustomer').value.trim();
             const contactPerson = document.getElementById('newVisitContact').value.trim();
             const email = document.getElementById('newVisitEmail').value.trim();
@@ -1847,6 +1850,10 @@
             const competitorName = document.getElementById('competitorName').value.trim();
             const canBeSwitched = document.querySelector('#switchableGroup .radio-item.selected')?.dataset.value === 'yes';
             const remarks = document.getElementById('remarks').value.trim();
+            
+            // Get scheduled date/time if scheduling for later
+            const scheduledDate = document.getElementById('scheduledDate').value;
+            const scheduledTime = document.getElementById('scheduledTime').value;
 
             if (!customerName) {
                 alert('Please enter customer name');
@@ -1856,12 +1863,27 @@
                 alert('Please select at least one meeting type');
                 return;
             }
+            if (visitType === 'later' && !scheduledDate) {
+                alert('Please select a date for the scheduled visit');
+                return;
+            }
 
             const submitBtn = document.getElementById('submitVisitBtn');
             submitBtn.disabled = true;
             submitBtn.textContent = '📤 Submitting...';
 
             try {
+                let visitDateTime;
+                let isScheduled = visitType === 'later';
+                
+                if (isScheduled) {
+                    // Scheduled visit
+                    visitDateTime = scheduledTime ? `${scheduledDate}T${scheduledTime}:00` : `${scheduledDate}T09:00:00`;
+                } else {
+                    // Immediate visit
+                    visitDateTime = visitStartTime.toISOString();
+                }
+
                 const data = await apiFetch(`/api/fsm/salesman/${encodeURIComponent(salesmanId)}/visits?tenant_id=${encodeURIComponent(tenantId)}`, {
                     method: 'POST',
                     body: JSON.stringify({
@@ -1877,7 +1899,10 @@
                         competitor_name: competitorName,
                         can_be_switched: canBeSwitched,
                         remarks: remarks,
-                        time_in: visitStartTime.toISOString(),
+                        time_in: visitDateTime,
+                        visit_date: isScheduled ? scheduledDate : new Date().toISOString().split('T')[0],
+                        scheduled_time: isScheduled ? visitDateTime : null,
+                        is_scheduled: isScheduled,
                         gps_latitude: 0,
                         gps_longitude: 0
                     })
@@ -1885,7 +1910,7 @@
 
                 if (!data.success) throw new Error(data.error);
 
-                alert('✅ Visit submitted successfully!');
+                alert(isScheduled ? '✅ Visit scheduled successfully!' : '✅ Visit submitted successfully!');
                 closeNewVisitModal();
                 loadDashboard();
             } catch (error) {
@@ -1894,112 +1919,6 @@
                 submitBtn.textContent = '📍 Submit Visit';
             }
         }
-
-        // ========== SCHEDULE VISIT FUNCTIONS ==========
-        
-        async function scheduleVisit() {
-            try {
-                // Load customers
-                const data = await apiFetch(`/api/fsm/salesman/${encodeURIComponent(salesmanId)}/customers?tenant_id=${encodeURIComponent(tenantId)}`);
-                if (!data.success) throw new Error(data.error);
-                
-                const customers = data.data || [];
-                const customerList = document.getElementById('scheduleCustomerList');
-                customerList.innerHTML = customers.map(c => `<option value="${c.business_name || c.name}">`).join('');
-                
-                // Set default date to tomorrow
-                const tomorrow = new Date();
-                tomorrow.setDate(tomorrow.getDate() + 1);
-                document.getElementById('scheduleDate').value = tomorrow.toISOString().split('T')[0];
-                document.getElementById('scheduleDate').min = new Date().toISOString().split('T')[0];
-                
-                // Setup interactive elements for schedule purpose
-                setupScheduleCheckboxes();
-                
-                // Show modal
-                document.getElementById('scheduleVisitModal').style.display = 'block';
-            } catch (error) {
-                alert('Error loading customers: ' + error.message);
-            }
-        }
-
-        function setupScheduleCheckboxes() {
-            // Multi-select checkboxes for purpose
-            document.querySelectorAll('#schedulePurpose .checkbox-item').forEach(item => {
-                item.addEventListener('click', function() {
-                    this.classList.toggle('selected');
-                });
-            });
-        }
-
-        function closeScheduleVisitModal() {
-            document.getElementById('scheduleVisitModal').style.display = 'none';
-            document.getElementById('scheduleVisitForm').reset();
-            document.querySelectorAll('#schedulePurpose .checkbox-item').forEach(i => i.classList.remove('selected'));
-        }
-
-        async function submitScheduleVisit() {
-            const customerName = document.getElementById('scheduleCustomer').value.trim();
-            const visitDate = document.getElementById('scheduleDate').value;
-            const visitTime = document.getElementById('scheduleTime').value;
-            const purposes = Array.from(document.querySelectorAll('#schedulePurpose .checkbox-item.selected')).map(i => i.dataset.value);
-            const contactPerson = document.getElementById('scheduleContact').value.trim();
-            const notes = document.getElementById('scheduleNotes').value.trim();
-
-            if (!customerName) {
-                alert('Please enter customer name');
-                return;
-            }
-            if (!visitDate) {
-                alert('Please select visit date');
-                return;
-            }
-            if (purposes.length === 0) {
-                alert('Please select at least one visit purpose');
-                return;
-            }
-
-            const submitBtn = document.getElementById('submitScheduleBtn');
-            submitBtn.disabled = true;
-            submitBtn.textContent = '📤 Scheduling...';
-
-            try {
-                // Combine date and time
-                let scheduledDateTime = visitDate;
-                if (visitTime) {
-                    scheduledDateTime = `${visitDate}T${visitTime}:00`;
-                } else {
-                    scheduledDateTime = `${visitDate}T09:00:00`; // Default to 9 AM
-                }
-
-                const data = await apiFetch(`/api/fsm/salesman/${encodeURIComponent(salesmanId)}/visits?tenant_id=${encodeURIComponent(tenantId)}`, {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        customer_name: customerName,
-                        contact_person: contactPerson,
-                        meeting_types: purposes,
-                        remarks: notes,
-                        visit_date: visitDate,
-                        scheduled_time: scheduledDateTime,
-                        is_scheduled: true,
-                        gps_latitude: 0,
-                        gps_longitude: 0
-                    })
-                });
-
-                if (!data.success) throw new Error(data.error);
-
-                alert('✅ Visit scheduled successfully!');
-                closeScheduleVisitModal();
-                loadDashboard();
-            } catch (error) {
-                alert('Error scheduling visit: ' + error.message);
-                submitBtn.disabled = false;
-                submitBtn.textContent = '📅 Schedule Visit';
-            }
-        }
-
-        // ========== END SCHEDULE VISIT FUNCTIONS ==========
 
         let notificationsTimer = null;
 
