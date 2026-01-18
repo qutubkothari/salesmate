@@ -170,7 +170,7 @@ router.post('/rate-limit/check', async (req, res) => {
 router.get('/metrics', async (req, res) => {
   try {
     const { tenantId, startDate, endDate } = req.query;
-    const metrics = await PerformanceService.getAPIMetrics(tenantId, startDate, endDate);
+    const metrics = PerformanceService.getAPIMetrics(tenantId, startDate, endDate);
     res.json({ success: true, ...metrics });
   } catch (error) {
     console.error('Get metrics error:', error);
@@ -217,8 +217,28 @@ router.get('/metrics/api', async (req, res) => {
  */
 router.get('/health', async (req, res) => {
   try {
-    const health = await PerformanceService.getSystemHealth();
-    res.json({ success: true, ...health });
+    const health = await PerformanceService.getHealthStatus();
+    const uptime = process.uptime();
+    const memory = process.memoryUsage();
+    
+    // Add quick database check
+    const Database = require('better-sqlite3');
+    const dbPath = process.env.DB_PATH || './local-database.db';
+    const testDb = new Database(dbPath);
+    const dbStatus = testDb.prepare('SELECT 1 as test').get() ? 'connected' : 'disconnected';
+    testDb.close();
+    
+    res.json({ 
+      success: true, 
+      status: health.overall,
+      uptime: Math.round(uptime),
+      database: { status: dbStatus },
+      memory: {
+        used: Math.round(memory.heapUsed / 1024 / 1024),
+        total: Math.round(memory.heapTotal / 1024 / 1024)
+      },
+      checks: health.checks
+    });
   } catch (error) {
     console.error('Health check error:', error);
     res.status(500).json({ success: false, error: error.message });
