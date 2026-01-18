@@ -1853,7 +1853,88 @@
         }
 
         function viewVisit(id) {
-            alert('Visit details coming soon! ID: ' + id);
+            // Find the visit in our data
+            const visit = allVisitsData.find(v => v.id === id);
+            
+            if (!visit) {
+                alert('Visit not found');
+                return;
+            }
+
+            const modal = document.getElementById('visitDetailModal');
+            const content = document.getElementById('visitDetailContent');
+            
+            const duration = visit.checkout_time && visit.checkin_time 
+                ? Math.round((new Date(visit.checkout_time) - new Date(visit.checkin_time)) / 60000)
+                : 0;
+            
+            let statusBadge = 'background:#ffc107; color:#000';
+            if (visit.status === 'completed') statusBadge = 'background:#48bb78; color:white';
+            else if (visit.status === 'cancelled') statusBadge = 'background:#f56565; color:white';
+
+            content.innerHTML = `
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
+                    <div style="background:#f7fafc; padding:15px; border-radius:8px;">
+                        <div style="color:#718096; font-size:12px; margin-bottom:5px;">CUSTOMER</div>
+                        <div style="font-size:18px; font-weight:600; color:#2d3748;">${visit.customer_name || 'Unknown'}</div>
+                    </div>
+                    <div style="background:#f7fafc; padding:15px; border-radius:8px;">
+                        <div style="color:#718096; font-size:12px; margin-bottom:5px;">STATUS</div>
+                        <span style="padding:6px 12px; border-radius:20px; font-size:14px; font-weight:600; ${statusBadge}">
+                            ${visit.status || 'Pending'}
+                        </span>
+                    </div>
+                    <div style="background:#f7fafc; padding:15px; border-radius:8px;">
+                        <div style="color:#718096; font-size:12px; margin-bottom:5px;">VISIT TYPE</div>
+                        <div style="font-size:16px; font-weight:500; color:#2d3748;">${visit.visit_type || 'Regular'}</div>
+                    </div>
+                    <div style="background:#f7fafc; padding:15px; border-radius:8px;">
+                        <div style="color:#718096; font-size:12px; margin-bottom:5px;">DATE</div>
+                        <div style="font-size:16px; font-weight:500; color:#2d3748;">${new Date(visit.created_at).toLocaleString()}</div>
+                    </div>
+                    ${visit.checkin_time ? `
+                    <div style="background:#f7fafc; padding:15px; border-radius:8px;">
+                        <div style="color:#718096; font-size:12px; margin-bottom:5px;">CHECK-IN</div>
+                        <div style="font-size:16px; font-weight:500; color:#2d3748;">${new Date(visit.checkin_time).toLocaleTimeString()}</div>
+                    </div>
+                    ` : ''}
+                    ${visit.checkout_time ? `
+                    <div style="background:#f7fafc; padding:15px; border-radius:8px;">
+                        <div style="color:#718096; font-size:12px; margin-bottom:5px;">CHECK-OUT</div>
+                        <div style="font-size:16px; font-weight:500; color:#2d3748;">${new Date(visit.checkout_time).toLocaleTimeString()}</div>
+                    </div>
+                    ` : ''}
+                    ${duration > 0 ? `
+                    <div style="background:#f7fafc; padding:15px; border-radius:8px;">
+                        <div style="color:#718096; font-size:12px; margin-bottom:5px;">DURATION</div>
+                        <div style="font-size:16px; font-weight:500; color:#2d3748;">${duration} minutes</div>
+                    </div>
+                    ` : ''}
+                </div>
+                ${visit.notes ? `
+                <div style="margin-top:20px; background:#f7fafc; padding:15px; border-radius:8px;">
+                    <div style="color:#718096; font-size:12px; margin-bottom:8px;">NOTES</div>
+                    <div style="color:#2d3748; line-height:1.6;">${visit.notes}</div>
+                </div>
+                ` : ''}
+                ${visit.purpose ? `
+                <div style="margin-top:20px; background:#f7fafc; padding:15px; border-radius:8px;">
+                    <div style="color:#718096; font-size:12px; margin-bottom:8px;">PURPOSE</div>
+                    <div style="color:#2d3748; line-height:1.6;">${visit.purpose}</div>
+                </div>
+                ` : ''}
+                <div style="margin-top:20px; padding-top:20px; border-top:1px solid #e2e8f0; display:flex; gap:10px; justify-content:flex-end;">
+                    <button onclick="closeVisitModal()" style="padding:10px 20px; background:#e2e8f0; border:none; border-radius:8px; cursor:pointer; font-weight:600; transition:background 0.3s;" onmouseover="this.style.background='#cbd5e0'" onmouseout="this.style.background='#e2e8f0'">
+                        Close
+                    </button>
+                </div>
+            `;
+            
+            modal.style.display = 'block';
+        }
+
+        function closeVisitModal() {
+            document.getElementById('visitDetailModal').style.display = 'none';
         }
 
         function viewCustomer(id) {
@@ -3004,6 +3085,42 @@
 
         // Auto-refresh every 30 seconds
         setInterval(loadDashboard, 30000);
+
+        // Close modal on outside click
+        window.onclick = function(event) {
+            const modal = document.getElementById('visitDetailModal');
+            if (event.target == modal) {
+                closeVisitModal();
+            }
+        }
     </script>
+
+    <!-- Visit Detail Modal -->
+    <div id="visitDetailModal" style="display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; overflow:auto; background-color:rgba(0,0,0,0.5);">
+        <div style="background-color:#fff; margin:5% auto; padding:0; border-radius:12px; width:90%; max-width:800px; box-shadow:0 4px 20px rgba(0,0,0,0.15); animation:slideDown 0.3s;">
+            <div style="background:linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding:20px; border-radius:12px 12px 0 0; color:white; display:flex; justify-content:space-between; align-items:center;">
+                <h2 style="margin:0; font-size:24px;"><i class="fas fa-calendar-check"></i> Visit Details</h2>
+                <button onclick="closeVisitModal()" style="background:rgba(255,255,255,0.2); border:none; color:white; font-size:24px; cursor:pointer; width:35px; height:35px; border-radius:50%; display:flex; align-items:center; justify-content:center; transition:background 0.3s;" onmouseover="this.style.background='rgba(255,255,255,0.3)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div id="visitDetailContent" style="padding:25px; max-height:500px; overflow-y:auto;">
+                <!-- Content will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <style>
+        @keyframes slideDown {
+            from {
+                transform: translateY(-50px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+    </style>
 </body>
 </html>
