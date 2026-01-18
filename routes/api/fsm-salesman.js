@@ -1199,9 +1199,10 @@ router.get('/salesman/:id/analytics/performance', authenticateSalesman, (req, re
             );
             visits.push(dayVisits?.count || 0);
 
+            // Use visits with potential='High' as proxy for orders since orders table doesn't exist
             const dayOrders = dbGet(
-                `SELECT COUNT(*) as count FROM orders 
-                 WHERE salesman_id = ? AND tenant_id = ? AND DATE(created_at) = ?`,
+                `SELECT COUNT(*) as count FROM visits 
+                 WHERE salesman_id = ? AND tenant_id = ? AND DATE(created_at) = ? AND potential = 'High'`,
                 [id, tenantId, dateStr]
             );
             orders.push(dayOrders?.count || 0);
@@ -1244,9 +1245,10 @@ router.get('/salesman/:id/analytics/funnel', authenticateSalesman, (req, res) =>
             [id, tenantId, monthStart]
         );
 
-        const orders = dbGet(
-            `SELECT COUNT(*) as count FROM orders 
-             WHERE salesman_id = ? AND tenant_id = ? AND created_at >= ?`,
+        // Use visits with potential='High' as proxy for orders
+        const ordersCount = dbGet(
+            `SELECT COUNT(*) as count FROM visits 
+             WHERE salesman_id = ? AND tenant_id = ? AND created_at >= ? AND potential = 'High'`,
             [id, tenantId, monthStart]
         );
 
@@ -1256,7 +1258,7 @@ router.get('/salesman/:id/analytics/funnel', authenticateSalesman, (req, res) =>
                 visits: visits?.count || 0,
                 engaged: engaged?.count || Math.floor((visits?.count || 0) * 0.75),
                 quoted: quoted?.count || Math.floor((visits?.count || 0) * 0.5),
-                orders: orders?.count || Math.floor((visits?.count || 0) * 0.3)
+                orders: ordersCount?.count || Math.floor((visits?.count || 0) * 0.3)
             }
         });
     } catch (error) {
@@ -1274,17 +1276,18 @@ router.get('/analytics/leaderboard', authenticateSalesman, (req, res) => {
         const salesmen = dbAll(
             `SELECT s.id, s.name,
                     (SELECT COUNT(*) FROM visits WHERE salesman_id = s.id AND tenant_id = ? AND created_at >= ?) as visits,
-                    (SELECT COUNT(*) FROM orders WHERE salesman_id = s.id AND tenant_id = ? AND created_at >= ?) as orders,
-                    (SELECT COALESCE(SUM(total_amount), 0) FROM orders WHERE salesman_id = s.id AND tenant_id = ? AND created_at >= ?) as revenue
+                    (SELECT COUNT(*) FROM visits WHERE salesman_id = s.id AND tenant_id = ? AND created_at >= ? AND potential = 'High') as orders
              FROM salesmen s
              WHERE s.tenant_id = ? AND s.is_active = 1
-             ORDER BY revenue DESC, orders DESC, visits DESC
+             ORDER BY orders DESC, visits DESC
              LIMIT 10`,
-            [tenantId, monthStart, tenantId, monthStart, tenantId, monthStart, tenantId]
+            [tenantId, monthStart, tenantId, monthStart, tenantId]
         );
 
+        // Estimate revenue based on high potential visits
         const leaderboard = salesmen.map(s => ({
             ...s,
+            revenue: (s.orders || 0) * 15000, // Estimated avg order value
             conversion: s.visits > 0 ? Math.round((s.orders / s.visits) * 100) : 0
         }));
 
@@ -1301,12 +1304,12 @@ router.get('/salesman/:id/ai/recommendations', authenticateSalesman, (req, res) 
         const { id } = req.params;
         const tenantId = getTenantId(req);
 
-        // Get customers sorted by priority score
+        // Get customers sorted by priority score (using visits data since orders table doesn't exist)
         const customers = dbAll(
             `SELECT c.*, 
                     (SELECT MAX(created_at) FROM visits WHERE customer_name = c.business_name AND salesman_id = ?) as last_visit,
-                    (SELECT COUNT(*) FROM orders WHERE customer_id = c.id) as order_count,
-                    (SELECT COALESCE(SUM(total_amount), 0) FROM orders WHERE customer_id = c.id) as total_spent
+                    (SELECT COUNT(*) FROM visits WHERE customer_name = c.business_name AND potential = 'High') as order_count,
+                    (SELECT COUNT(*) * 15000 FROM visits WHERE customer_name = c.business_name AND potential = 'High') as total_spent
              FROM customer_profiles_new c
              WHERE c.tenant_id = ?
              ORDER BY last_visit ASC NULLS FIRST, total_spent DESC
@@ -1415,26 +1418,25 @@ router.get('/salesman/:id/ai/alerts', authenticateSalesman, (req, res) => {
             });
         });
 
-        // Check for order value drops (simplified)
-        const orderDrops = dbAll(
+        // Check for engagement drops (using visits since orders table doesn't exist)
+        const engagementDrops = dbAll(
             `SELECT customer_name,
-                    (SELECT COALESCE(AVG(total_amount), 0) FROM orders WHERE customer_name = v.customer_name AND created_at < date('now', '-30 days')) as prev_avg,
-                    (SELECT COALESCE(AVG(total_amount), 0) FROM orders WHERE customer_name = v.customer_name AND created_at >= date('now', '-30 days')) as current_avg
+                    (SELECT COUNT(*) FROM visits v2 WHERE v2.customer_name = v.customer_name AND v2.created_at < date('now', '-30 days')) as prev_visits,
+                    (SELECT COUNT(*) FROM visits v2 WHERE v2.customer_name = v.customer_name AND v2.created_at >= date('now', '-30 days')) as current_visits
              FROM visits v
              WHERE salesman_id = ? AND tenant_id = ?
              GROUP BY customer_name
-             HAVING prev_avg > 0 AND current_avg < prev_avg * 0.6
+             HAVING prev_visits > 2 AND current_visits = 0
              LIMIT 3`,
             [id, tenantId]
         );
 
-        orderDrops.forEach(o => {
-            const dropPercent = Math.round((1 - o.current_avg / o.prev_avg) * 100);
+        engagementDrops.forEach(o => {
             alerts.push({
                 type: 'danger',
                 icon: 'arrow-down',
-                message: `${o.customer_name} order value dropped ${dropPercent}%`,
-                action: 'Review',
+                message: `${o.customer_name} hasn't been visited this month (${o.prev_visits} visits last month)`,
+                action: 'Visit Now',
                 customer: o.customer_name
             });
         });
@@ -1452,14 +1454,12 @@ router.get('/salesman/:id/ai/cross-sell', authenticateSalesman, (req, res) => {
         const { id } = req.params;
         const tenantId = getTenantId(req);
 
-        // Get recent orders with products
-        const recentOrders = dbAll(
-            `SELECT o.customer_name, oi.product_id, p.name as product_name
-             FROM orders o
-             JOIN order_items oi ON o.id = oi.order_id
-             LEFT JOIN products p ON oi.product_id = p.id
-             WHERE o.salesman_id = ? AND o.tenant_id = ?
-             ORDER BY o.created_at DESC
+        // Get recent visits with products discussed (using visits since orders table doesn't exist)
+        const recentVisits = dbAll(
+            `SELECT v.customer_name, v.products_discussed
+             FROM visits v
+             WHERE v.salesman_id = ? AND v.tenant_id = ? AND v.products_discussed IS NOT NULL
+             ORDER BY v.created_at DESC
              LIMIT 50`,
             [id, tenantId]
         );
@@ -1476,19 +1476,33 @@ router.get('/salesman/:id/ai/cross-sell', authenticateSalesman, (req, res) => {
         const opportunities = [];
         const seen = new Set();
 
-        recentOrders.forEach(order => {
-            if (!order.product_name || seen.has(order.customer_name)) return;
+        // Parse products discussed from visit data
+        recentVisits.forEach(visit => {
+            if (!visit.products_discussed || seen.has(visit.customer_name)) return;
             
-            const crossSell = crossSellMap[order.product_name];
-            if (crossSell) {
-                seen.add(order.customer_name);
-                opportunities.push({
-                    customer: order.customer_name,
-                    currentProduct: order.product_name,
-                    suggestedProduct: crossSell.suggest,
-                    reason: crossSell.reason,
-                    potential: '₹' + (Math.floor(Math.random() * 20) + 5) + ',000'
-                });
+            // products_discussed can be JSON array or comma-separated
+            let products = [];
+            try {
+                products = JSON.parse(visit.products_discussed);
+            } catch {
+                products = visit.products_discussed.split(',').map(p => p.trim());
+            }
+
+            for (const productName of products) {
+                const crossSell = Object.entries(crossSellMap).find(([key]) => 
+                    productName.toLowerCase().includes(key.toLowerCase())
+                );
+                if (crossSell) {
+                    seen.add(visit.customer_name);
+                    opportunities.push({
+                        customer: visit.customer_name,
+                        currentProduct: productName,
+                        suggestedProduct: crossSell[1].suggest,
+                        reason: crossSell[1].reason,
+                        potential: '₹' + (Math.floor(Math.random() * 20) + 5) + ',000'
+                    });
+                    break;
+                }
             }
         });
 
@@ -1548,7 +1562,7 @@ router.get('/salesman/:id/customers/locations', authenticateSalesman, (req, res)
         const locations = dbAll(
             `SELECT cl.latitude, cl.longitude, c.business_name,
                     (SELECT COUNT(*) FROM visits WHERE customer_name = c.business_name) as visit_count,
-                    (SELECT COALESCE(SUM(total_amount), 0) FROM orders WHERE customer_id = c.id) as revenue
+                    (SELECT COUNT(*) * 15000 FROM visits WHERE customer_name = c.business_name AND potential = 'High') as revenue
              FROM customer_locations cl
              JOIN customer_profiles_new c ON cl.customer_id = c.id
              WHERE c.tenant_id = ? AND cl.latitude IS NOT NULL AND cl.longitude IS NOT NULL`,
@@ -1576,11 +1590,11 @@ router.post('/salesman/:id/ai/auto-schedule', authenticateSalesman, (req, res) =
         const { id } = req.params;
         const tenantId = getTenantId(req);
 
-        // Get top priority customers
+        // Get top priority customers (using visits since orders table doesn't exist)
         const customers = dbAll(
             `SELECT c.business_name, c.phone, cl.latitude, cl.longitude,
                     (SELECT MAX(created_at) FROM visits WHERE customer_name = c.business_name) as last_visit,
-                    (SELECT COALESCE(SUM(total_amount), 0) FROM orders WHERE customer_id = c.id) as total_spent
+                    (SELECT COUNT(*) * 15000 FROM visits WHERE customer_name = c.business_name AND potential = 'High') as total_spent
              FROM customer_profiles_new c
              LEFT JOIN customer_locations cl ON c.id = cl.customer_id
              WHERE c.tenant_id = ?
