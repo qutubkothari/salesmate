@@ -3,27 +3,18 @@
  * Sales forecasting, churn prediction, product recommendations
  */
 
-const brain = require('brain.js');
+// const brain = require('brain.js'); // Disabled for production - requires GPU.js
 const regression = require('regression');
 const stats = require('simple-statistics');
 const db = require('../database');
 
 class MLService {
   constructor() {
-    this.salesForecastNetwork = new brain.recurrent.LSTMTimeStep({
-      inputSize: 5,
-      hiddenLayers: [10, 10],
-      outputSize: 1
-    });
-    
-    this.churnPredictionNetwork = new brain.NeuralNetwork({
-      hiddenLayers: [8, 4],
-      activation: 'sigmoid'
-    });
-    
-    this.productRecommendationNetwork = new brain.NeuralNetwork({
-      hiddenLayers: [10, 6],
-    });
+    // Neural networks disabled for production (require GPU.js)
+    // Use statistical models instead
+    this.salesForecastNetwork = null;
+    this.churnPredictionNetwork = null;
+    this.productRecommendationNetwork = null;
     
     this.isTrainedForecast = false;
     this.isTrainedChurn = false;
@@ -58,12 +49,10 @@ class MLService {
       const maxRevenue = Math.max(...revenues);
       const normalizedData = revenues.map(r => r / maxRevenue);
 
-      // Train LSTM network
-      this.salesForecastNetwork.train([normalizedData], {
-        iterations: 1000,
-        errorThresh: 0.005,
-        log: false
-      });
+      // Use statistical model instead of neural network
+      this.forecastModel = regression.linear(
+        salesData.map((d, i) => [i, parseFloat(d.revenue) || 0])
+      );
       
       this.isTrainedForecast = true;
       this.maxRevenue = maxRevenue;
@@ -90,12 +79,16 @@ class MLService {
 
     try {
       const predictions = [];
-      for (let i = 0; i < days; i++) {
-        const normalized = this.salesForecastNetwork.forecast([0], 1);
-        const predicted = normalized[0] * this.maxRevenue;
+      const lastIndex = this.forecastModel ? this.forecastModel.points.length : 30;
+      
+      for (let i = 1; i <= days; i++) {
+        const predicted = this.forecastModel ? 
+          this.forecastModel.predict(lastIndex + i)[1] :
+          this.maxRevenue || 1000;
+        
         predictions.push({
-          day: i + 1,
-          predictedRevenue: Math.round(predicted * 100) / 100
+          day: i,
+          predictedRevenue: Math.round(Math.max(0, predicted) * 100) / 100
         });
       }
       
@@ -138,29 +131,24 @@ class MLService {
         const isChurned = (c.days_since_last_order || 365) > 90 ? 1 : 0;
         
         return {
-          input: {
-            orderCount: Math.min(c.order_count / 50, 1),
-            avgOrderValue: Math.min((c.avg_order_value || 0) / 10000, 1),
-            daysSinceLastOrder: Math.min((c.days_since_last_order || 365) / 365, 1),
-            customerAge: Math.min((c.customer_age_days || 1) / 365, 1),
-            visitCount: Math.min((c.visit_count || 0) / 20, 1)
-          },
-          output: { churned: isChurned }
+          orderCount: c.order_count,
+          avgOrderValue: c.avg_order_value || 0,
+          daysSinceLastOrder: c.days_since_last_order || 365,
+          customerAge: c.customer_age_days || 1,
+          visitCount: c.visit_count || 0,
+          isChurned
         };
       });
 
-      this.churnPredictionNetwork.train(trainingData, {
-        iterations: 2000,
-        errorThresh: 0.005,
-        log: false
-      });
+      // Store training data for statistical predictions
+      this.churnTrainingData = trainingData;
       
       this.isTrainedChurn = true;
       
       return { 
         success: true, 
         customersAnalyzed: customers.length,
-        churnRate: trainingData.filter(d => d.output.churned === 1).length / customers.length
+        churnRate: trainingData.filter(d => d.isChurned === 1).length / customers.length
       };
     } catch (error) {
       console.error('Churn prediction training error:', error);
@@ -201,16 +189,20 @@ class MLService {
         return { success: false, message: 'Customer not found' };
       }
 
-      const input = {
-        orderCount: Math.min((customer.order_count || 0) / 50, 1),
-        avgOrderValue: Math.min((customer.avg_order_value || 0) / 10000, 1),
-        daysSinceLastOrder: Math.min((customer.days_since_last_order || 365) / 365, 1),
-        customerAge: Math.min((customer.customer_age_days || 1) / 365, 1),
-        visitCount: Math.min((customer.visit_count || 0) / 20, 1)
-      };
-
-      const output = this.churnPredictionNetwork.run(input);
-      const churnProbability = output.churned || 0;
+      // Simple statistical churn prediction
+      const daysSince = customer.days_since_last_order || 365;
+      const orderCount = customer.order_count || 0;
+      
+      // Churn probability based on rules
+      let churnProbability = 0;
+      if (daysSince > 180) churnProbability += 0.5;
+      else if (daysSince > 90) churnProbability += 0.3;
+      else if (daysSince > 60) churnProbability += 0.1;
+      
+      if (orderCount < 2) churnProbability += 0.3;
+      else if (orderCount < 5) churnProbability += 0.1;
+      
+      churnProbability = Math.min(1, churnProbability);
       
       return { 
         success: true,
