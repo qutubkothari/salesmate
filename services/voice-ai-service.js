@@ -5,7 +5,7 @@
  */
 
 const crypto = require('crypto');
-const db = require('../database');
+const { db } = require('./config');
 const aiService = require('./ai-service');
 
 class VoiceAIService {

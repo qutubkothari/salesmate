@@ -5,7 +5,7 @@
 
 const { ethers } = require('ethers');
 const crypto = require('crypto');
-const db = require('../database');
+const { db } = require('./config');
 
 class BlockchainService {
   constructor() {

@@ -4,7 +4,7 @@
  * Note: Requires Google Cloud Translation API credentials
  */
 
-const db = require('../database');
+const { db } = require('./config');
 
 class TranslationService {
   constructor() {

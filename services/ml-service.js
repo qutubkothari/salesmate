@@ -6,7 +6,7 @@
 // const brain = require('brain.js'); // Disabled for production - requires GPU.js
 const regression = require('regression');
 const stats = require('simple-statistics');
-const db = require('../database');
+const { db } = require('./config');
 
 class MLService {
   constructor() {
