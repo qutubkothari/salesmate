@@ -672,6 +672,13 @@ app.post('/api/waha/send-message', async (req, res) => {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
+    const { toWhatsAppFormat, normalizePhone } = require('./services/phoneUtils');
+    const normalizedPhone = normalizePhone(phone);
+    const chatId = toWhatsAppFormat(phone);
+    if (!chatId) {
+      return res.status(400).json({ error: 'Invalid phone number' });
+    }
+
     // Global opt-out enforcement
     try {
       const { isUnsubscribed, toDigits } = require('./services/unsubscribeService');
@@ -689,16 +696,65 @@ app.post('/api/waha/send-message', async (req, res) => {
 
     console.log(`[WAHA] Sending message via ${sessionName} to ${phone}`);
     
-    const response = await wahaRequest('POST', '/api/sendText', {
-      session: sessionName,
-      chatId: `${phone}@c.us`,
-      text: message
-    });
+    try {
+      const response = await wahaRequest('POST', '/api/sendText', {
+        session: sessionName,
+        chatId,
+        text: message
+      });
 
-    res.json({
-      ok: true,
-      messageId: response.data.id
-    });
+      return res.json({
+        ok: true,
+        messageId: response.data.id
+      });
+    } catch (error) {
+      const errorDetails = error.response?.data || error.message;
+      console.error('[WAHA] Send message error:', errorDetails);
+
+      const status = error?.response?.status;
+      const shouldFallback = !error?.response || [404, 502, 503].includes(status);
+      if (shouldFallback) {
+        try {
+          const { sendWebMessage, getClientStatus } = require('./services/whatsappWebService');
+          const { dbClient } = require('./services/config');
+
+          let tenantId = null;
+          if (typeof sessionName === 'string' && sessionName.startsWith('tenant_')) {
+            tenantId = sessionName.replace('tenant_', '');
+          } else {
+            const { data: conn } = await dbClient
+              .from('whatsapp_connections')
+              .select('tenant_id')
+              .eq('session_name', String(sessionName))
+              .single();
+            if (conn?.tenant_id) tenantId = conn.tenant_id;
+          }
+
+          if (!tenantId) {
+            throw new Error('Fallback failed: tenantId unresolved');
+          }
+
+          const statusInfo = getClientStatus(String(tenantId), sessionName);
+          if (statusInfo.status !== 'ready') {
+            throw new Error(`Fallback failed: WhatsApp Web status=${statusInfo.status}`);
+          }
+
+          const result = await sendWebMessage(String(tenantId), normalizedPhone || phone, message, sessionName);
+          return res.json({
+            ok: true,
+            messageId: result?.messageId || result?.message_id || ('waweb_' + Date.now()),
+            method: 'whatsapp_web_fallback'
+          });
+        } catch (fallbackError) {
+          console.error('[WAHA] Fallback send error:', fallbackError?.message || fallbackError);
+        }
+      }
+
+      return res.status(500).json({
+        error: 'Failed to send message',
+        details: errorDetails
+      });
+    }
 
   } catch (error) {
     console.error('[WAHA] Send message error:', error.response?.data || error.message);
@@ -1219,6 +1275,10 @@ app.use('/api/crm', crmRouter);
 // WhatsApp Web Standalone API (separate from existing Maytapi system)
 const whatsappWebRouter = require('./routes/api/whatsappWeb');
 app.use('/api/whatsapp-web', whatsappWebRouter);
+
+// Salesman WhatsApp Connection API
+const salesmanWhatsappRouter = require('./routes/api/salesmanWhatsapp');
+app.use('/api/salesman-whatsapp', salesmanWhatsappRouter);
 
 // Salesmate Intelligence Features
 const salesmenRouter = require('./routes/api/salesmen');

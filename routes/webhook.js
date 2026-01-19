@@ -481,6 +481,53 @@ Would you like to create one? Just send *"register"* to get started with your FR
           // Don't fail the webhook - continue processing
         }
 
+        // AUTO-CREATE LEAD: Convert WhatsApp message to lead
+        const { createLeadFromWhatsApp, autoAssignLead } = require('../services/leadAutoCreateService');
+        try {
+          // Determine if this is from a salesman's WhatsApp or central bot
+          let salesmanId = null;
+          const sessionName = req.whatsappSession || 'default';
+          
+          // Check if session is salesman-specific (format: salesman_{id})
+          const salesmanMatch = sessionName.match(/^salesman_(.+)$/);
+          if (salesmanMatch) {
+            salesmanId = salesmanMatch[1];
+            console.log('[WEBHOOK] Message from salesman WhatsApp:', salesmanId);
+          } else {
+            console.log('[WEBHOOK] Message from central bot WhatsApp');
+          }
+
+          // Auto-create/update lead
+          const leadResult = await createLeadFromWhatsApp({
+            tenantId: tenant.id,
+            phone: message.from,
+            name: null, // Will be extracted from profile if available
+            messageBody: messageText,
+            salesmanId,
+            sessionName
+          });
+
+          if (leadResult.success) {
+            console.log(`[WEBHOOK] Lead ${leadResult.isNew ? 'created' : 'updated'}:`, leadResult.lead.id);
+            
+            // If lead needs assignment and auto-assign is enabled, assign it
+            if (leadResult.needsAssignment) {
+              console.log('[WEBHOOK] Lead needs assignment, checking settings...');
+              const assignResult = await autoAssignLead(tenant.id, leadResult.lead.id);
+              if (assignResult.success) {
+                console.log('[WEBHOOK] Lead auto-assigned to:', assignResult.assignedTo.name);
+              } else {
+                console.log('[WEBHOOK] Lead will remain in triage queue for manual assignment');
+              }
+            }
+          } else {
+            console.warn('[WEBHOOK] Lead creation failed:', leadResult.error);
+          }
+        } catch (leadError) {
+          console.error('[WEBHOOK] Lead auto-creation error:', leadError.message);
+          // Don't fail the webhook - continue processing message
+        }
+
         // PRIORITY 1: Check for shipment tracking intent (VRL LR numbers)
         if (isShipmentTrackingIntent(messageText)) {
           console.log('[WEBHOOK] Shipment tracking intent detected');

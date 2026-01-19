@@ -155,12 +155,12 @@
                         <span>Dashboard</span>
                     </div>
 
-                    <!-- Hidden tabs - will be activated based on subscription modules -->
-                    <div class="sidebar-item" onclick="switchTab('conversations')" data-tab="conversations" style="display: none;">
+                    <!-- Conversations & Orders - Now Enabled -->
+                    <div class="sidebar-item" onclick="switchTab('conversations')" data-tab="conversations">
                         <i class="fas fa-comments"></i>
                         <span>Conversations</span>
                     </div>
-                    <div class="sidebar-item" onclick="switchTab('orders')" data-tab="orders" style="display: none;">
+                    <div class="sidebar-item" onclick="switchTab('orders')" data-tab="orders">
                         <i class="fas fa-shopping-cart"></i>
                         <span>Orders</span>
                     </div>
@@ -184,6 +184,10 @@
                         <i class="fas fa-life-ring"></i>
                         <span>Triage</span>
                     </div>
+                    <div class="sidebar-item" onclick="switchTab('whatsapp-leads')" data-tab="whatsapp-leads">
+                        <i class="fab fa-whatsapp"></i>
+                        <span>WhatsApp Leads</span>
+                    </div>
                     <div class="sidebar-item" onclick="switchTab('products')" data-tab="products">
                         <i class="fas fa-box"></i>
                         <span>Products</span>
@@ -195,6 +199,16 @@
                     <div class="sidebar-item" onclick="switchTab('customers')" data-tab="customers">
                         <i class="fas fa-users"></i>
                         <span>Customers</span>
+                    </div>
+                    
+                    <!-- Settings Section -->
+                    <div class="px-4 py-2 mt-4">
+                        <p class="text-white/40 text-xs font-semibold uppercase tracking-wider">Settings</p>
+                    </div>
+                    
+                    <div class="sidebar-item" onclick="switchTab('whatsapp-web')" data-tab="whatsapp-web">
+                        <i class="fab fa-whatsapp"></i>
+                        <span>WhatsApp Web</span>
                     </div>
 
                     <!-- FSM Section -->
@@ -2696,6 +2710,7 @@
                 case 'email': await loadEmailTab(); break;
                 case 'interactive': await loadInteractiveTab(); break;
                 case 'triage': await loadTriage(); break;
+                case 'whatsapp-leads': await loadWhatsAppLeads(); break;
                 case 'customers': 
                     content.classList.add('hidden');
                     if (customersTab) {
@@ -2932,6 +2947,372 @@
             const el = document.getElementById(id);
             if (el) el.addEventListener('keydown', e => { if (e.key === 'Enter') loadOrders(); });
         });
+    }
+
+    // ---------- WhatsApp Leads Functions ----------
+    async function loadWhatsAppLeads() {
+        if (!state.session?.tenantId) throw new Error('No tenant session');
+
+        // Fetch all WhatsApp leads
+        const response = await fetch(`/api/crm/leads/${state.session.tenantId}?channel=WHATSAPP`, {
+            headers: { 'Authorization': `Bearer ${state.session.token}` }
+        });
+        const data = await response.json();
+        if (!data.success) throw new Error(data.error || 'Failed to load WhatsApp leads');
+
+        const leads = data.leads || [];
+        state.data.whatsappLeads = leads;
+
+        // Get salesmen for assignment
+        try {
+            const teamRes = await fetch(`/api/sales-team/${state.session.tenantId}`, {
+                headers: { 'Authorization': `Bearer ${state.session.token}` }
+            });
+            const teamData = await teamRes.json();
+            state.data.salesTeam = teamData?.success ? (teamData.users || []) : [];
+        } catch (_) {
+            state.data.salesTeam = [];
+        }
+
+        const heatCounts = {
+            ON_FIRE: leads.filter(l => l.heat === 'ON_FIRE').length,
+            HOT: leads.filter(l => l.heat === 'HOT').length,
+            WARM: leads.filter(l => l.heat === 'WARM').length,
+            COLD: leads.filter(l => l.heat === 'COLD').length
+        };
+
+        const unassigned = leads.filter(l => !l.assigned_user_id).length;
+        const assigned = leads.filter(l => l.assigned_user_id).length;
+        const avgScore = leads.length > 0 ? Math.round(leads.reduce((sum, l) => sum + (l.score || 0), 0) / leads.length) : 0;
+
+        const heatBadge = (heat) => {
+            if (heat === 'ON_FIRE') return 'bg-red-500 text-white';
+            if (heat === 'HOT') return 'bg-orange-500 text-white';
+            if (heat === 'WARM') return 'bg-yellow-500 text-white';
+            return 'bg-blue-400 text-white';
+        };
+
+        const statusBadge = (status) => {
+            const s = String(status || 'NEW').toUpperCase();
+            if (s === 'QUALIFIED') return 'bg-green-100 text-green-800';
+            if (s === 'CONTACTED') return 'bg-blue-100 text-blue-800';
+            if (s === 'WON') return 'bg-emerald-500 text-white';
+            if (s === 'LOST') return 'bg-red-100 text-red-800';
+            return 'bg-gray-100 text-gray-800';
+        };
+
+        document.getElementById('tabContent').innerHTML = `
+            <div class="mb-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-white text-2xl font-bold"><i class="fab fa-whatsapp mr-3"></i>WhatsApp Leads (AI-Powered)</h2>
+                    <button onclick="loadWhatsAppLeads()" class="glass-effect px-4 py-2 rounded-xl text-white hover:bg-white/20">
+                        <i class="fas fa-sync mr-2"></i>Refresh
+                    </button>
+                </div>
+
+                <!-- Stats Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6">
+                    <div class="config-card p-4 rounded-xl">
+                        <div class="text-gray-600 text-sm mb-1">🔥 ON FIRE</div>
+                        <div class="text-3xl font-bold text-red-600">${heatCounts.ON_FIRE}</div>
+                    </div>
+                    <div class="config-card p-4 rounded-xl">
+                        <div class="text-gray-600 text-sm mb-1">🌶️ HOT</div>
+                        <div class="text-3xl font-bold text-orange-600">${heatCounts.HOT}</div>
+                    </div>
+                    <div class="config-card p-4 rounded-xl">
+                        <div class="text-gray-600 text-sm mb-1">☀️ WARM</div>
+                        <div class="text-3xl font-bold text-yellow-600">${heatCounts.WARM}</div>
+                    </div>
+                    <div class="config-card p-4 rounded-xl">
+                        <div class="text-gray-600 text-sm mb-1">❄️ COLD</div>
+                        <div class="text-3xl font-bold text-blue-600">${heatCounts.COLD}</div>
+                    </div>
+                    <div class="config-card p-4 rounded-xl">
+                        <div class="text-gray-600 text-sm mb-1">📊 Avg Score</div>
+                        <div class="text-3xl font-bold text-indigo-600">${avgScore}</div>
+                    </div>
+                    <div class="config-card p-4 rounded-xl">
+                        <div class="text-gray-600 text-sm mb-1">Unassigned</div>
+                        <div class="text-3xl font-bold text-purple-600">${unassigned}</div>
+                    </div>
+                </div>
+
+                <!-- Filters -->
+                <div class="config-card p-4 rounded-xl mb-6">
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Heat Filter</label>
+                            <select id="whatsappLeadHeatFilter" onchange="filterWhatsAppLeads()" class="w-full px-3 py-2 border rounded-xl">
+                                <option value="">All Heat Levels</option>
+                                <option value="ON_FIRE">🔥 ON FIRE</option>
+                                <option value="HOT">🌶️ HOT</option>
+                                <option value="WARM">☀️ WARM</option>
+                                <option value="COLD">❄️ COLD</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Assignment</label>
+                            <select id="whatsappLeadAssignmentFilter" onchange="filterWhatsAppLeads()" class="w-full px-3 py-2 border rounded-xl">
+                                <option value="">All Leads</option>
+                                <option value="UNASSIGNED">Unassigned Only</option>
+                                <option value="ASSIGNED">Assigned Only</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                            <select id="whatsappLeadStatusFilter" onchange="filterWhatsAppLeads()" class="w-full px-3 py-2 border rounded-xl">
+                                <option value="">All Statuses</option>
+                                <option value="NEW">New</option>
+                                <option value="CONTACTED">Contacted</option>
+                                <option value="QUALIFIED">Qualified</option>
+                                <option value="WON">Won</option>
+                                <option value="LOST">Lost</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Search</label>
+                            <input type="text" id="whatsappLeadSearchInput" placeholder="Phone or name..." onkeyup="filterWhatsAppLeads()" class="w-full px-3 py-2 border rounded-xl" />
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Leads Table -->
+                <div class="config-card p-6 rounded-xl">
+                    <div class="overflow-x-auto">
+                        <table class="w-full" id="whatsappLeadsTable">
+                            <thead>
+                                <tr class="text-gray-600 text-sm border-b">
+                                    <th class="text-left py-3 px-4">Heat</th>
+                                    <th class="text-left py-3 px-4">Score</th>
+                                    <th class="text-left py-3 px-4">Phone</th>
+                                    <th class="text-left py-3 px-4">Name</th>
+                                    <th class="text-left py-3 px-4">Status</th>
+                                    <th class="text-left py-3 px-4">Assigned To</th>
+                                    <th class="text-left py-3 px-4">Messages</th>
+                                    <th class="text-left py-3 px-4">Created</th>
+                                    <th class="text-left py-3 px-4">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="whatsappLeadsTableBody">
+                                ${leads.length === 0 ? `
+                                    <tr>
+                                        <td colspan="9" class="text-center py-8 text-gray-500">
+                                            <i class="fab fa-whatsapp fa-3x mb-3 text-gray-300"></i>
+                                            <div>No WhatsApp leads yet</div>
+                                            <div class="text-sm">Leads will appear here when customers message on WhatsApp</div>
+                                        </td>
+                                    </tr>
+                                ` : leads.map(lead => {
+                                    const assignedUser = state.data.salesTeam.find(u => u.id === lead.assigned_user_id);
+                                    const assignedName = assignedUser ? escapeHtml(assignedUser.name || assignedUser.email) : '';
+                                    return `
+                                        <tr class="border-b hover:bg-gray-50">
+                                            <td class="py-3 px-4">
+                                                <span class="px-3 py-1 rounded-lg text-xs font-semibold ${heatBadge(lead.heat)}">
+                                                    ${escapeHtml(lead.heat || 'COLD')}
+                                                </span>
+                                            </td>
+                                            <td class="py-3 px-4">
+                                                <div class="text-lg font-bold ${lead.score >= 80 ? 'text-red-600' : lead.score >= 60 ? 'text-orange-600' : lead.score >= 40 ? 'text-yellow-600' : 'text-blue-600'}">
+                                                    ${lead.score || 0}
+                                                </div>
+                                            </td>
+                                            <td class="py-3 px-4">
+                                                <div class="font-medium">${escapeHtml(lead.phone || 'N/A')}</div>
+                                            </td>
+                                            <td class="py-3 px-4">${escapeHtml(lead.name || '-')}</td>
+                                            <td class="py-3 px-4">
+                                                <span class="px-2 py-1 rounded-lg text-xs font-medium ${statusBadge(lead.status)}">
+                                                    ${escapeHtml(lead.status || 'NEW')}
+                                                </span>
+                                            </td>
+                                            <td class="py-3 px-4">
+                                                ${lead.assigned_user_id ? `
+                                                    <div class="text-sm">${assignedName}</div>
+                                                ` : `
+                                                    <select onchange="assignWhatsAppLead('${lead.id}', this.value)" class="px-2 py-1 border rounded text-sm">
+                                                        <option value="">Select salesman...</option>
+                                                        ${state.data.salesTeam.map(u => `
+                                                            <option value="${u.id}">${escapeHtml(u.name || u.email)}</option>
+                                                        `).join('')}
+                                                    </select>
+                                                `}
+                                            </td>
+                                            <td class="py-3 px-4">
+                                                <span class="text-sm text-gray-600">
+                                                    <i class="fas fa-comments mr-1"></i>${lead.message_count || 0}
+                                                </span>
+                                            </td>
+                                            <td class="py-3 px-4">
+                                                <div class="text-xs text-gray-500">
+                                                    ${lead.created_at ? new Date(lead.created_at).toLocaleString() : 'N/A'}
+                                                </div>
+                                            </td>
+                                            <td class="py-3 px-4">
+                                                <button onclick="viewWhatsAppLeadDetail('${lead.id}')" class="text-indigo-600 hover:text-indigo-800 text-sm">
+                                                    <i class="fas fa-eye mr-1"></i>View
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    `;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                ${leads.length > 0 ? `
+                    <div class="mt-6 config-card p-4 rounded-xl">
+                        <div class="text-sm text-gray-600">
+                            <i class="fas fa-info-circle mr-2"></i>
+                            <strong>AI-Powered Insights:</strong> Heat levels and scores are automatically calculated based on message content, urgency signals, purchase intent, and engagement patterns.
+                        </div>
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    }
+
+    function filterWhatsAppLeads() {
+        const heatFilter = document.getElementById('whatsappLeadHeatFilter')?.value || '';
+        const assignmentFilter = document.getElementById('whatsappLeadAssignmentFilter')?.value || '';
+        const statusFilter = document.getElementById('whatsappLeadStatusFilter')?.value || '';
+        const searchInput = document.getElementById('whatsappLeadSearchInput')?.value?.toLowerCase() || '';
+
+        let filteredLeads = state.data.whatsappLeads || [];
+
+        if (heatFilter) {
+            filteredLeads = filteredLeads.filter(l => l.heat === heatFilter);
+        }
+
+        if (assignmentFilter === 'UNASSIGNED') {
+            filteredLeads = filteredLeads.filter(l => !l.assigned_user_id);
+        } else if (assignmentFilter === 'ASSIGNED') {
+            filteredLeads = filteredLeads.filter(l => l.assigned_user_id);
+        }
+
+        if (statusFilter) {
+            filteredLeads = filteredLeads.filter(l => l.status === statusFilter);
+        }
+
+        if (searchInput) {
+            filteredLeads = filteredLeads.filter(l => 
+                (l.phone && l.phone.toLowerCase().includes(searchInput)) ||
+                (l.name && l.name.toLowerCase().includes(searchInput))
+            );
+        }
+
+        // Re-render table body
+        const tbody = document.getElementById('whatsappLeadsTableBody');
+        if (!tbody) return;
+
+        const heatBadge = (heat) => {
+            if (heat === 'ON_FIRE') return 'bg-red-500 text-white';
+            if (heat === 'HOT') return 'bg-orange-500 text-white';
+            if (heat === 'WARM') return 'bg-yellow-500 text-white';
+            return 'bg-blue-400 text-white';
+        };
+
+        const statusBadge = (status) => {
+            const s = String(status || 'NEW').toUpperCase();
+            if (s === 'QUALIFIED') return 'bg-green-100 text-green-800';
+            if (s === 'CONTACTED') return 'bg-blue-100 text-blue-800';
+            if (s === 'WON') return 'bg-emerald-500 text-white';
+            if (s === 'LOST') return 'bg-red-100 text-red-800';
+            return 'bg-gray-100 text-gray-800';
+        };
+
+        tbody.innerHTML = filteredLeads.length === 0 ? `
+            <tr>
+                <td colspan="9" class="text-center py-8 text-gray-500">
+                    <i class="fas fa-filter fa-2x mb-3 text-gray-300"></i>
+                    <div>No leads match your filters</div>
+                </td>
+            </tr>
+        ` : filteredLeads.map(lead => {
+            const assignedUser = state.data.salesTeam.find(u => u.id === lead.assigned_user_id);
+            const assignedName = assignedUser ? escapeHtml(assignedUser.name || assignedUser.email) : '';
+            return `
+                <tr class="border-b hover:bg-gray-50">
+                    <td class="py-3 px-4">
+                        <span class="px-3 py-1 rounded-lg text-xs font-semibold ${heatBadge(lead.heat)}">
+                            ${escapeHtml(lead.heat || 'COLD')}
+                        </span>
+                    </td>
+                    <td class="py-3 px-4">
+                        <div class="text-lg font-bold ${lead.score >= 80 ? 'text-red-600' : lead.score >= 60 ? 'text-orange-600' : lead.score >= 40 ? 'text-yellow-600' : 'text-blue-600'}">
+                            ${lead.score || 0}
+                        </div>
+                    </td>
+                    <td class="py-3 px-4">
+                        <div class="font-medium">${escapeHtml(lead.phone || 'N/A')}</div>
+                    </td>
+                    <td class="py-3 px-4">${escapeHtml(lead.name || '-')}</td>
+                    <td class="py-3 px-4">
+                        <span class="px-2 py-1 rounded-lg text-xs font-medium ${statusBadge(lead.status)}">
+                            ${escapeHtml(lead.status || 'NEW')}
+                        </span>
+                    </td>
+                    <td class="py-3 px-4">
+                        ${lead.assigned_user_id ? `
+                            <div class="text-sm">${assignedName}</div>
+                        ` : `
+                            <select onchange="assignWhatsAppLead('${lead.id}', this.value)" class="px-2 py-1 border rounded text-sm">
+                                <option value="">Select salesman...</option>
+                                ${state.data.salesTeam.map(u => `
+                                    <option value="${u.id}">${escapeHtml(u.name || u.email)}</option>
+                                `).join('')}
+                            </select>
+                        `}
+                    </td>
+                    <td class="py-3 px-4">
+                        <span class="text-sm text-gray-600">
+                            <i class="fas fa-comments mr-1"></i>${lead.message_count || 0}
+                        </span>
+                    </td>
+                    <td class="py-3 px-4">
+                        <div class="text-xs text-gray-500">
+                            ${lead.created_at ? new Date(lead.created_at).toLocaleString() : 'N/A'}
+                        </div>
+                    </td>
+                    <td class="py-3 px-4">
+                        <button onclick="viewWhatsAppLeadDetail('${lead.id}')" class="text-indigo-600 hover:text-indigo-800 text-sm">
+                            <i class="fas fa-eye mr-1"></i>View
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    async function assignWhatsAppLead(leadId, userId) {
+        if (!userId) return;
+        
+        try {
+            const response = await fetch(`/api/crm/leads/${state.session.tenantId}/${leadId}/assign`, {
+                method: 'POST',
+                headers: { 
+                    'Authorization': `Bearer ${state.session.token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ assigned_user_id: userId })
+            });
+            
+            const data = await response.json();
+            if (!data.success) throw new Error(data.error || 'Assignment failed');
+            
+            showNotification('Lead assigned successfully', 'success');
+            await loadWhatsAppLeads();
+        } catch (error) {
+            console.error('Assign error:', error);
+            showNotification('Failed to assign lead: ' + error.message, 'error');
+        }
+    }
+
+    function viewWhatsAppLeadDetail(leadId) {
+        // Future: Open modal with full conversation history and lead details
+        showNotification('Lead detail view coming soon! Lead ID: ' + leadId, 'info');
     }
 
     async function loadProducts() {

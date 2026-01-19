@@ -483,6 +483,10 @@
                     <i class="fas fa-users"></i>
                     <span>Customers</span>
                 </div>
+                <div class="nav-item" data-page="whatsapp-leads">
+                    <i class="fab fa-whatsapp"></i>
+                    <span>WhatsApp Leads</span>
+                </div>
                 <div class="nav-item" data-page="targets">
                     <i class="fas fa-bullseye"></i>
                     <span>Targets</span>
@@ -1127,6 +1131,68 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- WhatsApp Leads Page -->
+                <div class="page" id="whatsapp-leads">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">📱 WhatsApp Connection</h3>
+                            <div id="whatsappConnectionStatus" style="font-size: 12px; padding: 6px 12px; border-radius: 6px; background: #f56565; color: white;">
+                                Disconnected
+                            </div>
+                        </div>
+                        <div style="padding: 20px;">
+                            <div id="whatsappConnectSection">
+                                <p style="margin-bottom: 20px; color: #718096;">Connect your personal WhatsApp number to receive and manage leads directly.</p>
+                                <button id="connectWhatsAppBtn" class="btn btn-primary" onclick="connectWhatsApp()">
+                                    <i class="fab fa-whatsapp"></i> Connect WhatsApp
+                                </button>
+                                
+                                <div id="qrCodeSection" style="display:none; margin-top: 20px;">
+                                    <p style="margin-bottom: 15px;">Scan this QR code with your WhatsApp mobile app:</p>
+                                    <div style="text-align: center; padding: 20px; background: white; border-radius: 12px; display: inline-block;">
+                                        <img id="whatsappQRCode" src="" alt="QR Code" style="max-width: 300px;">
+                                    </div>
+                                    <p style="margin-top: 15px; font-size: 13px; color: #718096;">
+                                        Open WhatsApp → Settings → Linked Devices → Link a Device
+                                    </p>
+                                </div>
+                            </div>
+                            
+                            <div id="whatsappConnected" style="display:none;">
+                                <div style="background: #c6f6d5; padding: 16px; border-radius: 8px; border-left: 4px solid #48bb78; margin-bottom: 20px;">
+                                    <div style="display: flex; align-items: center; gap: 12px;">
+                                        <i class="fas fa-check-circle" style="color: #48bb78; font-size: 24px;"></i>
+                                        <div>
+                                            <div style="font-weight: 600; color: #2d3748;">WhatsApp Connected</div>
+                                            <div style="font-size: 13px; color: #718096;">Your WhatsApp is connected and ready to receive leads</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <button class="btn btn-outline" onclick="disconnectWhatsApp()" style="border-color: #f56565; color: #f56565;">
+                                    <i class="fas fa-unlink"></i> Disconnect WhatsApp
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card" style="margin-top: 20px;">
+                        <div class="card-header">
+                            <h3 class="card-title">💬 My WhatsApp Leads</h3>
+                            <button class="btn btn-primary" onclick="loadWhatsAppLeads()">
+                                <i class="fas fa-sync"></i> Refresh
+                            </button>
+                        </div>
+                        <div id="whatsappLeadsContent">
+                            <div class="empty-state" style="padding: 40px;">
+                                <i class="fab fa-whatsapp fa-3x" style="color: #48bb78; margin-bottom: 15px;"></i>
+                                <h3>No WhatsApp Leads Yet</h3>
+                                <p>Connect your WhatsApp to start receiving leads</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </main>
     </div>
@@ -1166,6 +1232,19 @@
                         <div>
                             <label style="display:block; margin-bottom:8px; color:#333; font-weight:600; font-size:14px;">Visit Time</label>
                             <input type="time" id="scheduledTime" style="width:100%; padding:12px; border:2px solid #ffc107; border-radius:8px; font-size:14px;">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Contact Type -->
+                <div style="margin-bottom:24px; padding:16px; background:#f0f9ff; border-radius:8px; border:2px solid #3b82f6;">
+                    <label style="display:block; margin-bottom:12px; color:#333; font-weight:600; font-size:14px;">Contact Type <span style="color:#e74c3c;">*</span></label>
+                    <div style="display:flex; gap:12px;">
+                        <div class="radio-item selected" data-value="PERSONAL_VISIT" onclick="toggleContactType('PERSONAL_VISIT')" style="flex:1; text-align:center; cursor:pointer; padding:12px; border-radius:8px; background:white; border:2px solid #667eea; transition:all 0.3s;">
+                            <i class="fas fa-handshake" style="margin-right:8px;"></i> Personal Visit
+                        </div>
+                        <div class="radio-item" data-value="TELEPHONE" onclick="toggleContactType('TELEPHONE')" style="flex:1; text-align:center; cursor:pointer; padding:12px; border-radius:8px; background:white; border:2px solid #e0e0e0; transition:all 0.3s;">
+                            <i class="fas fa-phone" style="margin-right:8px;"></i> Telephone Call
                         </div>
                     </div>
                 </div>
@@ -1463,6 +1542,7 @@
                 dashboard: 'Dashboard',
                 visits: 'My Visits',
                 customers: 'Customers',
+                'whatsapp-leads': 'WhatsApp Leads',
                 targets: 'Targets',
                 expenses: 'Expenses',
                 reports: 'Reports'
@@ -2200,6 +2280,23 @@
                 if (visitTimerInterval) {
                     clearInterval(visitTimerInterval);
                     visitTimerInterval = null;
+
+        function toggleContactType(type) {
+            // Update radio selection for contact type
+            document.querySelectorAll('[onclick*="toggleContactType"].radio-item').forEach(item => {
+                item.classList.remove('selected');
+                item.style.borderColor = '#e0e0e0';
+                item.style.background = 'white';
+            });
+            
+            // Add selected class to clicked item
+            const clickedItem = event.target.closest('.radio-item');
+            if (clickedItem) {
+                clickedItem.classList.add('selected');
+                clickedItem.style.borderColor = '#667eea';
+                clickedItem.style.background = 'linear-gradient(135deg, rgba(102,126,234,0.1) 0%, rgba(118,75,162,0.1) 100%)';
+            }
+        }
                 }
             } else {
                 // Hide scheduled fields
@@ -2276,6 +2373,7 @@
 
         async function submitNewVisit() {
             const visitType = document.querySelector('#newVisitForm .radio-item.selected[data-value]')?.dataset.value || 'now';
+            const contactType = document.querySelector('[onclick*="toggleContactType"].radio-item.selected')?.dataset.value || 'PERSONAL_VISIT';
             const customerName = document.getElementById('newVisitCustomer').value.trim();
             const contactPerson = document.getElementById('newVisitContact').value.trim();
             const email = document.getElementById('newVisitEmail').value.trim();
@@ -2328,6 +2426,7 @@
                         customer_name: customerName,
                         contact_person: contactPerson,
                         email: email,
+                        contact_type: contactType,
                         plant_ids: plantIds,
                         meeting_types: meetingTypes,
                         products_discussed: products,
@@ -3185,6 +3284,214 @@
             if (event.target == modal) {
                 closeVisitModal();
             }
+        }
+
+        // ========== WHATSAPP LEADS FUNCTIONS ==========
+        
+        let whatsappStatusCheckInterval = null;
+
+        async function connectWhatsApp() {
+            try {
+                const btn = document.getElementById('connectWhatsAppBtn');
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Connecting...';
+
+                const response = await apiFetch('/api/salesman-whatsapp/connect', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        salesmanId: salesmanId,
+                        tenantId: tenantId
+                    })
+                });
+
+                if (response.success) {
+                    // Show QR code section
+                    document.getElementById('qrCodeSection').style.display = 'block';
+                    
+                    // Start checking for QR code and status
+                    checkWhatsAppQR();
+                    whatsappStatusCheckInterval = setInterval(checkWhatsAppStatus, 3000);
+                    
+                } else {
+                    throw new Error(response.error || 'Connection failed');
+                }
+            } catch (error) {
+                alert('Error connecting WhatsApp: ' + error.message);
+                const btn = document.getElementById('connectWhatsAppBtn');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fab fa-whatsapp"></i> Connect WhatsApp';
+            }
+        }
+
+        async function checkWhatsAppQR() {
+            try {
+                const response = await apiFetch(`/api/salesman-whatsapp/qr/${salesmanId}?tenantId=${tenantId}`);
+                
+                if (response.qrCode) {
+                    document.getElementById('whatsappQRCode').src = response.qrCode;
+                }
+
+                if (response.status === 'authenticated') {
+                    // Connected successfully
+                    clearInterval(whatsappStatusCheckInterval);
+                    document.getElementById('qrCodeSection').style.display = 'none';
+                    document.getElementById('whatsappConnectSection').style.display = 'none';
+                    document.getElementById('whatsappConnected').style.display = 'block';
+                    document.getElementById('whatsappConnectionStatus').style.background = '#48bb78';
+                    document.getElementById('whatsappConnectionStatus').textContent = 'Connected';
+                    
+                    loadWhatsAppLeads();
+                }
+            } catch (error) {
+                console.error('Error checking QR:', error);
+            }
+        }
+
+        async function checkWhatsAppStatus() {
+            try {
+                const response = await apiFetch(`/api/salesman-whatsapp/status/${salesmanId}?tenantId=${tenantId}`);
+                
+                if (response.status === 'authenticated') {
+                    clearInterval(whatsappStatusCheckInterval);
+                    document.getElementById('qrCodeSection').style.display = 'none';
+                    document.getElementById('whatsappConnectSection').style.display = 'none';
+                    document.getElementById('whatsappConnected').style.display = 'block';
+                    document.getElementById('whatsappConnectionStatus').style.background = '#48bb78';
+                    document.getElementById('whatsappConnectionStatus').textContent = 'Connected';
+                    
+                    loadWhatsAppLeads();
+                }
+            } catch (error) {
+                console.error('Error checking status:', error);
+            }
+        }
+
+        async function disconnectWhatsApp() {
+            if (!confirm('Are you sure you want to disconnect your WhatsApp?')) return;
+
+            try {
+                const response = await apiFetch('/api/salesman-whatsapp/disconnect', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        salesmanId: salesmanId,
+                        tenantId: tenantId
+                    })
+                });
+
+                if (response.success) {
+                    document.getElementById('whatsappConnectSection').style.display = 'block';
+                    document.getElementById('whatsappConnected').style.display = 'none';
+                    document.getElementById('qrCodeSection').style.display = 'none';
+                    document.getElementById('whatsappConnectionStatus').style.background = '#f56565';
+                    document.getElementById('whatsappConnectionStatus').textContent = 'Disconnected';
+                    
+                    alert('WhatsApp disconnected successfully');
+                }
+            } catch (error) {
+                alert('Error disconnecting WhatsApp: ' + error.message);
+            }
+        }
+
+        async function loadWhatsAppLeads() {
+            try {
+                const response = await apiFetch(`/api/salesman-whatsapp/messages/${salesmanId}?tenantId=${tenantId}`);
+                
+                if (!response.success) throw new Error(response.error);
+
+                const leads = response.leads || [];
+
+                if (leads.length === 0) {
+                    document.getElementById('whatsappLeadsContent').innerHTML = `
+                        <div class="empty-state" style="padding: 40px;">
+                            <i class="fab fa-whatsapp fa-3x" style="color: #48bb78; margin-bottom: 15px;"></i>
+                            <h3>No WhatsApp Leads Yet</h3>
+                            <p>Leads will appear here when customers message you on WhatsApp</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                const leadsHTML = leads.map(lead => {
+                    const messages = lead.messages || [];
+                    const lastMessage = messages.length > 0 ? messages[messages.length - 1].body : 'No messages';
+                    const messagePreview = lastMessage.length > 100 ? lastMessage.substring(0, 100) + '...' : lastMessage;
+                    
+                    const heatBadge = lead.heat === 'HOT' ? 'background: #f56565; color: white;' :
+                                     lead.heat === 'WARM' ? 'background: #f6ad55; color: white;' :
+                                     'background: #4fd1c5; color: white;';
+
+                    return `
+                        <div class="card" style="margin-bottom: 15px; cursor: pointer;" onclick="viewWhatsAppLead('${lead.id}')">
+                            <div style="padding: 16px;">
+                                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
+                                    <div>
+                                        <div style="font-weight: 600; font-size: 16px; color: #2d3748; margin-bottom: 4px;">
+                                            ${lead.name || lead.phone || 'Unknown'}
+                                        </div>
+                                        <div style="font-size: 13px; color: #718096;">
+                                            <i class="fab fa-whatsapp" style="color: #48bb78;"></i> ${lead.phone}
+                                        </div>
+                                    </div>
+                                    <span style="padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; ${heatBadge}">
+                                        ${lead.heat || 'COLD'}
+                                    </span>
+                                </div>
+                                
+                                <div style="background: #f7fafc; padding: 12px; border-radius: 8px; margin-bottom: 12px;">
+                                    <div style="font-size: 13px; color: #4a5568;">${escapeHtml(messagePreview)}</div>
+                                </div>
+                                
+                                <div style="display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: #a0aec0;">
+                                    <span><i class="fas fa-comments"></i> ${messages.length} messages</span>
+                                    <span>${new Date(lead.updated_at).toLocaleString()}</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                document.getElementById('whatsappLeadsContent').innerHTML = `
+                    <div style="padding: 20px;">
+                        ${leadsHTML}
+                    </div>
+                `;
+
+            } catch (error) {
+                console.error('Error loading WhatsApp leads:', error);
+                document.getElementById('whatsappLeadsContent').innerHTML = `
+                    <div class="empty-state" style="padding: 40px;">
+                        <i class="fas fa-exclamation-triangle fa-2x" style="color: #f56565; margin-bottom: 15px;"></i>
+                        <h3>Error Loading Leads</h3>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        function viewWhatsAppLead(leadId) {
+            // Future enhancement: Show full conversation, add notes, change status
+            alert('Lead detail view coming soon! Lead ID: ' + leadId);
+        }
+
+        // Check WhatsApp connection status on page load
+        async function checkInitialWhatsAppStatus() {
+            try {
+                const response = await apiFetch(`/api/salesman-whatsapp/status/${salesmanId}?tenantId=${tenantId}`);
+                
+                if (response.status === 'authenticated') {
+                    document.getElementById('whatsappConnectSection').style.display = 'none';
+                    document.getElementById('whatsappConnected').style.display = 'block';
+                    document.getElementById('whatsappConnectionStatus').style.background = '#48bb78';
+                    document.getElementById('whatsappConnectionStatus').textContent = 'Connected';
+                }
+            } catch (error) {
+                console.error('Error checking initial WhatsApp status:', error);
+            }
+        }
+
+        // Call on page load
+        if (typeof salesmanId !== 'undefined' && salesmanId) {
+            checkInitialWhatsAppStatus();
         }
     </script>
 
