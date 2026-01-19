@@ -1200,6 +1200,10 @@ app.use('/api/websocket', websocketRouter);
 const onboardingRouter = require('./routes/api/onboarding');
 app.use('/api/onboarding', onboardingRouter);
 
+// Advanced Features (Phase 3): ML, Voice AI, Video Calls, Blockchain, Translation
+const advancedFeaturesRouter = require('./routes/api/advanced-features');
+app.use('/api/advanced', advancedFeaturesRouter);
+
 // FSM (Field Sales Management) API
 const fsmRouter = require('./routes/api/fsm');
 app.use('/api/fsm', fsmRouter);
