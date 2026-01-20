@@ -233,18 +233,29 @@ router.post('/zoho/retry-failed-syncs', async (req, res) => {
 // ========== NEW ADMIN ENDPOINTS FOR MANAGEMENT ==========
 const Database = require('better-sqlite3');
 const path = require('path');
-const db = new Database(path.join(__dirname, '../../local-database.db'));
-db.pragma('journal_mode = WAL');
+
+let db;
+try {
+  if (process.env.USE_SUPABASE !== 'true') {
+    db = new Database(path.join(__dirname, '../../local-database.db'));
+    db.pragma('journal_mode = WAL');
+  }
+} catch (err) {
+  console.warn('[ADMIN] SQLite init skipped (using Supabase):', err.message);
+}
 
 function dbAll(sql, params = []) {
+    if (!db) throw new Error('SQLite not available - using Supabase');
     return db.prepare(sql).all(...params);
 }
 
 function dbGet(sql, params = []) {
+    if (!db) throw new Error('SQLite not available - using Supabase');
     return db.prepare(sql).get(...params);
 }
 
 function dbRun(sql, params = []) {
+    if (!db) throw new Error('SQLite not available - using Supabase');
     return db.prepare(sql).run(...params);
 }
 
