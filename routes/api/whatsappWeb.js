@@ -1,89 +1,120 @@
 const express = require('express');
 const router = express.Router();
+const axios = require('axios');
 const { dbClient } = require('../../services/config');
-const {
-    initializeClient,
-    getQRCode,
-    getClientStatus,
-    disconnectClient,
-    getAllConnections
-} = require('../../services/whatsappWebService');
+
+// WAHA Configuration
+const WAHA_URL = process.env.WAHA_URL || 'http://localhost:3001';
+const WAHA_API_KEY = process.env.WAHA_API_KEY || 'waha_salesmate_2024';
+
+// Helper to make WAHA API calls
+async function wahaRequest(method, path, data = null, responseType = 'json') {
+    const config = {
+        method,
+        url: `${WAHA_URL}${path}`,
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Api-Key': WAHA_API_KEY
+        },
+        responseType,
+        timeout: 10000
+    };
+    if (data) config.data = data;
+    return axios(config);
+}
 
 function setNoCacheJson(res) {
-    // Prevent 304 Not Modified responses (dashboard expects a JSON body).
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.set('Pragma', 'no-cache');
     res.set('Expires', '0');
     res.set('Surrogate-Control', 'no-store');
-    // Force a unique ETag so If-None-Match never matches.
     res.set('ETag', String(Date.now()));
 }
 
 /**
  * POST /api/whatsapp-web/connect
- * Initialize WhatsApp Web connection for tenant
+ * Initialize WAHA session for tenant
  */
 router.post('/connect', async (req, res) => {
     try {
-        const { tenantId, sessionName, salesmanId } = req.body;
+        const { tenantId, sessionName } = req.body;
 
         if (!tenantId) {
-            return res.status(400).json({
-                success: false,
-                error: 'Tenant ID is required'
-            });
+            return res.status(400).json({ success: false, error: 'Tenant ID is required' });
         }
 
-        const sn = String(sessionName || 'default');
-        console.log('[WA_WEB_API] Initializing connection for tenant:', tenantId, 'session:', sn, 'salesmanId:', salesmanId || null);
+        const sn = sessionName || 'default';
+        console.log('[WAHA_API] Starting session for tenant:', tenantId, 'session:', sn);
 
-        const result = await initializeClient(tenantId, sn, { salesmanId: salesmanId || null });
+        // Check if session exists
+        try {
+            const sessionsRes = await wahaRequest('GET', '/api/sessions');
+            const existingSession = sessionsRes.data.find(s => s.name === sn);
+            
+            if (existingSession) {
+                // Session exists, check status
+                if (existingSession.status === 'WORKING') {
+                    return res.json({ success: true, status: 'ready', message: 'Already connected' });
+                }
+                // Stop and restart if not working
+                try {
+                    await wahaRequest('POST', `/api/sessions/${sn}/stop`);
+                } catch (e) { /* ignore */ }
+            }
+        } catch (e) {
+            console.log('[WAHA_API] No existing sessions');
+        }
 
-        return res.json({
-            success: result.success,
-            status: result.status,
-            error: result.error
-        });
+        // Start new session
+        const startRes = await wahaRequest('POST', '/api/sessions/start', { name: sn });
+        console.log('[WAHA_API] Session start result:', startRes.data);
+
+        // Update database
+        await dbClient
+            .from('whatsapp_connections')
+            .upsert({
+                id: tenantId.substring(0, 32),
+                tenant_id: tenantId,
+                session_name: sn,
+                status: 'awaiting_scan',
+                provider: 'waha',
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'tenant_id,session_name' });
+
+        return res.json({ success: true, status: 'awaiting_scan' });
 
     } catch (error) {
-        console.error('[WA_WEB_API] Connection error:', error);
-        return res.status(500).json({
-            success: false,
-            error: error.message
-        });
+        console.error('[WAHA_API] Connect error:', error.response?.data || error.message);
+        return res.status(500).json({ success: false, error: error.message });
     }
 });
 
 /**
  * GET /api/whatsapp-web/qr/:tenantId
- * Get QR code for scanning
+ * Get QR code from WAHA
  */
 router.get('/qr/:tenantId', async (req, res) => {
     try {
         setNoCacheJson(res);
-        const { tenantId } = req.params;
         const sessionName = req.query.sessionName || 'default';
 
-        const result = getQRCode(tenantId, sessionName);
+        // Get QR as base64 image
+        const qrRes = await wahaRequest('GET', `/api/${sessionName}/auth/qr`, null, 'arraybuffer');
+        const base64 = Buffer.from(qrRes.data).toString('base64');
+        const qrCode = `data:image/png;base64,${base64}`;
 
-        return res.json({
-            success: true,
-            qrCode: result.qrCode,
-            status: result.status
-        });
+        return res.json({ success: true, qrCode, status: 'awaiting_scan' });
 
     } catch (error) {
-        console.error('[WA_WEB_API] QR code error:', error);
-        return res.status(500).json({
-            success: false,
-            error: error.message
-        });
+        // If no QR available, session might be connected or not started
+        console.log('[WAHA_API] QR not available:', error.response?.status);
+        return res.json({ success: true, qrCode: null, status: 'no_qr' });
     }
 });
 
 /**
  * GET /api/whatsapp-web/status/:tenantId
- * Get connection status
+ * Get WAHA session status
  */
 router.get('/status/:tenantId', async (req, res) => {
     try {
@@ -91,84 +122,137 @@ router.get('/status/:tenantId', async (req, res) => {
         const { tenantId } = req.params;
         const sessionName = req.query.sessionName || 'default';
 
-        // Set response timeout to prevent hanging
-        req.setTimeout(5000); // 5 second timeout
+        let wahaStatus = 'disconnected';
+        let phoneNumber = null;
+        let hasClient = false;
 
-        const result = getClientStatus(tenantId, sessionName);
-
-        // Also get from database with timeout
-        const { data: dbConnection, error: dbError } = await Promise.race([
-            dbClient
-                .from('whatsapp_connections')
-                .select('*')
-                .eq('tenant_id', tenantId)
-                .eq('session_name', String(sessionName || 'default').trim().toLowerCase().replace(/[^a-z0-9_-]/g, '_') || 'default')
-                .single(),
-            new Promise((_, reject) => 
-                setTimeout(() => reject(new Error('Database query timeout')), 3000)
-            )
-        ]);
-
-        if (dbError && dbError.message !== 'Database query timeout') {
-            console.warn('[WA_WEB_API] Database error (non-critical):', dbError);
+        try {
+            const sessionsRes = await wahaRequest('GET', '/api/sessions');
+            const session = sessionsRes.data.find(s => s.name === sessionName);
+            
+            if (session) {
+                hasClient = true;
+                if (session.status === 'WORKING') {
+                    wahaStatus = 'ready';
+                    phoneNumber = session.me?.id?.replace('@c.us', '') || null;
+                    
+                    // Update database with connected status
+                    await dbClient
+                        .from('whatsapp_connections')
+                        .upsert({
+                            id: tenantId.substring(0, 32),
+                            tenant_id: tenantId,
+                            session_name: sessionName,
+                            status: 'ready',
+                            phone_number: phoneNumber,
+                            provider: 'waha',
+                            connected_at: new Date().toISOString(),
+                            updated_at: new Date().toISOString()
+                        }, { onConflict: 'tenant_id,session_name' });
+                        
+                } else if (session.status === 'SCAN_QR_CODE') {
+                    wahaStatus = 'awaiting_scan';
+                } else if (session.status === 'STARTING') {
+                    wahaStatus = 'initializing';
+                } else {
+                    wahaStatus = session.status.toLowerCase();
+                }
+            }
+        } catch (e) {
+            console.log('[WAHA_API] Status check error:', e.message);
         }
+
+        // Get database record
+        const { data: dbConnection } = await dbClient
+            .from('whatsapp_connections')
+            .select('*')
+            .eq('tenant_id', tenantId)
+            .eq('session_name', sessionName)
+            .single();
 
         return res.json({
             success: true,
-            status: result.status,
-            hasClient: result.hasClient,
-            connection: dbConnection || null
+            status: wahaStatus,
+            hasClient,
+            connection: dbConnection ? {
+                ...dbConnection,
+                status: wahaStatus,
+                phone_number: phoneNumber || dbConnection.phone_number
+            } : { status: wahaStatus, phone_number: phoneNumber }
         });
 
     } catch (error) {
-        console.error('[WA_WEB_API] Status error:', error);
-        return res.status(500).json({
-            success: false,
-            error: error.message
-        });
+        console.error('[WAHA_API] Status error:', error);
+        return res.status(500).json({ success: false, error: error.message });
     }
 });
 
 /**
  * POST /api/whatsapp-web/disconnect
- * Disconnect WhatsApp Web session
+ * Stop WAHA session
  */
 router.post('/disconnect', async (req, res) => {
     try {
         const { tenantId, sessionName } = req.body;
 
         if (!tenantId) {
-            return res.status(400).json({
-                success: false,
-                error: 'Tenant ID is required'
-            });
+            return res.status(400).json({ success: false, error: 'Tenant ID is required' });
         }
 
-        const sn = String(sessionName || 'default');
-        console.log('[WA_WEB_API] Disconnecting tenant:', tenantId, 'session:', sn);
+        const sn = sessionName || 'default';
+        console.log('[WAHA_API] Stopping session:', sn);
 
-        const result = await disconnectClient(tenantId, sn);
+        try {
+            // Logout from WhatsApp (clears session)
+            await wahaRequest('POST', `/api/${sn}/auth/logout`);
+        } catch (e) {
+            console.log('[WAHA_API] Logout error (may be already logged out):', e.message);
+        }
 
-        return res.json(result);
+        try {
+            // Stop the session
+            await wahaRequest('POST', `/api/sessions/${sn}/stop`);
+        } catch (e) {
+            console.log('[WAHA_API] Stop error:', e.message);
+        }
+
+        // Update database
+        await dbClient
+            .from('whatsapp_connections')
+            .update({
+                status: 'disconnected',
+                updated_at: new Date().toISOString()
+            })
+            .eq('tenant_id', tenantId)
+            .eq('session_name', sn);
+
+        return res.json({ success: true, message: 'Disconnected' });
 
     } catch (error) {
-        console.error('[WA_WEB_API] Disconnect error:', error);
-        return res.status(500).json({
-            success: false,
-            error: error.message
-        });
+        console.error('[WAHA_API] Disconnect error:', error);
+        return res.status(500).json({ success: false, error: error.message });
     }
 });
 
 /**
  * GET /api/whatsapp-web/connections
- * Get all active connections (admin only)
+ * Get all connections
  */
 router.get('/connections', async (req, res) => {
     try {
-        const connections = getAllConnections();
+        let activeConnections = [];
+        
+        try {
+            const sessionsRes = await wahaRequest('GET', '/api/sessions');
+            activeConnections = sessionsRes.data.map(s => ({
+                name: s.name,
+                status: s.status,
+                phone: s.me?.id?.replace('@c.us', '') || null
+            }));
+        } catch (e) {
+            console.log('[WAHA_API] Could not get WAHA sessions:', e.message);
+        }
 
-        // Get database connections
         const { data: dbConnections } = await dbClient
             .from('whatsapp_connections')
             .select('*')
@@ -176,16 +260,13 @@ router.get('/connections', async (req, res) => {
 
         return res.json({
             success: true,
-            activeConnections: connections,
+            activeConnections,
             allConnections: dbConnections
         });
 
     } catch (error) {
-        console.error('[WA_WEB_API] Connections list error:', error);
-        return res.status(500).json({
-            success: false,
-            error: error.message
-        });
+        console.error('[WAHA_API] Connections list error:', error);
+        return res.status(500).json({ success: false, error: error.message });
     }
 });
 
