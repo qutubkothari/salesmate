@@ -9,8 +9,15 @@ const Database = require('better-sqlite3');
 const path = require('path');
 
 // Direct SQLite connection for FSM data
-const db = new Database(path.join(__dirname, '../../local-database.db'));
-db.pragma('journal_mode = WAL');
+let db;
+try {
+  if (process.env.USE_SUPABASE !== 'true') {
+    db = new Database(path.join(__dirname, '../../local-database.db'));
+    db.pragma('journal_mode = WAL');
+  }
+} catch (err) {
+  console.warn('[FSM] SQLite init skipped (using Supabase):', err.message);
+}
 
 // Get all visits with optional filtering
 router.get('/visits', async (req, res) => {

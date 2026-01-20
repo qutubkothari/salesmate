@@ -7,10 +7,18 @@ const bcrypt = require('bcryptjs');
 
 // Direct SQLite connection
 // __dirname is <repo>/routes/api, so go up 2 levels to reach repo root
-const db = new Database(path.join(__dirname, '../../local-database.db'));
-db.pragma('journal_mode = WAL');
+let db;
+try {
+  if (process.env.USE_SUPABASE !== 'true') {
+    db = new Database(path.join(__dirname, '../../local-database.db'));
+    db.pragma('journal_mode = WAL');
+  }
+} catch (err) {
+  console.warn('[FSM_SALESMAN] SQLite init skipped (using Supabase):', err.message);
+}
 
 function dbAll(sql, params = []) {
+    if (!db) throw new Error('SQLite not available - using Supabase');
     return db.prepare(sql).all(...params);
 }
 
