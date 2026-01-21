@@ -378,22 +378,47 @@ async function createLeadFromWhatsApp({
  */
 async function getLeadAssignmentSettings(tenantId) {
     try {
-        // Check if tenant has auto-assignment configured
-        const { data: config, error } = await dbClient
-            .from('triage_assignment_config')
+        // Prefer assignment_config (supports custom_rules)
+        let config = null;
+        let error = null;
+
+        const assignmentResult = await dbClient
+            .from('assignment_config')
             .select('*')
             .eq('tenant_id', tenantId)
             .maybeSingle();
+
+        config = assignmentResult.data;
+        error = assignmentResult.error;
+
+        if (!config && (!error || error.code === 'PGRST116')) {
+            const legacyResult = await dbClient
+                .from('triage_assignment_config')
+                .select('*')
+                .eq('tenant_id', tenantId)
+                .maybeSingle();
+            config = legacyResult.data;
+            error = legacyResult.error;
+        }
 
         if (error && error.code !== 'PGRST116') {
             console.error('[LEAD_SETTINGS] Error:', error);
         }
 
+        const customRules = parseJsonSafe(config?.custom_rules) || {};
+        const assignmentMode = (customRules.assignment_mode || config?.strategy || 'ROUND_ROBIN').toUpperCase();
+
         return {
             autoAssign: config?.auto_assign === 1 || config?.auto_assign === true,
-            strategy: config?.strategy || 'LEAST_ACTIVE',
-            considerCapacity: config?.consider_capacity === 1,
-            considerScore: config?.consider_score === 1
+            strategy: config?.strategy || 'ROUND_ROBIN',
+            considerCapacity: config?.consider_capacity === 1 || config?.consider_capacity === true,
+            considerScore: config?.consider_score === 1 || config?.consider_score === true,
+            assignmentMode,
+            caps: customRules.caps || {},
+            weights: customRules.weights || { conversion: 0.5, repeat: 0.3, revenue: 0.2 },
+            windowDays: customRules.window_days || 30,
+            rrIndex: customRules.rr_index || 0,
+            customRules
         };
 
     } catch (error) {
@@ -422,7 +447,7 @@ async function autoAssignLead(tenantId, leadId) {
             .from('salesmen')
             .select('id, name')
             .eq('tenant_id', tenantId)
-            .eq('is_active', 1);
+            .in('is_active', [true, 1]);
 
         if (salesmenErr || !salesmen || salesmen.length === 0) {
             console.log('[AUTO_ASSIGN] No active salesmen available');
@@ -431,32 +456,27 @@ async function autoAssignLead(tenantId, leadId) {
 
         let selectedSalesman;
 
-        if (settings.strategy === 'LEAST_ACTIVE') {
-            // Find salesman with fewest active leads
-            const salesmenWithCounts = await Promise.all(
-                salesmen.map(async (s) => {
-                    const { count } = await dbClient
-                        .from('crm_leads')
-                        .select('*', { count: 'exact', head: true })
-                        .eq('tenant_id', tenantId)
-                        .eq('assigned_user_id', s.id)
-                        .in('status', ['NEW', 'CONTACTED', 'QUALIFIED']);
+        if (settings.assignmentMode === 'AUTO_TRAIN') {
+            selectedSalesman = await selectSalesmanAutoTrain({ tenantId, salesmen, settings });
+            if (selectedSalesman) {
+                console.log('[AUTO_ASSIGN] AUTO_TRAIN selected:', selectedSalesman.name);
+            }
+        }
 
-                    return { ...s, activeLeads: count || 0 };
-                })
-            );
-
-            salesmenWithCounts.sort((a, b) => a.activeLeads - b.activeLeads);
-            selectedSalesman = salesmenWithCounts[0];
-
-            console.log('[AUTO_ASSIGN] LEAST_ACTIVE strategy - selected:', selectedSalesman.name, 'with', selectedSalesman.activeLeads, 'active leads');
-
-        } else {
-            // ROUND_ROBIN - simple rotation
-            const randomIndex = Math.floor(Math.random() * salesmen.length);
-            selectedSalesman = salesmen[randomIndex];
-
-            console.log('[AUTO_ASSIGN] ROUND_ROBIN strategy - selected:', selectedSalesman.name);
+        if (!selectedSalesman) {
+            if (settings.strategy === 'LEAST_ACTIVE') {
+                const salesmenWithCounts = await getSalesmenWithActiveLeads(tenantId, salesmen);
+                salesmenWithCounts.sort((a, b) => a.activeLeads - b.activeLeads);
+                selectedSalesman = salesmenWithCounts[0];
+                console.log('[AUTO_ASSIGN] LEAST_ACTIVE strategy - selected:', selectedSalesman.name, 'with', selectedSalesman.activeLeads, 'active leads');
+            } else {
+                selectedSalesman = await selectSalesmanRoundRobin({ tenantId, salesmen, settings });
+                if (!selectedSalesman) {
+                    const randomIndex = Math.floor(Math.random() * salesmen.length);
+                    selectedSalesman = salesmen[randomIndex];
+                }
+                console.log('[AUTO_ASSIGN] ROUND_ROBIN strategy - selected:', selectedSalesman.name);
+            }
         }
 
         // Assign lead
@@ -512,6 +532,206 @@ async function autoAssignLead(tenantId, leadId) {
             error: error.message
         };
     }
+}
+
+function parseJsonSafe(value) {
+    if (!value) return null;
+    if (typeof value === 'object') return value;
+    try {
+        return JSON.parse(value);
+    } catch (e) {
+        return null;
+    }
+}
+
+async function tableExists(table) {
+    const { error } = await dbClient.from(table).select('id').limit(1);
+    if (!error) return true;
+    return !String(error.message || '').includes('Could not find the table');
+}
+
+function resolveCaps(caps = {}) {
+    const day = caps.day || {};
+    const week = caps.week || {};
+    const month = caps.month || {};
+
+    const maxPerDay = day.max ?? (week.max ? Math.ceil(week.max / 7) : (month.max ? Math.ceil(month.max / 30) : null));
+    const minPerDay = day.min ?? (week.min ? Math.ceil(week.min / 7) : (month.min ? Math.ceil(month.min / 30) : null));
+
+    return { minPerDay, maxPerDay };
+}
+
+async function getLeadCounts({ tenantId }) {
+    const counts = new Map();
+    const now = new Date();
+    const startOfDay = new Date(now);
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const hasLeads = await tableExists('crm_leads');
+    if (!hasLeads) return { counts, source: 'none' };
+
+    const { data } = await dbClient
+        .from('crm_leads')
+        .select('assigned_user_id, created_at')
+        .eq('tenant_id', tenantId)
+        .gte('created_at', startOfDay.toISOString());
+
+    for (const row of data || []) {
+        if (!row.assigned_user_id) continue;
+        counts.set(row.assigned_user_id, (counts.get(row.assigned_user_id) || 0) + 1);
+    }
+
+    return { counts, source: 'crm_leads' };
+}
+
+async function getSalesmenWithActiveLeads(tenantId, salesmen) {
+    const hasLeads = await tableExists('crm_leads');
+    if (!hasLeads) {
+        return salesmen.map(s => ({ ...s, activeLeads: 0 }));
+    }
+
+    const results = await Promise.all(
+        salesmen.map(async (s) => {
+            const { count } = await dbClient
+                .from('crm_leads')
+                .select('*', { count: 'exact', head: true })
+                .eq('tenant_id', tenantId)
+                .eq('assigned_user_id', s.id)
+                .in('status', ['NEW', 'CONTACTED', 'QUALIFIED']);
+
+            return { ...s, activeLeads: count || 0 };
+        })
+    );
+
+    return results;
+}
+
+async function selectSalesmanRoundRobin({ tenantId, salesmen, settings }) {
+    const { minPerDay, maxPerDay } = resolveCaps(settings.caps || {});
+    const { counts } = await getLeadCounts({ tenantId });
+
+    let index = settings.rrIndex || 0;
+    const maxAttempts = salesmen.length;
+    let attempts = 0;
+
+    while (attempts < maxAttempts) {
+        const salesman = salesmen[index % salesmen.length];
+        const assignedToday = counts.get(salesman.id) || 0;
+        if (!maxPerDay || assignedToday < maxPerDay) {
+            await updateRoundRobinIndex(tenantId, index + 1, settings.customRules || {});
+            return salesman;
+        }
+        index += 1;
+        attempts += 1;
+    }
+
+    await updateRoundRobinIndex(tenantId, index + 1, settings.customRules || {});
+    return null;
+}
+
+async function updateRoundRobinIndex(tenantId, rrIndex, customRules) {
+    const rules = { ...customRules, rr_index: rrIndex };
+    const payload = {
+        tenant_id: tenantId,
+        strategy: 'ROUND_ROBIN',
+        auto_assign: 1,
+        consider_capacity: 1,
+        consider_score: 1,
+        custom_rules: JSON.stringify(rules),
+        updated_at: new Date().toISOString()
+    };
+
+    await dbClient
+        .from('assignment_config')
+        .upsert(payload, { onConflict: 'tenant_id' });
+}
+
+async function selectSalesmanAutoTrain({ tenantId, salesmen, settings }) {
+    const { minPerDay, maxPerDay } = resolveCaps(settings.caps || {});
+    const { counts } = await getLeadCounts({ tenantId });
+
+    const windowDays = settings.windowDays || 30;
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - windowDays);
+
+    const { data: visits } = await dbClient
+        .from('visits')
+        .select('salesman_id, created_at')
+        .eq('tenant_id', tenantId)
+        .gte('created_at', startDate.toISOString());
+
+    const { data: orders } = await dbClient
+        .from('orders_new')
+        .select('salesman_id, customer_id, actual_amount, created_at')
+        .eq('tenant_id', tenantId)
+        .gte('created_at', startDate.toISOString());
+
+    const stats = new Map();
+    for (const s of salesmen) {
+        stats.set(s.id, { visits: 0, orders: 0, revenue: 0, repeatCustomers: 0 });
+    }
+
+    for (const v of visits || []) {
+        const s = stats.get(v.salesman_id);
+        if (s) s.visits += 1;
+    }
+
+    const customerCounts = new Map();
+    for (const o of orders || []) {
+        const s = stats.get(o.salesman_id);
+        if (s) {
+            s.orders += 1;
+            s.revenue += Number(o.actual_amount || 0);
+            const key = o.salesman_id + ':' + o.customer_id;
+            customerCounts.set(key, (customerCounts.get(key) || 0) + 1);
+        }
+    }
+
+    for (const [key, count] of customerCounts.entries()) {
+        if (count >= 2) {
+            const salesmanId = key.split(':')[0];
+            const s = stats.get(salesmanId);
+            if (s) s.repeatCustomers += 1;
+        }
+    }
+
+    const maxRevenue = Math.max(1, ...Array.from(stats.values()).map(s => s.revenue || 0));
+
+    const weights = settings.weights || { conversion: 0.5, repeat: 0.3, revenue: 0.2 };
+    const candidates = [];
+
+    for (const s of salesmen) {
+        const stat = stats.get(s.id) || { visits: 0, orders: 0, revenue: 0, repeatCustomers: 0 };
+        const conversion = stat.visits > 0 ? stat.orders / stat.visits : 0;
+        const repeatRate = stat.orders > 0 ? stat.repeatCustomers / stat.orders : 0;
+        const revenueScore = stat.revenue / maxRevenue;
+
+        let score = (weights.conversion || 0) * conversion
+            + (weights.repeat || 0) * repeatRate
+            + (weights.revenue || 0) * revenueScore;
+
+        const assignedToday = counts.get(s.id) || 0;
+        if (maxPerDay && assignedToday >= maxPerDay) {
+            continue;
+        }
+
+        if (minPerDay && assignedToday < minPerDay) {
+            score += 0.5; // fairness boost
+        }
+
+        candidates.push({ salesman: s, weight: Math.max(0.05, score) });
+    }
+
+    if (!candidates.length) return null;
+
+    const total = candidates.reduce((sum, c) => sum + c.weight, 0);
+    let pick = Math.random() * total;
+    for (const c of candidates) {
+        pick -= c.weight;
+        if (pick <= 0) return c.salesman;
+    }
+
+    return candidates[0].salesman;
 }
 
 module.exports = {
