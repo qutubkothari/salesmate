@@ -332,6 +332,11 @@ async function initializeClient(tenantId, sessionName = 'default', options = {})
 
                 try {
                     const customerHandler = require('../routes/handlers/customerHandler');
+                    // Ensure tenant has required properties
+                    if (!resolvedTenant || !resolvedTenant.id) {
+                        console.error('[WA_WEB] Invalid tenant object:', resolvedTenant);
+                        throw new Error('Invalid tenant - missing id');
+                    }
                     const fakeReq = {
                         tenant: resolvedTenant,
                         message: {
@@ -376,13 +381,55 @@ async function initializeClient(tenantId, sessionName = 'default', options = {})
                     // Send captured responses via WhatsApp Web (if any)
                     for (const text of outgoing) {
                         if (typeof text !== 'string' || !text.trim()) continue;
+                        const trimmed = text.trim();
+                        const preview = trimmed.replace(/\s+/g, ' ').slice(0, 140);
+                        console.log(`[WA_WEB] Sending reply to ${from} (${trimmed.length} chars): ${preview}${trimmed.length > 140 ? '…' : ''}`);
+                        
+                        // Try multiple methods to send the message
+                        let sent = false;
+                        
+                        // Method 1: Direct reply using msg.reply()
                         try {
-                            console.log(`[WA_WEB] Sending response to ${from}: ${text.substring(0, 50)}...`);
-                            const chatId = `${from}@c.us`;
-                            await client.sendMessage(chatId, text);
-                            console.log(`[WA_WEB] Message sent successfully to ${from}`);
-                        } catch (sendErr) {
-                            console.error(`[WA_WEB] Failed to send message to ${from}:`, sendErr?.message || sendErr);
+                            await msg.reply(trimmed);
+                            console.log(`[WA_WEB] Sent via reply() to ${from}`);
+                            sent = true;
+                        } catch (err1) {
+                            console.warn(`[WA_WEB] reply() failed:`, err1?.message);
+                        }
+                        
+                        // Method 2: Use getChat().sendMessage()
+                        if (!sent) {
+                            try {
+                                const chat = await msg.getChat();
+                                await chat.sendMessage(trimmed);
+                                console.log(`[WA_WEB] Sent via chat.sendMessage() to ${from}`);
+                                sent = true;
+                            } catch (err2) {
+                                console.warn(`[WA_WEB] chat.sendMessage() failed:`, err2?.message);
+                            }
+                        }
+                        
+                        // Method 3: Use client.sendMessage() with chatId
+                        if (!sent) {
+                            try {
+                                const chatId = `${from}@c.us`;
+                                await client.sendMessage(chatId, trimmed);
+                                console.log(`[WA_WEB] Sent via client.sendMessage() to ${from}`);
+                                sent = true;
+                            } catch (err3) {
+                                console.warn(`[WA_WEB] client.sendMessage() failed:`, err3?.message);
+                            }
+                        }
+                        
+                        // Method 4: Try with serialized msg.from
+                        if (!sent) {
+                            try {
+                                await client.sendMessage(msg.from, trimmed);
+                                console.log(`[WA_WEB] Sent via msg.from to ${from}`);
+                                sent = true;
+                            } catch (err4) {
+                                console.error(`[WA_WEB] All 4 send methods failed for ${from}:`, err4?.message);
+                            }
                         }
                     }
                 }

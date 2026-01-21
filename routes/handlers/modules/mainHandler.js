@@ -674,7 +674,7 @@ async function handleCustomerMessage(req, res, tenant, from, userQuery, conversa
         });
 
         console.log('[MAIN_HANDLER] AI Response generated:', aiResponse ? 'SUCCESS' : 'FAILED');
-        await sendAndSaveMessage(from, aiResponse, conversation.id, tenant.id);
+        await sendAndSaveMessage(from, aiResponse, conversation?.id, tenant.id);
         return res.status(200).json({ ok: true, type: 'ai_response_v2' });
 
     } catch (error) {

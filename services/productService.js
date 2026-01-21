@@ -84,11 +84,35 @@ const searchProducts = async (tenantId, query, limit = 5) => {
             console.warn('[PRODUCT] Could not generate embedding for search query, falling back to text search');
             
             // Fallback to basic text search if embedding fails
-            const { data, error } = await dbClient
+            // Extract keywords from query (remove common words)
+            const keywords = query.toLowerCase().split(/\s+/).filter(w => 
+                !['the','a','an','tell','me','about','your','what','are','is','do','you','have','show','give','list'].includes(w)
+            );
+            
+            // If no specific keywords, return all products
+            if (keywords.length === 0 || query.toLowerCase().includes('all products') || query.toLowerCase().includes('your products')) {
+                console.log('[PRODUCT] Generic product query detected, returning all products');
+                const { data, error } = await dbClient
+                    .from('products')
+                    .select('*')
+                    .eq('tenant_id', tenantId)
+                    .order('price', { ascending: true })
+                    .limit(limit * 2); // Return more for generic queries
+                    
+                if (error) {
+                    console.error('[PRODUCT] Error fetching all products:', error.message);
+                    return [];
+                }
+                return data || [];
+            }
+            
+            // Search with keywords
+            const searchPattern = keywords.join('|');
+            const { data, error} = await dbClient
                 .from('products')
                 .select('*')
                 .eq('tenant_id', tenantId)
-                .or(`name.ilike.%${query}%,description.ilike.%${query}%`)
+                .or(`name.ilike.%${query}%,description.ilike.%${query}%,category.ilike.%${query}%`)
                 .limit(limit);
                 
             if (error) {
@@ -111,12 +135,31 @@ const searchProducts = async (tenantId, query, limit = 5) => {
         if (error) {
             console.warn('[PRODUCT] Vector search failed, falling back to text search:', error.message);
             
-            // Fallback to text search
+            // Check if query is generic "tell me about products" etc
+            const isGeneric = query.toLowerCase().match(/all product|your product|what.*product|tell.*about|show.*product/);
+            
+            if (isGeneric) {
+                console.log('[PRODUCT] Generic query after vector search failure - returning all products');
+                const { data: allData, error: allError } = await dbClient
+                    .from('products')
+                    .select('*')
+                    .eq('tenant_id', tenantId)
+                    .order('price', { ascending: true })
+                    .limit(limit * 2);
+                    
+                if (allError) {
+                    console.error('[PRODUCT] Error fetching all products:', allError.message);
+                    return [];
+                }
+                return allData || [];
+            }
+            
+            // Specific query fallback to text search
             const { data: fallbackData, error: fallbackError } = await dbClient
                 .from('products')
                 .select('*')
                 .eq('tenant_id', tenantId)
-                .or(`name.ilike.%${query}%,description.ilike.%${query}%`)
+                .or(`name.ilike.%${query}%,description.ilike.%${query}%,category.ilike.%${query}%`)
                 .limit(limit);
                 
             if (fallbackError) {

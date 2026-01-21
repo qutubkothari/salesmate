@@ -38,7 +38,11 @@ pm2 logs salesmate-ai --lines 5
 
 # Execute commands via SSH using plink
 try {
-    $deployCommands | & $plinkPath -hostkey "rsa2@22:$HostName" -l $UserName -P $Port -m - 2>&1
+    $tempFile = [System.IO.Path]::GetTempFileName()
+    Set-Content -Path $tempFile -Value $deployCommands -Encoding UTF8
+
+    & $plinkPath -l $UserName -P $Port $HostName -m $tempFile 2>&1
+    Remove-Item -Path $tempFile -ErrorAction SilentlyContinue
     
     if ($LASTEXITCODE -eq 0) {
         Write-Host "`n✅ Deployment successful!" -ForegroundColor Green

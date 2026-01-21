@@ -6,6 +6,7 @@
 const { openai, dbClient } = require('./config');
 const { searchProducts } = require('./productService');
 const { searchWebsiteForQuery, isProductInfoQuery } = require('./websiteContentIntegration');
+const HumanLikeEngine = require('./core/HumanLikeEngine');
 
 /**
  * Creates a vector embedding for a given text using OpenAI's API.
@@ -356,28 +357,88 @@ Your Answer (in ${botLanguage}):
         temperature: typeof opts.temperature === 'number' ? opts.temperature : 0.7  // Higher temp for natural variation
       });
       
-      // ? HUMAN-LIKE ENHANCEMENT: Add response variation and emotional intelligence
+      // ✨ HUMAN-LIKE ENHANCEMENT: Transform robotic AI into natural conversation
       let humanizedResponse = answer || `Sorry, I couldn't generate a response right now.`;
       
-      // Apply response variation to avoid robotic repetition
       try {
-        const ResponseVariationService = require('./core/ResponseVariationService');
+        // 1. Check for small talk first
+        const smallTalkResponse = HumanLikeEngine.handleSmallTalk(rawQuery || userQuery);
+        if (smallTalkResponse && (rawQuery || userQuery).trim().split(' ').length < 6) {
+          return smallTalkResponse;
+        }
         
-        // Detect sentiment from conversation history (are they frustrated?)
-        const frustrationKeywords = ['again', 'still', 'not working', 'problem', 'issue', 'frustrated'];
-        const conversationText = conversationContext.toLowerCase();
-        const frustrationLevel = frustrationKeywords.filter(kw => conversationText.includes(kw)).length / frustrationKeywords.length;
+        // 2. Get conversation history for personalization
+        let recentMessages = [];
+        try {
+          if (opts.conversationId) {
+            const { data } = await dbClient
+              .from('messages')
+              .select('message_body, sender')
+              .eq('conversation_id', opts.conversationId)
+              .order('created_at', { ascending: false })
+              .limit(10);
+            recentMessages = data || [];
+          }
+        } catch (e) {
+          console.warn('[AI_V2][HUMAN] Could not fetch messages for personalization');
+        }
         
-        // Adjust tone based on detected sentiment
-        const sentimentContext = {
-          sentiment: frustrationLevel > 0.3 ? 'negative' : 'neutral',
-          frustrationLevel: frustrationLevel
-        };
+        // 3. Detect customer emotion
+        const emotion = HumanLikeEngine.detectEmotion(rawQuery || userQuery, { recentMessages });
+        console.log('[AI_V2][HUMAN] Emotion detected:', Object.keys(emotion).filter(k => emotion[k]));
         
-        humanizedResponse = ResponseVariationService.adjustTone(humanizedResponse, sentimentContext);
-        console.log('[AI_V2][HUMANIZED] Applied emotional intelligence, frustration:', frustrationLevel.toFixed(2));
+        // 4. Extract customer name from conversation history
+        const customerName = HumanLikeEngine.extractCustomerName(recentMessages);
+        if (customerName) {
+          console.log('[AI_V2][HUMAN] Customer name found:', customerName);
+        }
+        
+        // 5. Humanize the AI's base response
+        humanizedResponse = HumanLikeEngine.humanizeResponse(humanizedResponse, { emotion });
+        
+        // 6. Adapt tone based on customer emotion
+        humanizedResponse = HumanLikeEngine.adaptToneToEmotion(humanizedResponse, emotion);
+        
+        // 7. Personalize with customer name occasionally
+        const messageCount = recentMessages.length;
+        humanizedResponse = HumanLikeEngine.personalizeResponse(humanizedResponse, customerName, messageCount);
+        
+        // 8. If showing products, make the presentation more natural
+        const products = await searchProducts(tenantId, rawQuery || userQuery, 6);
+        if (products && products.length > 0 && (rawQuery || userQuery).toLowerCase().includes('product')) {
+          const naturalProductList = HumanLikeEngine.humanizeProductList(products);
+          
+          // Add proactive suggestion
+          const suggestion = HumanLikeEngine.generateProactiveSuggestion(rawQuery || userQuery, products);
+          if (suggestion) {
+            humanizedResponse += suggestion;
+          }
+          
+          // If AI didn't include product details, use our natural version
+          if (!humanizedResponse.includes('AED') && !humanizedResponse.toLowerCase().includes('price')) {
+            humanizedResponse = naturalProductList;
+          }
+        }
+        
+        console.log('[AI_V2][HUMANIZED] Applied complete human-like transformation');
+        
       } catch (err) {
-        console.warn('[AI_V2][HUMANIZE] Failed to apply response variation:', err.message);
+        console.warn('[AI_V2][HUMAN] Failed to apply human-like enhancements:', err.message);
+        // Fallback to basic response variation
+        try {
+          const ResponseVariationService = require('./core/ResponseVariationService');
+          const frustrationKeywords = ['again', 'still', 'not working', 'problem', 'issue', 'frustrated'];
+          const conversationText = conversationContext.toLowerCase();
+          const frustrationLevel = frustrationKeywords.filter(kw => conversationText.includes(kw)).length / frustrationKeywords.length;
+          const sentimentContext = {
+            sentiment: frustrationLevel > 0.3 ? 'negative' : 'neutral',
+            frustrationLevel: frustrationLevel
+          };
+          humanizedResponse = ResponseVariationService.adjustTone(humanizedResponse, sentimentContext);
+          console.log('[AI_V2][HUMANIZED] Applied emotional intelligence, frustration:', frustrationLevel.toFixed(2));
+        } catch (fallbackErr) {
+          console.warn('[AI_V2][HUMANIZE] Fallback also failed:', fallbackErr.message);
+        }
       }
       
       return humanizedResponse;
