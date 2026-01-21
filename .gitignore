@@ -119,6 +119,9 @@ dist
 # FuseBox cache
 .fusebox/
 
+# Supabase data exports (may contain secrets)
+supabase-data-*.sql
+
 # DynamoDB Local files
 .dynamodb/
 
