@@ -66,7 +66,7 @@ Write-Host "Code updated on server" -ForegroundColor Green
 
 # ====== STEP 5: Install Dependencies ======
 Write-Host "`n[5/7] Installing Dependencies" -ForegroundColor Yellow
-Invoke-RemoteCommand "cd $REMOTE_PATH; npm install --production --omit=optional"
+Invoke-RemoteCommand "cd $REMOTE_PATH; CXXFLAGS='-include cstdint' npm install --production --omit=optional"
 Write-Host "Dependencies updated" -ForegroundColor Green
 
 # ====== STEP 6: Run Migrations (if any) ======
