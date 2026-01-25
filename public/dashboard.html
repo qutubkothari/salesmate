@@ -172,6 +172,10 @@
                         <i class="fas fa-user-tag"></i>
                         <span>Leads</span>
                     </div>
+                    <div class="sidebar-item" onclick="switchTab('crm-analytics')" data-tab="crm-analytics">
+                        <i class="fas fa-chart-pie"></i>
+                        <span>CRM Analytics</span>
+                    </div>
                     <div class="sidebar-item" onclick="switchTab('email')" data-tab="email">
                         <i class="fas fa-envelope"></i>
                         <span>Email</span>
@@ -792,6 +796,170 @@
                                         <tr>
                                             <td colspan="6" class="text-center py-8 text-white/60">
                                                 <i class="fas fa-spinner fa-spin mr-2"></i>Loading branch data...
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CRM Analytics Tab -->
+                <div id="crm-analyticsTab" class="hidden">
+                    <div class="max-w-7xl mx-auto px-6 py-4">
+                        <div class="flex justify-between items-center mb-6">
+                            <h2 class="text-white text-2xl font-bold">
+                                <i class="fas fa-chart-pie mr-2"></i>CRM Analytics & Insights
+                            </h2>
+                            <div class="flex gap-3">
+                                <input type="date" id="analyticsStartDate" class="px-4 py-2 rounded-lg bg-white/10 text-white border border-white/20" />
+                                <input type="date" id="analyticsEndDate" class="px-4 py-2 rounded-lg bg-white/10 text-white border border-white/20" />
+                                <button onclick="loadAllAnalytics()" class="px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg text-white">
+                                    <i class="fas fa-sync mr-2"></i>Refresh
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Key Metrics Summary -->
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                            <div class="stat-card p-4 rounded-xl">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-white/60 text-sm">Total Leads</p>
+                                        <p class="text-white text-3xl font-bold" id="analyticsTotalLeads">0</p>
+                                    </div>
+                                    <i class="fas fa-users text-blue-400 text-4xl"></i>
+                                </div>
+                            </div>
+                            <div class="stat-card p-4 rounded-xl">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-white/60 text-sm">Conversion Rate</p>
+                                        <p class="text-white text-3xl font-bold" id="analyticsConversionRate">0%</p>
+                                    </div>
+                                    <i class="fas fa-chart-line text-green-400 text-4xl"></i>
+                                </div>
+                            </div>
+                            <div class="stat-card p-4 rounded-xl">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-white/60 text-sm">Avg. Time to Win</p>
+                                        <p class="text-white text-3xl font-bold" id="analyticsAvgDays">0</p>
+                                        <p class="text-white/40 text-xs">days</p>
+                                    </div>
+                                    <i class="fas fa-clock text-yellow-400 text-4xl"></i>
+                                </div>
+                            </div>
+                            <div class="stat-card p-4 rounded-xl">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-white/60 text-sm">Won Leads</p>
+                                        <p class="text-white text-3xl font-bold" id="analyticsWonCount">0</p>
+                                    </div>
+                                    <i class="fas fa-trophy text-purple-400 text-4xl"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Charts Row 1: Conversion Funnel & Source Performance -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                            <!-- Conversion Funnel -->
+                            <div class="glass-effect rounded-xl p-6">
+                                <h3 class="text-white text-lg font-semibold mb-4">
+                                    <i class="fas fa-filter mr-2 text-blue-400"></i>Conversion Funnel
+                                </h3>
+                                <div style="position: relative; height: 300px;">
+                                    <canvas id="conversionFunnelChart"></canvas>
+                                </div>
+                            </div>
+
+                            <!-- Source Performance -->
+                            <div class="glass-effect rounded-xl p-6">
+                                <h3 class="text-white text-lg font-semibold mb-4">
+                                    <i class="fas fa-pie-chart mr-2 text-green-400"></i>Lead Source Distribution
+                                </h3>
+                                <div style="position: relative; height: 300px;">
+                                    <canvas id="sourceDistributionChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Charts Row 2: Time to Conversion & Trends -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                            <!-- Time to Conversion by Channel -->
+                            <div class="glass-effect rounded-xl p-6">
+                                <h3 class="text-white text-lg font-semibold mb-4">
+                                    <i class="fas fa-stopwatch mr-2 text-yellow-400"></i>Time to Conversion by Channel
+                                </h3>
+                                <div style="position: relative; height: 300px;">
+                                    <canvas id="timeToConversionChart"></canvas>
+                                </div>
+                            </div>
+
+                            <!-- Lead Trends -->
+                            <div class="glass-effect rounded-xl p-6">
+                                <h3 class="text-white text-lg font-semibold mb-4">
+                                    <i class="fas fa-chart-area mr-2 text-purple-400"></i>Lead Trends
+                                </h3>
+                                <div style="position: relative; height: 300px;">
+                                    <canvas id="leadTrendsChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Source Performance Table -->
+                        <div class="glass-effect rounded-xl p-6 mb-6">
+                            <h3 class="text-white text-lg font-semibold mb-4">
+                                <i class="fas fa-trophy mr-2 text-yellow-400"></i>Source Performance Leaderboard
+                            </h3>
+                            <div class="overflow-x-auto">
+                                <table class="w-full">
+                                    <thead>
+                                        <tr class="text-white/60 text-sm border-b border-white/10">
+                                            <th class="text-left py-3 px-4">Source</th>
+                                            <th class="text-left py-3 px-4">Total Leads</th>
+                                            <th class="text-left py-3 px-4">Won</th>
+                                            <th class="text-left py-3 px-4">Lost</th>
+                                            <th class="text-left py-3 px-4">Active</th>
+                                            <th class="text-left py-3 px-4">Conversion Rate</th>
+                                            <th class="text-left py-3 px-4">Avg Score</th>
+                                            <th class="text-left py-3 px-4">Hot Leads %</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="sourcePerformanceTable">
+                                        <tr>
+                                            <td colspan="8" class="text-center py-8 text-white/60">
+                                                <i class="fas fa-spinner fa-spin mr-2"></i>Loading data...
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Team Performance Table -->
+                        <div class="glass-effect rounded-xl p-6">
+                            <h3 class="text-white text-lg font-semibold mb-4">
+                                <i class="fas fa-users mr-2 text-blue-400"></i>Team Performance
+                            </h3>
+                            <div class="overflow-x-auto">
+                                <table class="w-full">
+                                    <thead>
+                                        <tr class="text-white/60 text-sm border-b border-white/10">
+                                            <th class="text-left py-3 px-4">Team Member</th>
+                                            <th class="text-left py-3 px-4">Total Leads</th>
+                                            <th class="text-left py-3 px-4">Won</th>
+                                            <th class="text-left py-3 px-4">Lost</th>
+                                            <th class="text-left py-3 px-4">Active</th>
+                                            <th class="text-left py-3 px-4">Conversion Rate</th>
+                                            <th class="text-left py-3 px-4">Avg Score</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="teamPerformanceTable">
+                                        <tr>
+                                            <td colspan="7" class="text-center py-8 text-white/60">
+                                                <i class="fas fa-spinner fa-spin mr-2"></i>Loading data...
                                             </td>
                                         </tr>
                                     </tbody>
@@ -2696,11 +2864,13 @@
         const targetsTab = document.getElementById('targetsTab');
         const branchesTab = document.getElementById('branchesTab');
         const reportsTab = document.getElementById('reportsTab');
+        const crmAnalyticsTab = document.getElementById('crm-analyticsTab');
         if (visitsTab) visitsTab.classList.add('hidden');
         if (salesmenTab) salesmenTab.classList.add('hidden');
         if (targetsTab) targetsTab.classList.add('hidden');
         if (branchesTab) branchesTab.classList.add('hidden');
         if (reportsTab) reportsTab.classList.add('hidden');
+        if (crmAnalyticsTab) crmAnalyticsTab.classList.add('hidden');
         
         content.innerHTML = '<div class="flex justify-center py-20"><div class="loading-spinner"></div></div>';
         console.log('✅ Content area cleared, loading tab:', tabName);
@@ -2796,6 +2966,15 @@
                         console.log('✅ loadFSMReports completed');
                     } else {
                         console.error('❌ Reports tab element not found');
+                    }
+                    break;
+                case 'crm-analytics':
+                    console.log('📊 Loading CRM Analytics tab...');
+                    content.classList.add('hidden');
+                    const crmAnalyticsTab = document.getElementById('crm-analyticsTab');
+                    if (crmAnalyticsTab) {
+                        crmAnalyticsTab.classList.remove('hidden');
+                        await loadAllAnalytics();
                     }
                     break;
                 
@@ -10344,6 +10523,423 @@
     function exportFSMReport() {
         showNotification('PDF export feature coming soon! Use browser print for now.', 'info');
         window.print();
+    }
+
+    // ========== CRM Analytics Functions ==========
+    let analyticsCharts = {
+        funnel: null,
+        source: null,
+        timeToConversion: null,
+        trends: null
+    };
+
+    async function loadAllAnalytics() {
+        try {
+            const startDate = document.getElementById('analyticsStartDate')?.value || null;
+            const endDate = document.getElementById('analyticsEndDate')?.value || null;
+            
+            // Set default dates if not set (last 30 days)
+            if (!startDate && !endDate) {
+                const end = new Date();
+                const start = new Date();
+                start.setDate(start.getDate() - 30);
+                
+                const startInput = document.getElementById('analyticsStartDate');
+                const endInput = document.getElementById('analyticsEndDate');
+                if (startInput) startInput.value = start.toISOString().split('T')[0];
+                if (endInput) endInput.value = end.toISOString().split('T')[0];
+            }
+
+            // Load all analytics in parallel
+            await Promise.all([
+                loadConversionFunnel(startDate, endDate),
+                loadSourcePerformance(startDate, endDate),
+                loadTimeToConversion(startDate, endDate),
+                loadLeadTrends(startDate, endDate),
+                loadTeamPerformance(startDate, endDate)
+            ]);
+        } catch (error) {
+            console.error('Error loading analytics:', error);
+            showNotification('Failed to load analytics data', 'error');
+        }
+    }
+
+    async function loadConversionFunnel(startDate, endDate) {
+        try {
+            let url = '/api/crm/analytics/conversion-funnel?';
+            if (startDate) url += `startDate=${startDate}&`;
+            if (endDate) url += `endDate=${endDate}&`;
+            
+            const response = await fetch(url);
+            const data = await response.json();
+            
+            if (data.success) {
+                const funnel = data.funnel;
+                
+                // Update summary cards
+                document.getElementById('analyticsTotalLeads').textContent = funnel.total || 0;
+                document.getElementById('analyticsConversionRate').textContent = funnel.overallConversionRate + '%' || '0%';
+                document.getElementById('analyticsWonCount').textContent = funnel.byStatus['WON'] || 0;
+                
+                // Render funnel chart
+                renderFunnelChart(funnel);
+            }
+        } catch (error) {
+            console.error('Error loading conversion funnel:', error);
+        }
+    }
+
+    function renderFunnelChart(funnel) {
+        const ctx = document.getElementById('conversionFunnelChart');
+        if (!ctx) return;
+        
+        const statusLabels = ['NEW', 'CONTACTED', 'QUALIFIED', 'PROPOSAL', 'NEGOTIATION', 'WON'];
+        const counts = statusLabels.map(status => funnel.byStatus[status] || 0);
+        
+        if (analyticsCharts.funnel) analyticsCharts.funnel.destroy();
+        
+        analyticsCharts.funnel = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: statusLabels,
+                datasets: [{
+                    label: 'Lead Count',
+                    data: counts,
+                    backgroundColor: [
+                        'rgba(59, 130, 246, 0.8)',
+                        'rgba(16, 185, 129, 0.8)',
+                        'rgba(245, 158, 11, 0.8)',
+                        'rgba(139, 92, 246, 0.8)',
+                        'rgba(236, 72, 153, 0.8)',
+                        'rgba(34, 197, 94, 0.8)'
+                    ],
+                    borderColor: [
+                        'rgb(59, 130, 246)',
+                        'rgb(16, 185, 129)',
+                        'rgb(245, 158, 11)',
+                        'rgb(139, 92, 246)',
+                        'rgb(236, 72, 153)',
+                        'rgb(34, 197, 94)'
+                    ],
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { color: 'rgba(255,255,255,0.7)' },
+                        grid: { color: 'rgba(255,255,255,0.1)' }
+                    },
+                    x: {
+                        ticks: { color: 'rgba(255,255,255,0.7)' },
+                        grid: { display: false }
+                    }
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => {
+                                const label = context.label;
+                                const value = context.parsed.y;
+                                const rate = funnel.conversionRates[label] || 0;
+                                return `${value} leads (${rate}% conversion)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    async function loadSourcePerformance(startDate, endDate) {
+        try {
+            let url = '/api/crm/analytics/source-performance?';
+            if (startDate) url += `startDate=${startDate}&`;
+            if (endDate) url += `endDate=${endDate}&`;
+            
+            const response = await fetch(url);
+            const data = await response.json();
+            
+            if (data.success) {
+                renderSourceChart(data.sources);
+                renderSourceTable(data.sources);
+            }
+        } catch (error) {
+            console.error('Error loading source performance:', error);
+        }
+    }
+
+    function renderSourceChart(sources) {
+        const ctx = document.getElementById('sourceDistributionChart');
+        if (!ctx) return;
+        
+        const sourceNames = Object.keys(sources);
+        const sourceCounts = sourceNames.map(name => sources[name].total);
+        
+        if (analyticsCharts.source) analyticsCharts.source.destroy();
+        
+        analyticsCharts.source = new Chart(ctx, {
+            type: 'pie',
+            data: {
+                labels: sourceNames,
+                datasets: [{
+                    data: sourceCounts,
+                    backgroundColor: [
+                        'rgba(59, 130, 246, 0.8)',
+                        'rgba(16, 185, 129, 0.8)',
+                        'rgba(245, 158, 11, 0.8)',
+                        'rgba(139, 92, 246, 0.8)',
+                        'rgba(236, 72, 153, 0.8)',
+                        'rgba(34, 197, 94, 0.8)'
+                    ],
+                    borderColor: 'rgba(255,255,255,0.2)',
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { color: 'rgba(255,255,255,0.8)' }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => {
+                                const label = context.label;
+                                const value = context.parsed;
+                                const percentage = ((value / sourceCounts.reduce((a, b) => a + b, 0)) * 100).toFixed(1);
+                                return `${label}: ${value} (${percentage}%)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    function renderSourceTable(sources) {
+        const tbody = document.getElementById('sourcePerformanceTable');
+        if (!tbody) return;
+        
+        const sourceArray = Object.entries(sources).sort((a, b) => 
+            parseFloat(b[1].conversionRate) - parseFloat(a[1].conversionRate)
+        );
+        
+        if (sourceArray.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8" class="text-center py-8 text-white/60">No data available</td></tr>';
+            return;
+        }
+        
+        tbody.innerHTML = sourceArray.map(([source, metrics]) => `
+            <tr class="border-b border-white/10 hover:bg-white/5">
+                <td class="py-3 px-4 text-white font-medium">${escapeHtml(source)}</td>
+                <td class="py-3 px-4 text-white/80">${metrics.total}</td>
+                <td class="py-3 px-4 text-green-400">${metrics.won}</td>
+                <td class="py-3 px-4 text-red-400">${metrics.lost}</td>
+                <td class="py-3 px-4 text-blue-400">${metrics.active}</td>
+                <td class="py-3 px-4">
+                    <span class="px-2 py-1 rounded-full text-xs font-semibold ${
+                        parseFloat(metrics.conversionRate) >= 30 ? 'bg-green-500/20 text-green-300' :
+                        parseFloat(metrics.conversionRate) >= 15 ? 'bg-yellow-500/20 text-yellow-300' :
+                        'bg-red-500/20 text-red-300'
+                    }">
+                        ${metrics.conversionRate}%
+                    </span>
+                </td>
+                <td class="py-3 px-4 text-white/80">${metrics.avgScore}</td>
+                <td class="py-3 px-4 text-white/80">${metrics.hotRate}%</td>
+            </tr>
+        `).join('');
+    }
+
+    async function loadTimeToConversion(startDate, endDate) {
+        try {
+            let url = '/api/crm/analytics/time-to-conversion?';
+            if (startDate) url += `startDate=${startDate}&`;
+            if (endDate) url += `endDate=${endDate}&`;
+            
+            const response = await fetch(url);
+            const data = await response.json();
+            
+            if (data.success) {
+                document.getElementById('analyticsAvgDays').textContent = data.overall.avgDays || '0';
+                renderTimeToConversionChart(data.byChannel);
+            }
+        } catch (error) {
+            console.error('Error loading time to conversion:', error);
+        }
+    }
+
+    function renderTimeToConversionChart(byChannel) {
+        const ctx = document.getElementById('timeToConversionChart');
+        if (!ctx) return;
+        
+        const channels = Object.keys(byChannel);
+        const avgDays = channels.map(ch => parseFloat(byChannel[ch].avgDays));
+        
+        if (analyticsCharts.timeToConversion) analyticsCharts.timeToConversion.destroy();
+        
+        analyticsCharts.timeToConversion = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: channels,
+                datasets: [{
+                    label: 'Avg Days to Win',
+                    data: avgDays,
+                    backgroundColor: 'rgba(245, 158, 11, 0.8)',
+                    borderColor: 'rgb(245, 158, 11)',
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                indexAxis: 'y',
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        ticks: { color: 'rgba(255,255,255,0.7)' },
+                        grid: { color: 'rgba(255,255,255,0.1)' }
+                    },
+                    y: {
+                        ticks: { color: 'rgba(255,255,255,0.7)' },
+                        grid: { display: false }
+                    }
+                },
+                plugins: {
+                    legend: { display: false }
+                }
+            }
+        });
+    }
+
+    async function loadLeadTrends(startDate, endDate) {
+        try {
+            let url = '/api/crm/analytics/trends?groupBy=day';
+            if (startDate) url += `&startDate=${startDate}`;
+            if (endDate) url += `&endDate=${endDate}`;
+            
+            const response = await fetch(url);
+            const data = await response.json();
+            
+            if (data.success) {
+                renderTrendsChart(data.trends);
+            }
+        } catch (error) {
+            console.error('Error loading lead trends:', error);
+        }
+    }
+
+    function renderTrendsChart(trends) {
+        const ctx = document.getElementById('leadTrendsChart');
+        if (!ctx) return;
+        
+        const dates = trends.map(t => t.date);
+        const totals = trends.map(t => t.total);
+        const won = trends.map(t => t.won);
+        
+        if (analyticsCharts.trends) analyticsCharts.trends.destroy();
+        
+        analyticsCharts.trends = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: dates,
+                datasets: [
+                    {
+                        label: 'Total Leads',
+                        data: totals,
+                        borderColor: 'rgb(59, 130, 246)',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    },
+                    {
+                        label: 'Won Leads',
+                        data: won,
+                        borderColor: 'rgb(34, 197, 94)',
+                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { color: 'rgba(255,255,255,0.7)' },
+                        grid: { color: 'rgba(255,255,255,0.1)' }
+                    },
+                    x: {
+                        ticks: { 
+                            color: 'rgba(255,255,255,0.7)',
+                            maxTicksLimit: 10
+                        },
+                        grid: { display: false }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        labels: { color: 'rgba(255,255,255,0.8)' }
+                    }
+                }
+            }
+        });
+    }
+
+    async function loadTeamPerformance(startDate, endDate) {
+        try {
+            let url = '/api/crm/analytics/team-performance?';
+            if (startDate) url += `startDate=${startDate}&`;
+            if (endDate) url += `endDate=${endDate}&`;
+            
+            const response = await fetch(url);
+            const data = await response.json();
+            
+            if (data.success) {
+                renderTeamTable(data.team);
+            }
+        } catch (error) {
+            console.error('Error loading team performance:', error);
+        }
+    }
+
+    function renderTeamTable(team) {
+        const tbody = document.getElementById('teamPerformanceTable');
+        if (!tbody) return;
+        
+        if (team.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center py-8 text-white/60">No data available</td></tr>';
+            return;
+        }
+        
+        tbody.innerHTML = team.map((member, index) => `
+            <tr class="border-b border-white/10 hover:bg-white/5">
+                <td class="py-3 px-4 text-white font-medium">${escapeHtml(member.name)}</td>
+                <td class="py-3 px-4 text-white/80">${member.total}</td>
+                <td class="py-3 px-4 text-green-400">${member.won}</td>
+                <td class="py-3 px-4 text-red-400">${member.lost}</td>
+                <td class="py-3 px-4 text-blue-400">${member.active}</td>
+                <td class="py-3 px-4">
+                    <span class="px-2 py-1 rounded-full text-xs font-semibold ${
+                        parseFloat(member.conversionRate) >= 30 ? 'bg-green-500/20 text-green-300' :
+                        parseFloat(member.conversionRate) >= 15 ? 'bg-yellow-500/20 text-yellow-300' :
+                        'bg-red-500/20 text-red-300'
+                    }">
+                        ${member.conversionRate}%
+                    </span>
+                </td>
+                <td class="py-3 px-4 text-white/80">${member.avgScore}</td>
+            </tr>
+        `).join('');
     }
 
     init();
