@@ -109,22 +109,33 @@ if ($USE_SQLITE_MIGRATIONS) {
 }
 
 # ====== STEP 7: Configure Nginx for sak-ai.saksolution.com ======
-Write-Host "`n[7/8] Configuring Nginx for sak-ai.saksolution.com" -ForegroundColor Yellow
+Write-Host "`n[7/8] Configuring Nginx for sak-ai.saksolution.com (SSL + Port 8055)" -ForegroundColor Yellow
 $nginxConfig = @'
 server {
     listen 80;
     server_name sak-ai.saksolution.com;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name sak-ai.saksolution.com;
+
+    ssl_certificate /etc/letsencrypt/live/sak-ai.saksolution.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/sak-ai.saksolution.com/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
 
     location / {
         proxy_pass http://localhost:8055;
         proxy_http_version 1.1;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host \$host;
-        proxy_cache_bypass \$http_upgrade;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
         
         proxy_connect_timeout 600;
         proxy_send_timeout 600;
@@ -135,12 +146,12 @@ server {
     location /socket.io/ {
         proxy_pass http://localhost:8055;
         proxy_http_version 1.1;
-        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }
 
     add_header X-Frame-Options "SAMEORIGIN" always;
