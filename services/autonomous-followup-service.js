@@ -79,6 +79,36 @@ class AutonomousFollowupService {
   }
 
   /**
+   * List all sequences for tenant
+   */
+  static listSequences(tenantId) {
+    const db = new Database(process.env.DB_PATH || 'local-database.db');
+
+    try {
+      const sequences = db.prepare(`
+        SELECT * FROM followup_sequences
+        WHERE tenant_id = ?
+        ORDER BY created_at DESC
+      `).all(tenantId);
+
+      return sequences.map(seq => ({
+        id: seq.id,
+        name: seq.sequence_name,
+        type: seq.sequence_type,
+        description: seq.description,
+        isActive: seq.is_active === 1,
+        enrollments: seq.current_enrollments,
+        totalSent: seq.total_sent,
+        conversionRate: seq.conversion_rate,
+        createdAt: seq.created_at
+      }));
+
+    } finally {
+      db.close();
+    }
+  }
+
+  /**
    * Enroll contact in sequence
    */
   static enrollContact(tenantId, sequenceId, enrollmentData, enrolledBy) {
@@ -245,8 +275,14 @@ class AutonomousFollowupService {
             now
           ).lastInsertRowid;
 
-          // TODO: Actually send message via email/WhatsApp service
-          // await this._sendMessage(step.channel, recipient, personalizedSubject, personalizedMessage);
+          // Send message via WhatsApp service
+          const sendResult = await this._sendMessage(
+            step.channel, 
+            recipient, 
+            personalizedSubject, 
+            personalizedMessage,
+            enrollment.tenant_id
+          );
 
           // Update enrollment
           const nextStep = db.prepare(`
@@ -288,6 +324,58 @@ class AutonomousFollowupService {
       }
 
       return results;
+
+    } finally {
+      db.close();
+    }
+  }
+
+  /**
+   * Pause sequence
+   */
+  static pauseSequence(tenantId, sequenceId) {
+    const db = new Database(process.env.DB_PATH || 'local-database.db');
+
+    try {
+      db.prepare(`
+        UPDATE followup_sequences
+        SET is_active = 0
+        WHERE id = ? AND tenant_id = ?
+      `).run(sequenceId, tenantId);
+
+      // Pause all active enrollments
+      db.prepare(`
+        UPDATE sequence_enrollments
+        SET enrollment_status = 'paused'
+        WHERE sequence_id = ?
+          AND enrollment_status = 'active'
+      `).run(sequenceId);
+
+    } finally {
+      db.close();
+    }
+  }
+
+  /**
+   * Activate sequence
+   */
+  static activateSequence(tenantId, sequenceId) {
+    const db = new Database(process.env.DB_PATH || 'local-database.db');
+
+    try {
+      db.prepare(`
+        UPDATE followup_sequences
+        SET is_active = 1
+        WHERE id = ? AND tenant_id = ?
+      `).run(sequenceId, tenantId);
+
+      // Resume paused enrollments
+      db.prepare(`
+        UPDATE sequence_enrollments
+        SET enrollment_status = 'active'
+        WHERE sequence_id = ?
+          AND enrollment_status = 'paused'
+      `).run(sequenceId);
 
     } finally {
       db.close();
@@ -572,6 +660,43 @@ class AutonomousFollowupService {
     `).get(tenantId, customerId, sequenceId);
 
     return !!unsubscribe;
+  }
+
+  /**
+   * Send message via WhatsApp or Email
+   * @private
+   */
+  static async _sendMessage(channel, recipient, subject, messageBody, tenantId) {
+    try {
+      if (channel === 'whatsapp') {
+        // Send via WhatsApp
+        const { sendMessage } = require('./whatsappService');
+        await sendMessage(tenantId, recipient, messageBody);
+        
+        console.log(`[FOLLOWUP] WhatsApp sent to ${recipient}`);
+        return { success: true, channel: 'whatsapp' };
+        
+      } else if (channel === 'email') {
+        // Send via Email (if email service is configured)
+        const emailService = require('./emailService');
+        await emailService.sendEmail({
+          to: recipient,
+          subject: subject,
+          body: messageBody,
+          tenantId: tenantId
+        });
+        
+        console.log(`[FOLLOWUP] Email sent to ${recipient}`);
+        return { success: true, channel: 'email' };
+        
+      } else {
+        throw new Error(`Unsupported channel: ${channel}`);
+      }
+      
+    } catch (error) {
+      console.error(`[FOLLOWUP] Failed to send ${channel} to ${recipient}:`, error.message);
+      throw error;
+    }
   }
 }
 

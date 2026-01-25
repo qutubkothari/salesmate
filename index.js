@@ -1285,6 +1285,10 @@ app.use('/api/ai-intelligence', aiIntelligenceRouter);
 const analyticsRouter = require('./routes/api/analytics');
 app.use('/api/analytics', analyticsRouter);
 
+// Autonomous Follow-up Sequences API (Drip campaigns, engagement tracking)
+const followupSequencesRouter = require('./routes/api/followupSequences');
+app.use('/api/followup-sequences', followupSequencesRouter);
+
 // ERP Integrations API (Zoho, Tally, QuickBooks, SAP)
 const erpRouter = require('./routes/api/erp');
 app.use('/api/erp', erpRouter);

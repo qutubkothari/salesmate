@@ -610,6 +610,26 @@ cron.schedule('0 * * * *', async () => {
 });
 console.log('[Scheduler] Zoho order sync scheduled to run every hour');
 
+// Schedule autonomous follow-up sequence processing every 15 minutes
+cron.schedule('*/15 * * * *', async () => {
+    console.log('[Scheduler] Running autonomous follow-up sequences...');
+    try {
+        const AutonomousFollowupService = require('./services/autonomous-followup-service');
+        const results = await AutonomousFollowupService.processSequences();
+        console.log(`[Scheduler] Follow-up processing complete:`, {
+            processed: results.processed,
+            sent: results.sent,
+            failed: results.failed,
+            completed: results.completed
+        });
+    } catch (error) {
+        console.error('[Scheduler] Follow-up processing failed:', error);
+    }
+}, {
+    timezone: "Asia/Kolkata"
+});
+console.log('[Scheduler] Autonomous follow-up sequences scheduled to run every 15 minutes');
+
 // Main execution when run as standalone script
 if (require.main === module) {
     (async () => {
