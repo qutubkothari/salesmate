@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SAK AI: WhatsApp Sales Automation & Order Bot (UAE & India)</title>
+    <meta name="description" content="Automate your entire sales process on WhatsApp with SAK AI. Manage inventory, calculate pricing, and process orders 24/7 without a CRM. Get a demo in Dubai or India.">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .hero-pattern { background-color: #f3f4f6; background-image: radial-gradient(#d1d5db 1px, transparent 1px); background-size: 20px 20px; }
+        .gradient-text { background: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .sticky-cta { position: fixed; bottom: 20px; right: 20px; z-index: 50; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1); }
+    </style>
+    
+    <!-- JSON-LD Schema (Critical) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "LocalBusiness",
+          "@id": "https://sak-ai.saksolution.com/#organization",
+          "name": "SAK AI",
+          "parentOrganization": {
+            "@type": "Organization",
+            "name": "SAK Solutions",
+            "url": "https://saksolution.com"
+          },
+          "url": "https://sak-ai.saksolution.com",
+          "address": {
+            "@type": "PostalAddress",
+            "addressLocality": "Dubai",
+            "addressCountry": "AE"
+          },
+          "priceRange": "$$"
+        },
+        {
+          "@type": "SoftwareApplication",
+          "name": "SAK AI Sales Assistant",
+          "applicationCategory": "BusinessApplication",
+          "operatingSystem": "WhatsApp",
+          "offers": {
+            "@type": "Offer",
+            "price": "500",
+            "priceCurrency": "AED"
+          },
+          "author": {
+            "@id": "https://sak-ai.saksolution.com/#organization"
+          }
+        }
+      ]
+    }
+    </script>
+    <script>
+        // Simple client-side routing for single page scroll
+        document.addEventListener('DOMContentLoaded', () => {
+            const path = window.location.pathname;
+            if (path === '/features') document.getElementById('features')?.scrollIntoView();
+            if (path === '/pricing') document.getElementById('pricing')?.scrollIntoView();
+            if (path === '/contact') document.getElementById('contact')?.scrollIntoView();
+        });
+    </script>
+</head>
+<body class="bg-white text-gray-900 antialiased">
+    
+    <!-- Navigation -->
+    <nav class="fixed w-full z-40 bg-white/90 backdrop-blur-md border-b border-gray-100 transition-all duration-300">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-20 items-center">
+                <div class="flex items-center">
+                    <a href="/" class="text-2xl font-extrabold tracking-tight text-blue-900">SAK <span class="text-blue-600">AI</span></a>
+                </div>
+                <!-- Desktop Menu -->
+                <div class="hidden md:flex space-x-8 items-center">
+                    <a href="/" class="font-medium text-gray-600 hover:text-blue-600 transition">Home</a>
+                    <a href="/features" class="font-medium text-gray-600 hover:text-blue-600 transition">Features</a>
+                    <a href="/pricing" class="font-medium text-gray-600 hover:text-blue-600 transition">Pricing</a>
+                    <a href="/contact" class="px-5 py-2.5 rounded-full bg-blue-600 text-white font-semibold hover:bg-blue-700 transition shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">Book a Demo</a>
+                </div>
+                <!-- Mobile Menu Button -->
+                <div class="md:hidden flex items-center">
+                    <button class="text-gray-500 hover:text-gray-900 focus:outline-none">
+                        <i class="fas fa-bars text-2xl"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <header class="pt-32 pb-20 lg:pt-48 lg:pb-32 hero-pattern relative overflow-hidden">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center">
+            <h1 class="text-4xl sm:text-5xl lg:text-7xl font-extrabold tracking-tight text-gray-900 mb-8 max-w-5xl mx-auto leading-tight">
+                Turn WhatsApp into Your <br class="hidden sm:block" />
+                <span class="gradient-text">24/7 Sales Manager</span>
+            </h1>
+            
+            <!-- Snippet Bait -->
+            <div class="max-w-3xl mx-auto bg-white p-8 rounded-2xl shadow-xl border border-gray-100 text-left mb-12 transform hover:scale-[1.01] transition-transform duration-300">
+                <h2 class="text-lg font-bold text-blue-900 mb-3 flex items-center">
+                    <i class="fas fa-robot text-blue-500 mr-2"></i> What is SAK AI?
+                </h2>
+                <p class="text-lg text-gray-700 leading-relaxed">
+                    SAK AI is an intelligent WhatsApp automation engine designed for businesses in the UAE and India. Unlike basic chatbots, SAK AI connects directly to your inventory to handle complex orders, apply dynamic pricing, and manage stock levels in real-time—eliminating the need for manual data entry or external CRM logins.
+                </p>
+            </div>
+
+            <div class="flex flex-col sm:flex-row justify-center gap-4">
+                <a href="https://wa.me/971550000000" class="px-8 py-4 rounded-full bg-[#25D366] text-white font-bold text-lg hover:bg-[#20bd5a] transition shadow-lg flex items-center justify-center">
+                    <i class="fab fa-whatsapp text-2xl mr-2"></i> Chat on WhatsApp
+                </a>
+                <a href="/contact" class="px-8 py-4 rounded-full bg-white text-gray-900 font-bold text-lg border-2 border-gray-200 hover:border-blue-600 hover:text-blue-600 transition flex items-center justify-center">
+                    View Demo
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- AEO Section: Automation Capabilities -->
+    <section id="features" class="py-24 bg-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+                <div>
+                    <div class="mb-4 inline-block px-4 py-1.5 rounded-full bg-blue-100 text-blue-800 font-semibold text-sm uppercase tracking-wide">Core Capability</div>
+                    <h2 class="text-3xl sm:text-4xl font-bold text-gray-900 mb-6">Can SAK AI manage my inventory?</h2>
+                    <!-- Direct Answer -->
+                    <p class="text-xl text-gray-800 font-medium mb-6 border-l-4 border-blue-600 pl-4 py-1">
+                        Yes, SAK AI manages inventory autonomously by syncing with your stock database in real-time upon every WhatsApp interaction.
+                    </p>
+                    <!-- Context -->
+                    <p class="text-gray-600 mb-6 text-lg">
+                        When a customer places an order via WhatsApp, SAK AI instantly checks stock availability, reserves the items, and updates your central inventory. It handles variants, low-stock alerts, and even suggests alternatives if an item is sold out.
+                    </p>
+                    <!-- Evidence -->
+                    <div class="flex items-center space-x-4 text-gray-500">
+                        <i class="fas fa-check-circle text-green-500"></i>
+                        <span>Used by 50+ distributors</span>
+                    </div>
+                </div>
+                <div class="bg-gray-50 rounded-2xl p-8 border border-gray-200 shadow-lg">
+                    <!-- Mock Chat Interface -->
+                    <div class="space-y-4 font-mono text-sm">
+                        <div class="bg-white p-3 rounded-lg rounded-tl-none shadow-sm max-w-[80%]">Do you have the 10mm bolts in stock?</div>
+                        <div class="bg-blue-100 p-3 rounded-lg rounded-tr-none shadow-sm ml-auto max-w-[80%] text-right text-gray-800">
+                            <strong>Checking inventory...</strong><br>
+                            Yes, we have 450 units available at the Dubai warehouse.<br>
+                            Price: 500 AED per box (100 units).<br>
+                            <em>How many boxes would you like?</em>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- AEO Section: Pricing Logic -->
+    <section id="pricing" class="py-24 bg-gray-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="max-w-3xl mx-auto text-center mb-16">
+                <h2 class="text-3xl sm:text-4xl font-bold text-gray-900 mb-6">Does SAK AI support dynamic pricing?</h2>
+                <!-- Direct Answer -->
+                <p class="text-xl text-gray-800 font-medium mb-6">
+                    Absolutely. SAK AI applies unique pricing tiers for different customers automatically based on their profile or location.
+                </p>
+                <!-- Context -->
+                <p class="text-gray-600 text-lg">
+                    Whether you have wholesale rates, retail prices, or customer-specific negotiated contracts, the AI identifies the caller's phone number and fetches their specific price list instantly. No manual calculation required.
+                </p>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <!-- Trust Signal Cards -->
+                <div class="bg-white p-8 rounded-xl shadow-sm border border-gray-100">
+                    <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center text-blue-600 text-xl mb-4"><i class="fas fa-users-cog"></i></div>
+                    <h3 class="font-bold text-xl mb-2">Customer Tiers</h3>
+                    <p class="text-gray-600">Assign Gold, Silver, or Bronze pricing automatically to registered phone numbers.</p>
+                </div>
+                <div class="bg-white p-8 rounded-xl shadow-sm border border-gray-100">
+                    <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center text-purple-600 text-xl mb-4"><i class="fas fa-tags"></i></div>
+                    <h3 class="font-bold text-xl mb-2">Bulk Discounts</h3>
+                    <p class="text-gray-600">AI automatically applies quantity breaks (e.g., "Buy 10, get 5% off").</p>
+                </div>
+                <div class="bg-white p-8 rounded-xl shadow-sm border border-gray-100">
+                    <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center text-green-600 text-xl mb-4"><i class="fas fa-calculator"></i></div>
+                    <h3 class="font-bold text-xl mb-2">Instant Quotes</h3>
+                    <p class="text-gray-600">Generate PDF quotations in seconds directly within the WhatsApp chat.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section id="contact" class="py-20 bg-blue-900 relative overflow-hidden">
+        <div class="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
+        <div class="max-w-4xl mx-auto px-4 text-center relative z-10">
+            <h2 class="text-3xl sm:text-4xl font-bold text-white mb-6">Ready to automate your sales?</h2>
+            <p class="text-xl text-blue-100 mb-8">Join the MSMEs in UAE and India running 24/7 on autopilot.</p>
+            <a href="https://wa.me/971550000000" class="inline-block px-8 py-4 bg-white text-blue-900 font-bold rounded-full hover:bg-gray-100 transition transform hover:scale-105 shadow-xl">
+                Book a Free Demo
+            </a>
+            <p class="mt-6 text-sm text-blue-300">No credit card required • deployed in 24 hours</p>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-gray-900 text-gray-400 py-12 border-t border-gray-800">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
+                <div class="col-span-1 md:col-span-1">
+                    <span class="text-2xl font-bold text-white mb-4 block">SAK AI</span>
+                    <p class="text-sm">Intelligent automation for modern business in the Middle East and South Asia.</p>
+                </div>
+                <div>
+                    <h4 class="text-white font-bold mb-4">Product</h4>
+                    <ul class="space-y-2 text-sm">
+                        <li><a href="/features" class="hover:text-white transition">Features</a></li>
+                        <li><a href="/pricing" class="hover:text-white transition">Pricing</a></li>
+                        <li><a href="/integrations" class="hover:text-white transition">Integrations</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="text-white font-bold mb-4">Support</h4>
+                    <ul class="space-y-2 text-sm">
+                        <li><a href="/contact" class="hover:text-white transition">Contact Us</a></li>
+                        <li><a href="/docs" class="hover:text-white transition">Documentation</a></li>
+                        <li><a href="/status" class="hover:text-white transition">System Status</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="text-white font-bold mb-4">Legal</h4>
+                    <ul class="space-y-2 text-sm">
+                        <li><a href="/privacy" class="hover:text-white transition">Privacy Policy</a></li>
+                        <li><a href="/terms" class="hover:text-white transition">Terms of Service</a></li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="pt-8 border-t border-gray-800 flex flex-col md:flex-row justify-between items-center text-sm">
+                <!-- Legal Footer Text (Strictly Mandated) -->
+                <p class="mb-4 md:mb-0 text-center md:text-left">
+                    © 2026 SAK AI. All rights reserved. SAK AI is a registered company in the UAE (License No: [Insert License]). Technology powered by <a href="https://saksolution.com" class="text-blue-400 hover:text-blue-300 transition">SAK Solutions (India)</a>.
+                </p>
+                <div class="flex items-center space-x-6">
+                    <a href="https://saksolution.com" class="text-gray-500 hover:text-white transition text-xs">Tech Partner: SAK Solutions</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Sticky CTA Mobile -->
+    <a href="https://wa.me/971550000000" class="sticky-cta md:hidden bg-[#25D366] text-white p-4 rounded-full shadow-lg hover:bg-[#20bd5a] transition">
+        <i class="fab fa-whatsapp text-3xl"></i>
+    </a>
+
+</body>
+</html>

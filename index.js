@@ -22,6 +22,19 @@ const cookieParser = require('cookie-parser');
 
 const app = express();
 
+// --- Domain-based Landing Page Middleware ---
+app.use((req, res, next) => {
+  const host = req.get('host') || '';
+  // Check for sak-ai subdomain (exact match or www)
+  if (host.includes('sak-ai.saksolution.com')) {
+    // Serve landing page for root and specific marketing routes
+    if (req.path === '/' || req.path === '/features' || req.path === '/pricing' || req.path === '/contact') {
+      return res.sendFile(path.join(__dirname, 'public', 'sak-ai-landing.html'));
+    }
+  }
+  next();
+});
+
 // --- Serve Static Files for Web Dashboard ---
 app.use(express.static(path.join(__dirname, 'public')));
 
