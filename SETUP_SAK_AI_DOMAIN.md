@@ -1,8 +1,8 @@
-# 🎯 Setup sakai.saksolution.com with HTTPS
+# 🎯 Setup sak-ai.saksolution.com with HTTPS
 
 ## Server Information
 - **IP Address:** 72.62.192.228
-- **Domain:** sakai.saksolution.com
+- **Domain:** sak-ai.saksolution.com
 - **Current Domain:** salesmate.saksolution.com (already configured)
 - **Application Port:** 8080 (Node.js on PM2)
 
@@ -17,7 +17,7 @@
 
 ```
 Type:  A
-Name:  sakai
+Name:  sak-ai
 Value: 72.62.192.228
 TTL:   300 (or 5 minutes)
 ```
@@ -28,7 +28,7 @@ TTL:   300 (or 5 minutes)
 1. Log in → My Products → DNS
 2. Click "Add" under Records
 3. Select Type: A
-4. Name: `sakai`
+4. Name: `sak-ai`
 5. Value: `72.62.192.228`
 6. TTL: 5 minutes
 7. Click Save
@@ -38,7 +38,7 @@ TTL:   300 (or 5 minutes)
 2. Advanced DNS tab
 3. Add New Record
 4. Type: A Record
-5. Host: `sakai`
+5. Host: `sak-ai`
 6. Value: `72.62.192.228`
 7. TTL: 5 min
 8. Save
@@ -47,7 +47,7 @@ TTL:   300 (or 5 minutes)
 1. Select your domain (saksolution.com)
 2. DNS → Records → Add record
 3. Type: A
-4. Name: `sakai`
+4. Name: `sak-ai`
 5. IPv4 address: `72.62.192.228`
 6. TTL: Auto or 300s
 7. Proxy status: DNS only (turn off orange cloud)
@@ -64,16 +64,16 @@ ssh root@72.62.192.228
 
 ---
 
-## 🌐 Step 3: Configure Nginx for sakai.saksolution.com
+## 🌐 Step 3: Configure Nginx for sak-ai.saksolution.com
 
 ### Create new Nginx server block:
 
 ```bash
-# Create nginx configuration for sakai.saksolution.com
-sudo tee /etc/nginx/sites-available/sakai.saksolution.com << 'EOF'
+# Create nginx configuration for sak-ai.saksolution.com
+sudo tee /etc/nginx/sites-available/sak-ai.saksolution.com << 'EOF'
 server {
     listen 80;
-    server_name sakai.saksolution.com;
+    server_name sak-ai.saksolution.com;
 
     # Force HTTPS redirect (will be enabled after SSL setup)
     # return 301 https://$server_name$request_uri;
@@ -119,7 +119,7 @@ server {
 EOF
 
 # Enable the site
-sudo ln -sf /etc/nginx/sites-available/sakai.saksolution.com /etc/nginx/sites-enabled/
+sudo ln -sf /etc/nginx/sites-available/sak-ai.saksolution.com /etc/nginx/sites-enabled/
 
 # Test nginx configuration
 sudo nginx -t
@@ -146,8 +146,8 @@ certbot --version
 ### Obtain SSL Certificate:
 
 ```bash
-# Get SSL certificate for sakai.saksolution.com
-sudo certbot --nginx -d sakai.saksolution.com
+# Get SSL certificate for sak-ai.saksolution.com
+sudo certbot --nginx -d sak-ai.saksolution.com
 
 # Follow the prompts:
 # 1. Enter your email address (for renewal notifications)
@@ -170,7 +170,7 @@ sudo certbot --nginx -d sakai.saksolution.com
 
 ```bash
 # From your local machine (PowerShell)
-nslookup sakai.saksolution.com
+nslookup sak-ai.saksolution.com
 # Should return: 72.62.192.228
 ```
 
@@ -178,7 +178,7 @@ nslookup sakai.saksolution.com
 
 ```bash
 # From PowerShell
-curl http://sakai.saksolution.com
+curl http://sak-ai.saksolution.com
 # Should redirect to HTTPS or return HTML
 ```
 
@@ -186,13 +186,13 @@ curl http://sakai.saksolution.com
 
 ```bash
 # From PowerShell
-curl https://sakai.saksolution.com
+curl https://sak-ai.saksolution.com
 # Should return your application's homepage
 ```
 
 ### Test in Browser:
 
-1. Open: https://sakai.saksolution.com
+1. Open: https://sak-ai.saksolution.com
 2. Check for:
    - ✅ Green padlock icon (secure connection)
    - ✅ Application loads correctly
@@ -225,10 +225,10 @@ sudo certbot renew
 **Check DNS propagation:**
 ```powershell
 # From your machine
-nslookup sakai.saksolution.com
+nslookup sak-ai.saksolution.com
 
 # Or use online tool:
-# https://www.whatsmydns.net/#A/sakai.saksolution.com
+# https://www.whatsmydns.net/#A/sak-ai.saksolution.com
 ```
 
 **Wait:** DNS can take 5-60 minutes to propagate globally
@@ -320,13 +320,13 @@ pm2 logs salesmate --lines 50
 
 After completing all steps:
 
-✅ **HTTP Access:** http://sakai.saksolution.com → Redirects to HTTPS  
-✅ **HTTPS Access:** https://sakai.saksolution.com → Secure connection, application loads  
+✅ **HTTP Access:** http://sak-ai.saksolution.com → Redirects to HTTPS  
+✅ **HTTPS Access:** https://sak-ai.saksolution.com → Secure connection, application loads  
 ✅ **Certificate:** Valid Let's Encrypt SSL certificate  
 ✅ **Auto-Renewal:** Automatic renewal every 90 days  
 ✅ **Both Domains Work:**
    - https://salesmate.saksolution.com (existing)
-   - https://sakai.saksolution.com (new)
+   - https://sak-ai.saksolution.com (new)
 
 Both domains point to the same Node.js application on port 8080.
 
@@ -335,7 +335,7 @@ Both domains point to the same Node.js application on port 8080.
 ## 🔍 Additional Notes
 
 ### Multiple Domain Names
-Both `salesmate.saksolution.com` and `sakai.saksolution.com` can point to the same application. Nginx will route both domains to `localhost:8080`.
+Both `salesmate.saksolution.com` and `sak-ai.saksolution.com` can point to the same application. Nginx will route both domains to `localhost:8080`.
 
 ### SSL Certificates
 Each domain needs its own SSL certificate. You can also use a single wildcard certificate for `*.saksolution.com` if you have many subdomains.
