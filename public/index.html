@@ -5,6 +5,31 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="google-site-verification" content="4CfWAM90wtkGijS6gz4UW2pMHu3xjF0FWC4Ts7Swh88" />
 
+    <!-- Performance: DNS Prefetch & Preconnect -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="dns-prefetch" href="https://www.google-analytics.com">
+    <link rel="dns-prefetch" href="https://www.googletagmanager.com">
+
+    <!-- Google Analytics (GA4) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-XXXXXXXXXX', {
+            'anonymize_ip': true,
+            'cookie_flags': 'SameSite=None;Secure'
+        });
+
+        // Custom event tracking helper
+        function trackEvent(category, action, label) {
+            gtag('event', action, {
+                'event_category': category,
+                'event_label': label
+            });
+        }
+    </script>
+
     <link rel="icon" href="/assets/logo.png" type="image/png" />
     <link rel="apple-touch-icon" href="/assets/logo.png" />
     <title>SAK AI: WhatsApp Sales Automation & Order Bot (UAE & India)</title>
@@ -2037,11 +2062,20 @@
                     if (!resp.ok || !data?.ok) {
                         const msg = data?.error || 'Failed to send. Please email sales@saksolution.com.';
                         setStatus(msg, 'error');
+                        // Track failed submission
+                        if (typeof trackEvent !== 'undefined') {
+                            trackEvent('Contact Form', 'Submit Failed', msg);
+                        }
                         return;
                     }
 
                     setStatus('Message sent. We will contact you soon.', 'success');
                     form.reset();
+                    
+                    // Track successful submission
+                    if (typeof trackEvent !== 'undefined') {
+                        trackEvent('Contact Form', 'Submit Success', 'Form submitted successfully');
+                    }
                 } catch (err) {
                     setStatus('Failed to send. Please email sales@saksolution.com.', 'error');
                 } finally {

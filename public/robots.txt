@@ -4,3 +4,4 @@ Disallow: /api/
 Disallow: /admin/
 Disallow: /assets/
 Sitemap: https://sak-ai.saksolution.com/sitemap.xml
+Sitemap: https://sak-ai.saksolution.ae/sitemap.xml
