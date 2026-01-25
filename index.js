@@ -33,9 +33,14 @@ app.use((req, res, next) => {
       }
       
       // Serve shared assets for the Arabic page if referenced relatively
-      // e.g., if /ar/index.html asks for ../styles.css, it might come in as /styles.css or /sak-ai-uae/styles.css depending on base
-      // If the Arabic page requests /styles.css, we might need to check if it's the specific NEW css
-      
+      // e.g., if /ar/index.html asks for ../styles.css, it might come in as /styles.css
+      if (req.path === '/styles.css') {
+          return res.sendFile(path.join(__dirname, 'public', 'sak-ai-uae', 'styles.css'));
+      }
+      if (req.path === '/script.js') {
+          return res.sendFile(path.join(__dirname, 'public', 'sak-ai-uae', 'script.js'));
+      }
+
       // Serve index-ae.html for root (The "Real Page")
       if (req.path === '/' || req.path === '/index.html') {
           return res.sendFile(path.join(__dirname, 'public', 'index-ae.html'));
