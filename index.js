@@ -27,21 +27,8 @@ app.use((req, res, next) => {
   const host = req.get('host') || '';
   // Serve UAE/GCC specific landing page
   if (host.includes('sak-ai.saksolution.ae')) {
-      // Allow specific file requests to go through (like styles.css, images, etc. if they match public/sak-ai-uae)
-      // Map root to /sak-ai-uae/index.html
       if (req.path === '/' || req.path === '/index.html') {
-          return res.sendFile(path.join(__dirname, 'public', 'sak-ai-uae', 'index.html'));
-      }
-      // Map /ar/ or /ar to /sak-ai-uae/ar/index.html
-      if (req.path === '/ar/' || req.path === '/ar') {
-          return res.sendFile(path.join(__dirname, 'public', 'sak-ai-uae', 'ar', 'index.html'));
-      }
-      
-      // Try to serve static files from public/sak-ai-uae
-      const uaePath = path.join(__dirname, 'public', 'sak-ai-uae', req.path);
-      const fs = require('fs');
-      if (fs.existsSync(uaePath) && fs.statSync(uaePath).isFile()) {
-        return res.sendFile(uaePath);
+          return res.sendFile(path.join(__dirname, 'public', 'index-ae.html'));
       }
   }
   next();
