@@ -17,17 +17,28 @@ class RedisService {
    * Initialize Redis connection
    */
   async connect() {
+    if (process.env.DISABLE_REDIS === 'true') {
+      console.log('[REDIS] Redis disabled by configuration.');
+      return false;
+    }
+
     try {
       // Redis configuration from environment or defaults
       const redisConfig = {
-        host: process.env.REDIS_HOST || 'localhost',
-        port: parseInt(process.env.REDIS_PORT || '6379'),
+        socket: {
+          host: process.env.REDIS_HOST || 'localhost',
+          port: parseInt(process.env.REDIS_PORT || '6379'),
+          reconnectStrategy: (retries) => {
+            if (retries > 5) {
+                console.error('[REDIS] Max retries reached, giving up.');
+                return new Error('Max retries reached');
+            }
+            const delay = Math.min(retries * 50, 2000);
+            return delay;
+          }
+        },
         password: process.env.REDIS_PASSWORD || undefined,
-        db: parseInt(process.env.REDIS_DB || '0'),
-        retryStrategy: (times) => {
-          const delay = Math.min(times * 50, 2000);
-          return delay;
-        }
+        database: parseInt(process.env.REDIS_DB || '0'),
       };
 
       this.client = redis.createClient(redisConfig);

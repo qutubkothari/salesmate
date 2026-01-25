@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /admin/
+Disallow: /assets/
+Sitemap: https://sak-ai.saksolution.com/sitemap.xml
