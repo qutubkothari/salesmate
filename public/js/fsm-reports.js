@@ -70,7 +70,10 @@ async function loadFSMReports() {
         
         // Generate salesman performance table
         console.log('👥 Generating salesman performance table...');
-        generateSalesmanPerformanceTable(salesmen, visits, targets);
+        const performance = generateSalesmanPerformanceTable(salesmen, visits, targets);
+
+        // Generate performance suggestions
+        generatePerformanceSuggestions(performance);
         
         // Generate branch performance table
         console.log('🏢 Generating branch performance table...');
@@ -323,7 +326,7 @@ function generateSalesmanPerformanceTable(salesmen, visits, targets) {
     
     if (performance.length === 0) {
         tbody.innerHTML = '<tr><td colspan="8" class="text-center py-8 text-white/60">No performance data available</td></tr>';
-        return;
+        return [];
     }
     
     tbody.innerHTML = performance.map((p, idx) => {
@@ -383,6 +386,40 @@ function generateSalesmanPerformanceTable(salesmen, visits, targets) {
             </tr>
         `;
     }).join('');
+
+    return performance;
+}
+
+function generatePerformanceSuggestions(performance) {
+    const container = document.getElementById('performanceSuggestions');
+    if (!container) return;
+
+    if (!performance || performance.length === 0) {
+        container.innerHTML = '<div class="text-white/60">No performance data available for suggestions.</div>';
+        return;
+    }
+
+    const sortedByAchievement = [...performance].sort((a, b) => b.achievement - a.achievement);
+    const topPerformers = sortedByAchievement.filter(p => p.achievement >= 120).slice(0, 3);
+    const lowPerformers = sortedByAchievement.filter(p => p.achievement <= 60).slice(0, 3);
+
+    const suggestions = [];
+
+    topPerformers.forEach((p) => {
+        suggestions.push(`✅ Increase lead allocation for ${escapeHtml(p.name)} (Achievement ${p.achievement}%, Score ${p.score}).`);
+    });
+
+    lowPerformers.forEach((p) => {
+        suggestions.push(`⚠️ Consider coaching or reducing leads for ${escapeHtml(p.name)} (Achievement ${p.achievement}%, Score ${p.score}).`);
+    });
+
+    if (suggestions.length === 0) {
+        suggestions.push('ℹ️ Performance is balanced. Keep current lead allocation and review weekly.');
+    }
+
+    container.innerHTML = suggestions
+        .map(item => `<div class="bg-white/5 rounded-xl px-4 py-3">${item}</div>`)
+        .join('');
 }
 
 function generateBranchPerformanceTable(plants, salesmen, visits) {

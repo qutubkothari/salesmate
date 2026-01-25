@@ -26,7 +26,7 @@ Date: 2026-01-25
 | Manual assignment option | **Partial** | [WHATSAPP_LEADS_DEPLOYED.md](WHATSAPP_LEADS_DEPLOYED.md#L41-L81) | UI visibility needs confirmation. |
 | Round-robin auto-assign toggle | **Pass (backend)** | [services/leadAutoCreateService.js](services/leadAutoCreateService.js#L318-L419) | Live settings verification needed per tenant. |
 | Min/Max caps per period | **Pass (backend)** | [services/leadAutoCreateService.js](services/leadAutoCreateService.js#L480-L554) | Needs UI to manage caps and live test. |
-| Smart weighting / performance scoring for assignment | **Pass (backend)** | [services/leadAutoCreateService.js](services/leadAutoCreateService.js#L345-L419) | Needs KPI dashboard + suggestion UX. |
+| Smart weighting / performance scoring for assignment | **Pass (backend)** | [services/leadAutoCreateService.js](services/leadAutoCreateService.js#L345-L419) | KPI suggestions panel added; pending live verification. |
 
 ---
 
@@ -62,11 +62,11 @@ Date: 2026-01-25
 
 ## Verdict
 - **Meets:** WhatsApp lead capture, auto-assign modes, AI lead scoring, dashboards, WAHA connectivity.  
-- **Not fully met:** KPI-driven “suggest increase leads” UI and controls, and multi-channel end-to-end testing.
+- **Not fully met:** KPI-driven suggestions need live verification and multi-channel end-to-end testing.
 
 ---
 
 ## Immediate Next Actions (Recommended)
 1) Deploy IndiaMart webhook and manual lead entry UI.  
-2) Add management insights panel for performance suggestions (2–4 hours).  
+2) Deploy KPI suggestions panel.  
 3) Run live tests per channel and confirm assignment behavior with caps.
