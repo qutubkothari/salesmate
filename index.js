@@ -23,18 +23,16 @@ const cookieParser = require('cookie-parser');
 const app = express();
 
 // --- Domain-based Landing Page Middleware ---
-// (Disabled to serve the updated index.html as the main landing page for all domains)
-/*
 app.use((req, res, next) => {
   const host = req.get('host') || '';
-  if (host.includes('sak-ai.saksolution.com')) {
-    if (req.path === '/' || req.path === '/features' || req.path === '/pricing' || req.path === '/contact') {
-      return res.sendFile(path.join(__dirname, 'public', 'sak-ai-landing.html'));
-    }
+  // Serve UAE/GCC specific landing page
+  if (host.includes('sak-ai.saksolution.ae')) {
+      if (req.path === '/' || req.path === '/index.html') {
+          return res.sendFile(path.join(__dirname, 'public', 'index-ae.html'));
+      }
   }
   next();
 });
-*/
 
 
 // --- Serve Static Files for Web Dashboard ---
