@@ -1296,11 +1296,22 @@
                 });
             });
         </script>
-        <!-- ================= HEADER START ================= -->
-        <header>
+    </div>
+    <script>
+        function scrollToFeatures() {
+            document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' });
+        }
 
-            <!-- ===== Desktop Header ===== -->
-            <section class="sidespace sak-header-sec desktop-header">
+        function scrollToContact() {
+            document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function scrollToPricing() {
+            document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' });
+        }
+    </script>
+</body>
+</html>
                 <div class="row header-row-main">
 
                     <!-- Logo -->
@@ -3356,10 +3367,3 @@
                 } catch (err) {
                     setStatus('Failed to send. Please email sales@saksolution.com.', 'error');
                 } finally {
-                    if (submitBtn) submitBtn.disabled = false;
-                }
-            });
-        })();
-    </script>
-</body>
-</html>
