@@ -11,20 +11,6 @@
 
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        primary: '#3B82F6',
-                        secondary: '#10B981',
-                        accent: '#F59E0B',
-                        dark: '#1F2937',
-                    }
-                }
-            }
-        }
-    </script>
     
     <!-- Google Analytics 4 -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-DBD8WWNRHN"></script>
@@ -64,37 +50,135 @@
     }
     </script>
 </head>
-<body class="bg-gray-50 text-gray-800 font-sans">
+<body class="min-h-screen font-sans">
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+        * {
+            font-family: 'Inter', sans-serif;
+        }
+
+        :root {
+            --bg-main: #0f0518;
+            --bg-gradient: linear-gradient(135deg, #0f0518 0%, #2d1155 50%, #4a1c6e 100%);
+            --glass-bg: rgba(255, 255, 255, 0.095);
+            --glass-border: rgba(255, 255, 255, 0.18);
+            --primary: #a0c4ff;
+            --primary-dark: #7ba3d9;
+            --success: #00e676;
+            --warning: #ffa726;
+            --danger: #ef5350;
+            --text: rgba(255, 255, 255, 0.92);
+            --muted: rgba(255, 255, 255, 0.86);
+            --muted-2: rgba(255, 255, 255, 0.76);
+        }
+
+        body {
+            background: var(--bg-main);
+            color: var(--text);
+        }
+
+        .gradient-bg {
+            background: var(--bg-gradient);
+        }
+
+        .glass {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            backdrop-filter: blur(12px);
+        }
+
+        .nav-link {
+            color: var(--text);
+            padding: 0.6rem 0.9rem;
+            border-radius: 10px;
+            font-weight: 600;
+        }
+
+        .nav-link:hover {
+            background: rgba(255, 255, 255, 0.06);
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: #0f0518;
+            padding: 0.7rem 1.4rem;
+            border-radius: 12px;
+            font-weight: 700;
+            transition: transform 0.2s ease, filter 0.2s ease;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            filter: brightness(1.02);
+        }
+
+        .muted {
+            color: var(--muted);
+        }
+
+        .muted-2 {
+            color: var(--muted-2);
+        }
+
+        .text-gray-900 { color: #fff !important; }
+        .text-gray-800 { color: rgba(255,255,255,0.92) !important; }
+        .text-gray-700 { color: var(--muted) !important; }
+        .text-gray-600 { color: var(--muted) !important; }
+        .text-gray-500 { color: var(--muted-2) !important; }
+        .text-gray-400 { color: var(--muted-2) !important; }
+        .bg-gray-50 { background: var(--bg-main) !important; }
+        .bg-white { background: rgba(255,255,255,0.06) !important; }
+        .bg-gray-100 { background: rgba(255,255,255,0.08) !important; }
+        .bg-gray-800 { background: rgba(255,255,255,0.06) !important; }
+        .bg-gray-900 { background: rgba(15,5,24,0.9) !important; }
+        .border-gray-100 { border-color: rgba(255,255,255,0.08) !important; }
+        .border-gray-200 { border-color: rgba(255,255,255,0.12) !important; }
+        .border-gray-300 { border-color: rgba(255,255,255,0.12) !important; }
+        .border-gray-700 { border-color: rgba(255,255,255,0.14) !important; }
+        .shadow, .shadow-lg, .shadow-sm { box-shadow: 0 12px 30px rgba(0,0,0,0.25) !important; }
+        .prose { color: var(--text); }
+        .prose strong { color: #fff; }
+        .prose a { color: var(--primary); }
+        .prose h2, .prose h3 { color: #fff; }
+    </style>
 
     <!-- Navigation -->
-    <nav class="bg-white shadow-lg sticky top-0 z-50">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between h-16">
-                <div class="flex items-center">
-                    <a href="/" class="text-2xl font-bold text-primary">SAK<span class="text-secondary">Solutions</span></a>
+    <nav class="sticky top-0 z-50" style="background: rgba(15,5,24,0.92); border-bottom: 1px solid rgba(255,255,255,0.08); backdrop-filter: blur(12px);">
+        <div class="container mx-auto px-6">
+            <div class="flex items-center justify-between py-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl flex items-center justify-center overflow-hidden" style="background: rgba(0, 230, 118, 0.16); border: 1px solid rgba(0, 230, 118, 0.26);">
+                        <img src="/assets/logo.png" alt="SAK logo" class="w-7 h-7 object-contain" />
+                    </div>
+                    <div>
+                        <div class="font-extrabold tracking-tight text-white">SAK</div>
+                        <div class="text-xs muted-2">WhatsApp AI Sales Assistant</div>
+                    </div>
                 </div>
-                <div class="hidden md:flex items-center space-x-8">
-                    <a href="/#features" class="text-gray-700 hover:text-primary transition">Features</a>
-                    <a href="/#pricing" class="text-gray-700 hover:text-primary transition">Pricing</a>
-                    <a href="/blog/" class="text-primary font-semibold transition">Blog</a>
-                    <a href="https://wa.me/971501234567" class="bg-secondary text-white px-4 py-2 rounded-lg hover:bg-green-600 transition">Get Demo</a>
+                <div class="hidden md:flex items-center gap-2">
+                    <a href="/#features" class="nav-link">Features</a>
+                    <a href="/#pricing" class="nav-link">Pricing</a>
+                    <a href="/blog/" class="nav-link" aria-current="page">Blog</a>
+                    <a href="https://wa.me/971501234567" class="btn-primary">Get Demo</a>
                 </div>
             </div>
         </div>
     </nav>
 
     <!-- Header / Hero -->
-    <header class="bg-white shadow-sm">
-        <div class="max-w-4xl mx-auto py-12 px-4 sm:px-6 lg:px-8 text-center">
-            <span class="bg-blue-100 text-blue-800 text-xs font-semibold mr-2 px-2.5 py-0.5 rounded dark:bg-blue-200 dark:text-blue-800">Sales Intelligence</span>
-            <h1 class="mt-4 text-4xl font-extrabold text-gray-900 sm:text-5xl">
+    <header class="gradient-bg">
+        <div class="max-w-4xl mx-auto py-14 px-4 sm:px-6 lg:px-8 text-center">
+            <span class="text-xs font-semibold px-2.5 py-0.5 rounded" style="background: rgba(160,196,255,0.18); color: #dce7ff; border: 1px solid rgba(160,196,255,0.3);">Sales Intelligence</span>
+            <h1 class="mt-4 text-4xl font-extrabold text-white sm:text-5xl">
                 Why UAE Businesses Are Abandoning Email for WhatsApp Sales (2026 Shift)
             </h1>
-            <p class="mt-4 text-xl text-gray-500">
+            <p class="mt-4 text-xl muted">
                 Email open rates have plummeted. Here is why WhatsApp Automation is the new standard for Dubai & GCC businesses.
             </p>
             <div class="mt-6 flex items-center justify-center space-x-4">
-                <div class="text-sm text-gray-500">
+                <div class="text-sm muted-2">
                     <span class="font-medium">By SAK AI Team</span> • Jan 26, 2026 • 5 min read
                 </div>
             </div>
@@ -103,12 +187,12 @@
 
     <!-- Main Content -->
     <main class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <article class="prose lg:prose-xl mx-auto text-gray-600 space-y-8">
+        <article class="prose lg:prose-xl mx-auto space-y-8">
             
             <!-- Quick Answer (AEO Hook) -->
-            <div class="bg-blue-50 border-l-4 border-primary p-6 rounded-r-lg">
-                <h2 class="text-xl font-bold text-gray-900 mt-0">Why use WhatsApp for business in UAE?</h2>
-                <p class="mt-2 text-gray-700">
+            <div class="glass border-l-4 p-6 rounded-r-lg" style="border-left-color: var(--primary);">
+                <h2 class="text-xl font-bold text-white mt-0">Why use WhatsApp for business in UAE?</h2>
+                <p class="mt-2 muted">
                     Email open rates in the UAE have dropped below 15%, while WhatsApp maintains a <strong>98% open rate</strong>. For UAE businesses, shifting to <strong>WhatsApp Sales Automation</strong> is no longer optional—it is critical for survival. Tools like <a href="/" class="text-primary font-bold underline">SAK AI</a> allow companies to automate lead qualification, inventory checks, and pricing instantly on WhatsApp, bypassing the "Spam Folder" entirely.
                 </p>
             </div>
@@ -122,7 +206,7 @@
                 <p>
                     In the GCC (Gulf Cooperation Council), business is personal. People prefer instant messaging over formal, slow emails. The culture has shifted towards speed and accessibility.
                 </p>
-                <blockquote class="italic border-l-4 border-gray-300 pl-4 py-2 my-4 bg-gray-50">
+                <blockquote class="italic border-l-4 pl-4 py-2 my-4" style="border-left-color: rgba(255,255,255,0.25); background: rgba(255,255,255,0.05);">
                     "How many potential deals are sitting in your customer's Junk folder right now?"
                 </blockquote>
             </section>
@@ -147,18 +231,18 @@
                     <strong>The SAK AI Solution:</strong> Automation fixes this by turning your WhatsApp into a 24/7 sales agent.
                 </p>
                 <div class="grid md:grid-cols-2 gap-6 mt-6">
-                    <div class="bg-white p-6 rounded-lg shadow border border-gray-100">
-                        <h3 class="font-bold text-lg text-secondary mb-2">Feature 1: Instant Pricing</h3>
-                        <p class="text-sm">The bot calculates prices (in AED) instantly based on your stock, sending quotes while the lead is hot.</p>
+                    <div class="glass p-6 rounded-lg shadow border border-gray-100">
+                        <h3 class="font-bold text-lg" style="color: var(--success);">Feature 1: Instant Pricing</h3>
+                        <p class="text-sm muted">The bot calculates prices (in AED) instantly based on your stock, sending quotes while the lead is hot.</p>
                     </div>
-                    <div class="bg-white p-6 rounded-lg shadow border border-gray-100">
-                        <h3 class="font-bold text-lg text-secondary mb-2">Feature 2: 24/7 Availability</h3>
-                        <p class="text-sm">It answers leads at 2 AM on a Friday (when your human staff is off), capturing opportunities others miss.</p>
+                    <div class="glass p-6 rounded-lg shadow border border-gray-100">
+                        <h3 class="font-bold text-lg" style="color: var(--success);">Feature 2: 24/7 Availability</h3>
+                        <p class="text-sm muted">It answers leads at 2 AM on a Friday (when your human staff is off), capturing opportunities others miss.</p>
                     </div>
                 </div>
-                <div class="bg-white p-6 rounded-lg shadow border border-gray-100 mt-4">
-                    <h3 class="font-bold text-lg text-secondary mb-2">Feature 3: Localized Language</h3>
-                    <p class="text-sm">It speaks Arabic to your Emirati clients and English to your Expat clients, switching automatically based on preference.</p>
+                <div class="glass p-6 rounded-lg shadow border border-gray-100 mt-4">
+                    <h3 class="font-bold text-lg" style="color: var(--success);">Feature 3: Localized Language</h3>
+                    <p class="text-sm muted">It speaks Arabic to your Emirati clients and English to your Expat clients, switching automatically based on preference.</p>
                 </div>
             </section>
 
@@ -166,34 +250,34 @@
             <section>
                 <h2 class="text-3xl font-bold text-gray-900">Email Marketing vs. SAK AI WhatsApp</h2>
                 <div class="overflow-x-auto mt-6">
-                    <table class="min-w-full bg-white rounded-lg overflow-hidden shadow">
+                    <table class="min-w-full rounded-lg overflow-hidden shadow glass">
                         <thead class="bg-gray-100">
                             <tr>
                                 <th class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Metric</th>
                                 <th class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email Marketing</th>
-                                <th class="py-3 px-6 text-left text-xs font-medium text-green-600 uppercase tracking-wider font-bold">SAK AI WhatsApp</th>
+                                <th class="py-3 px-6 text-left text-xs font-medium uppercase tracking-wider font-bold" style="color: var(--success);">SAK AI WhatsApp</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-200">
                             <tr>
                                 <td class="py-4 px-6 font-medium text-gray-900">Open Rate</td>
-                                <td class="py-4 px-6 text-red-500">~15%</td>
-                                <td class="py-4 px-6 text-green-600 font-bold">98%</td>
+                                <td class="py-4 px-6" style="color: var(--danger);">~15%</td>
+                                <td class="py-4 px-6 font-bold" style="color: var(--success);">98%</td>
                             </tr>
                             <tr>
                                 <td class="py-4 px-6 font-medium text-gray-900">Response Time</td>
-                                <td class="py-4 px-6 text-red-500">4 Hours+</td>
-                                <td class="py-4 px-6 text-green-600 font-bold">0 Seconds (Instant)</td>
+                                <td class="py-4 px-6" style="color: var(--danger);">4 Hours+</td>
+                                <td class="py-4 px-6 font-bold" style="color: var(--success);">0 Seconds (Instant)</td>
                             </tr>
                             <tr>
                                 <td class="py-4 px-6 font-medium text-gray-900">Conversion Rate</td>
-                                <td class="py-4 px-6 text-red-500">Low (< 2%)</td>
-                                <td class="py-4 px-6 text-green-600 font-bold">High (15-25%)</td>
+                                <td class="py-4 px-6" style="color: var(--danger);">Low (< 2%)</td>
+                                <td class="py-4 px-6 font-bold" style="color: var(--success);">High (15-25%)</td>
                             </tr>
                             <tr>
                                 <td class="py-4 px-6 font-medium text-gray-900">Junk/Spam Risk</td>
-                                <td class="py-4 px-6 text-red-500">High</td>
-                                <td class="py-4 px-6 text-green-600 font-bold">Zero</td>
+                                <td class="py-4 px-6" style="color: var(--danger);">High</td>
+                                <td class="py-4 px-6 font-bold" style="color: var(--success);">Zero</td>
                             </tr>
                         </tbody>
                     </table>
