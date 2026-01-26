@@ -6,7 +6,7 @@
 const express = require('express');
 const router = express.Router();
 const { dbClient } = require('../../services/config');
-const { authenticateToken } = require('../../middleware/auth');
+const { requireAuth: authenticateToken } = require('../../middleware/authMiddleware');
 
 /**
  * GET /api/assignment-suggestions

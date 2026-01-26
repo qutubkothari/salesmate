@@ -7,7 +7,7 @@
 const express = require('express');
 const router = express.Router();
 const AutonomousFollowupService = require('../../services/autonomous-followup-service');
-const { authenticateToken } = require('../../middleware/auth');
+const { requireAuth: authenticateToken } = require('../../middleware/authMiddleware');
 
 /**
  * GET /api/followup-sequences
