@@ -944,7 +944,7 @@ router.get('/customers/:tenantId', async (req, res) => {
             // Get recent orders for these customers
             const { data: recentOrders } = await dbClient
                 .from('orders_new')
-                .select('id, total_amount, created_at, order_status, conversation_id')
+                .select('id, actual_amount, created_at, order_status, conversation_id')
                 .eq('tenant_id', tenantId)
                 .in('conversation_id', customers.map(c => c.phone).filter(Boolean))
                 .order('created_at', { ascending: false })
@@ -1024,7 +1024,7 @@ router.get('/customers/:tenantId/:customerId', async (req, res) => {
             .from('orders_new')
             .select(`
                 id,
-                total_amount,
+                actual_amount,
                 subtotal_amount,
                 discount_amount,
                 shipping_charges,
@@ -1266,7 +1266,7 @@ router.get('/stats/:tenantId', async (req, res) => {
             dbClient.from('orders_new').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId),
             dbClient.from('conversations_new').select('id').eq('tenant_id', tenantId),
             dbClient.from('products').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId),
-            dbClient.from('orders_new').select('total_amount').eq('tenant_id', tenantId)
+            dbClient.from('orders_new').select('actual_amount').eq('tenant_id', tenantId)
         ]);
 
         let totalOrders = ordersCountRes?.count;
@@ -1305,9 +1305,9 @@ router.get('/stats/:tenantId', async (req, res) => {
             totalMessages = messagesCount || 0;
         }
 
-        // Calculate total revenue from orders (use total_amount, not grand_total)
+        // Calculate total revenue from orders (use actual_amount)
         const totalRevenue = ordersData.data?.reduce((sum, order) => {
-            return sum + (parseFloat(order.total_amount) || 0);
+            return sum + (parseFloat(order.actual_amount) || 0);
         }, 0) || 0;
 
         res.json({
@@ -1461,7 +1461,7 @@ router.get('/orders/:tenantId', async (req, res) => {
             query = query.select(`
                 id,
                 tenant_id,
-                total_amount,
+                actual_amount,
                 original_amount,
                 discount_amount,
                 subtotal_amount,
@@ -1490,8 +1490,8 @@ router.get('/orders/:tenantId', async (req, res) => {
         if (status) query = query.eq('order_status', status);
         if (minDate) query = query.gte('created_at', minDate);
         if (maxDate) query = query.lte('created_at', maxDate);
-        if (minAmount) query = query.gte('total_amount', Number(minAmount));
-        if (maxAmount) query = query.lte('total_amount', Number(maxAmount));
+        if (minAmount) query = query.gte('actual_amount', Number(minAmount));
+        if (maxAmount) query = query.lte('actual_amount', Number(maxAmount));
 
         // For customer filter, match by customer_name or conversation phone
         let customerFilterPhones = [];
@@ -1639,7 +1639,7 @@ router.get('/orders/:tenantId', async (req, res) => {
 
             const subtotalAmount = Number(o.subtotal_amount || 0);
             const discountAmount = Number(o.discount_amount || 0);
-            const totalAmount = Number(o.total_amount || 0);
+            const totalAmount = Number(o.actual_amount || 0);
             // Some schemas do not have orders.original_amount; derive a best-effort fallback.
             const originalAmountDerived =
                 Number(o.original_amount || 0) ||
@@ -1823,7 +1823,7 @@ router.get('/conversations/:tenantId', async (req, res) => {
             convQuery = convQuery.select(`
                 id,
                 end_user_phone,
-                state,
+                status,
                 last_product_discussed,
                 updated_at,
                 created_at
@@ -2431,7 +2431,7 @@ router.get('/analytics/:tenantId', async (req, res) => {
                         SUM(CASE WHEN c.heat = 'WARM' THEN 1 ELSE 0 END) AS heat_warm,
                         SUM(CASE WHEN c.heat = 'COLD' THEN 1 ELSE 0 END) AS heat_cold,
                         COUNT(DISTINCT o.id) AS orders,
-                        COALESCE(SUM(COALESCE(o.total_amount, 0)), 0) AS revenue
+                        COALESCE(SUM(COALESCE(o.actual_amount, 0)), 0) AS revenue
                     FROM salesman s
                     LEFT JOIN conversations c
                         ON c.tenant_id = s.tenant_id
@@ -2511,14 +2511,14 @@ router.get('/customers/:tenantId', async (req, res) => {
             .from('conversations_new')
             .select(`
                 end_user_phone,
-                orders (total_amount, created_at)
+                orders (actual_amount, created_at)
             `)
             .eq('tenant_id', tenantId);
 
         if (error) throw error;
 
         const customerStats = topCustomers?.map(conv => {
-            const totalSpent = conv.orders.reduce((sum, order) => sum + order.total_amount, 0);
+            const totalSpent = conv.orders.reduce((sum, order) => sum + order.actual_amount, 0);
             const orderCount = conv.orders.length;
             const lastOrder = conv.orders.length > 0 ?
                 new Date(Math.max(...conv.orders.map(o => new Date(o.created_at)))) : null;

@@ -4,6 +4,7 @@
  */
 
 const express = require('express');
+const crypto = require('crypto');
 const router = express.Router();
 const { dbClient } = require('../../services/config');
 const { crawlWebsite, crawlMultipleUrls, crawlEntireWebsite, parseSitemap, normalizeUrl } = require('../../services/webCrawlerService');
@@ -34,6 +35,7 @@ router.post('/website-content/crawl/:tenantId', async (req, res) => {
         const { data: job, error: jobError } = await dbClient
             .from('crawl_jobs')
             .insert({
+                id: crypto.randomUUID(),
                 tenant_id: tenantId,
                 url: normalizeUrl(url),
                 status: 'processing'
@@ -118,6 +120,7 @@ router.post('/website-content/crawl-all/:tenantId', async (req, res) => {
         const { data: masterJob, error: jobError } = await dbClient
             .from('crawl_jobs')
             .insert({
+                id: crypto.randomUUID(),
                 tenant_id: tenantId,
                 url: normalizeUrl(url),
                 status: 'processing'
@@ -241,6 +244,7 @@ router.post('/website-content/crawl-batch/:tenantId', async (req, res) => {
             const { data: job } = await dbClient
                 .from('crawl_jobs')
                 .insert({
+                    id: crypto.randomUUID(),
                     tenant_id: tenantId,
                     url: normalizeUrl(url),
                     status: 'processing'
