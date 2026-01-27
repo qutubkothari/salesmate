@@ -104,7 +104,7 @@ async function generateEmbedding(text, model = null) {
         const response = await openai.embeddings.create({
             model: 'text-embedding-3-small',
             input: text.slice(0, 8000),
-            dimensions: 384
+            dimensions: 1536  // Full OpenAI embedding size for better quality
         });
 
         const embedding = response.data[0].embedding;
