@@ -20,7 +20,7 @@ async function crawlWebsite(url, options = {}) {
         timeout = 10000, // Request timeout
         followLinks = false, // Whether to follow internal links
         contentSelectors = null, // CSS selectors for content extraction
-        excludeSelectors = ['script', 'style', 'nav', 'header', 'footer', '.advertisement'] // Elements to exclude
+        excludeSelectors = ['script', 'style', 'footer', '.advertisement'] // Elements to exclude (removed nav and header)
     } = options;
 
     console.log(`[WebCrawler] Starting crawl for: ${url}`);
@@ -106,6 +106,50 @@ async function crawlWebsite(url, options = {}) {
         // Extract links for further crawling (if enabled)
         const links = [];
         if (followLinks && maxDepth > 0) {
+            // Priority selectors for navigation and service pages
+            const prioritySelectors = [
+                'nav a[href]',           // Navigation menus
+                '.menu a[href]',         // Menu containers
+                '.nav a[href]',          // Nav containers
+                '.navigation a[href]',   // Navigation containers
+                '.services a[href]',     // Services sections
+                '.dropdown a[href]',     // Dropdown menus
+                'header a[href]',        // Header links
+                '[class*="menu"] a[href]',  // Any element with "menu" in class
+                '[class*="nav"] a[href]',   // Any element with "nav" in class
+                '[class*="service"] a[href]' // Any element with "service" in class
+            ];
+
+            // Extract from priority selectors first
+            prioritySelectors.forEach(selector => {
+                $(selector).each((i, link) => {
+                    const href = $(link).attr('href');
+                    if (href) {
+                        try {
+                            const absoluteUrl = new URL(href, url).href;
+                            const baseUrl = new URL(url);
+                            const linkUrl = new URL(absoluteUrl);
+                            
+                            // Only include links from same domain
+                            if (linkUrl.hostname === baseUrl.hostname) {
+                                const linkText = $(link).text().trim();
+                                // Avoid duplicates
+                                if (!links.some(l => l.url === absoluteUrl)) {
+                                    links.push({
+                                        url: absoluteUrl,
+                                        text: linkText,
+                                        priority: true
+                                    });
+                                }
+                            }
+                        } catch (e) {
+                            // Invalid URL, skip
+                        }
+                    }
+                });
+            });
+
+            // Then extract all other links
             $('a[href]').each((i, link) => {
                 const href = $(link).attr('href');
                 if (href) {
@@ -116,15 +160,27 @@ async function crawlWebsite(url, options = {}) {
                         
                         // Only include links from same domain
                         if (linkUrl.hostname === baseUrl.hostname) {
-                            links.push({
-                                url: absoluteUrl,
-                                text: $(link).text().trim()
-                            });
+                            const linkText = $(link).text().trim();
+                            // Avoid duplicates
+                            if (!links.some(l => l.url === absoluteUrl)) {
+                                links.push({
+                                    url: absoluteUrl,
+                                    text: linkText,
+                                    priority: false
+                                });
+                            }
                         }
                     } catch (e) {
                         // Invalid URL, skip
                     }
                 }
+            });
+
+            // Sort to prioritize menu/navigation links
+            links.sort((a, b) => {
+                if (a.priority && !b.priority) return -1;
+                if (!a.priority && b.priority) return 1;
+                return 0;
             });
         }
 
@@ -225,7 +281,7 @@ async function crawlEntireWebsite(startUrl, options = {}, progressCallback = nul
         maxPages = 100,
         delayBetweenRequests = 1000,
         contentSelectors = null,
-        excludeSelectors = ['script', 'style', 'nav', 'header', 'footer', '.advertisement'],
+        excludeSelectors = ['script', 'style', 'footer', '.advertisement'], // Removed nav and header
         excludePatterns = ['/login', '/logout', '/admin', '/cart', '/checkout', '#', 'javascript:'], // URL patterns to skip
         sameDomainOnly = true
     } = options;
