@@ -45,13 +45,14 @@ const MEDIA_CATEGORY_MAP = {
   PRODUCT_VIDEO: 'product_video'
 };
 
-async function listTenantMediaAssets({ tenantId, category, productCode, assetTypes = null }) {
+async function listTenantMediaAssets({ tenantId, category, categories = null, productCode, assetTypes = null }) {
   const query = dbClient
     .from('tenant_media_assets')
     .select('id, title, description, category, asset_type, product_code, keywords, file_url, file_path, mime_type, size_bytes, original_name, created_at')
     .eq('tenant_id', tenantId);
 
   if (category) query.eq('category', category);
+  if (Array.isArray(categories) && categories.length) query.in('category', categories);
   if (productCode) query.eq('product_code', productCode);
   if (Array.isArray(assetTypes) && assetTypes.length) query.in('asset_type', assetTypes);
 
@@ -325,7 +326,7 @@ const getProductImages = async (tenantId, productCode) => {
     try {
       const assets = await listTenantMediaAssets({
         tenantId,
-        category: MEDIA_CATEGORY_MAP.PRODUCT_IMAGE,
+        categories: [MEDIA_CATEGORY_MAP.PRODUCT_IMAGE, MEDIA_CATEGORY_MAP.PRODUCT_VIDEO],
         productCode,
         assetTypes: ['image', 'video']
       });
