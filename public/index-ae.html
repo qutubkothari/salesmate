@@ -719,31 +719,26 @@
             border: 1px solid var(--glass-border);
         }
 
-        /* Glass Morphism Header Effect */
-        header {
-            position: sticky;
-            top: 0;
-            z-index: 40;
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            background: rgba(15, 5, 24, 0.85);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            transition: all 0.3s ease;
+        /* Glass Morphism Navigation Effect */
+        #app > section:first-child > .container > div:first-child {
+            position: sticky !important;
+            top: 0 !important;
+            z-index: 9999 !important;
+            backdrop-filter: blur(16px) !important;
+            -webkit-backdrop-filter: blur(16px) !important;
+            background: rgba(15, 5, 24, 0.75) !important;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+            transition: all 0.3s ease !important;
+            margin-left: -1.5rem !important;
+            margin-right: -1.5rem !important;
+            margin-top: -2rem !important;
+            padding: 2rem 1.5rem 2.5rem !important;
         }
 
-        header.scrolled {
-            background: rgba(15, 5, 24, 0.92);
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-        }
-
-        .desktop-header {
-            backdrop-filter: inherit;
-            background: transparent;
-        }
-
-        .mobile-header {
-            backdrop-filter: inherit;
-            background: transparent;
+        #app > section:first-child > .container > div:first-child.scrolled {
+            background: rgba(15, 5, 24, 0.92) !important;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3) !important;
+            padding: 1.5rem 1.5rem !important;
         }
     </style>
 </head>
@@ -2249,23 +2244,24 @@
 
     <!-- Version Indicator -->
     <div style="position: fixed; bottom: 10px; right: 10px; background: rgba(0,0,0,0.7); color: #0f0; padding: 5px 10px; border-radius: 5px; font-size: 11px; z-index: 9999; font-family: monospace;">
-        v2.0-GLASS-AE-27Jan2026-15:30
+        v2.1-GLASS-FIX-27Jan2026-16:00
     </div>
 
     <!-- Glass Header Scroll Effect -->
     <script>
         (function initGlassHeader() {
-            const header = document.querySelector('header');
-            if (!header) return;
+            // For index-ae.html, target the top nav div
+            const navElement = document.querySelector('#app > section:first-child > .container > div:first-child');
+            if (!navElement) return;
 
             let scrollThrottle = null;
             function handleScroll() {
                 if (scrollThrottle) return;
                 scrollThrottle = setTimeout(() => {
                     if (window.scrollY > 20) {
-                        header.classList.add('scrolled');
+                        navElement.classList.add('scrolled');
                     } else {
-                        header.classList.remove('scrolled');
+                        navElement.classList.remove('scrolled');
                     }
                     scrollThrottle = null;
                 }, 50);
