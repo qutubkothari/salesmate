@@ -202,6 +202,11 @@ router.get('/list', requireTenantAuth({ requireMatchParamTenantId: false }), asy
     const tenantId = String(req.auth?.tenantId || '');
     if (!tenantId) return res.status(401).json({ success: false, error: 'Unauthorized' });
 
+    // Legacy schema uses integer tenant_id; avoid 500s for UUID tenants.
+    if (!/^\d+$/.test(tenantId)) {
+      return res.json({ success: true, messages: [] });
+    }
+
     const { dbClient } = require('../../services/config');
     const { data, error } = await dbClient
       .from('interactive_messages')
