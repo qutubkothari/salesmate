@@ -3194,9 +3194,9 @@
     async function loadWhatsAppLeads() {
         if (!state.session?.tenantId) throw new Error('No tenant session');
 
-        // Fetch all WhatsApp leads
+        // Fetch all WhatsApp leads (cookie-based auth)
         const response = await fetch(`/api/crm/leads?channel=WHATSAPP`, {
-            headers: { 'Authorization': `Bearer ${state.session.token}` }
+            credentials: 'same-origin'
         });
         const data = await response.json();
         if (!data.success) throw new Error(data.error || 'Failed to load WhatsApp leads');
