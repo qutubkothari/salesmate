@@ -3531,10 +3531,10 @@
         if (!userId) return;
         
         try {
-            const response = await fetch(`/api/crm/leads/${state.session.tenantId}/${leadId}/assign`, {
-                method: 'POST',
+            const response = await fetch(`/api/crm/leads/${leadId}`, {
+                method: 'PATCH',
+                credentials: 'same-origin',
                 headers: { 
-                    'Authorization': `Bearer ${state.session.token}`,
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({ assigned_user_id: userId })
