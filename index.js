@@ -102,6 +102,8 @@ const gstRoutes = require('./routes/api/gst');
 const zohoRoutes = require('./routes/api/zoho');
 const customerRouter = require('./routes/api/customer');
 const websiteContentRouter = require('./routes/api/websiteContent');
+const embeddingConfigRouter = require('./routes/api/embeddingConfig');
+
 
 
 // --- Configuration ---
@@ -1232,6 +1234,7 @@ app.use('/api', gstRoutes);
 app.use('/api/zoho', zohoRoutes);
 app.use('/api/customers', customerRouter);
 app.use('/api/dashboard', websiteContentRouter);
+app.use('/api/dashboard', embeddingConfigRouter);
 
 // Authentication API
 const authRouter = require('./routes/api/auth');
