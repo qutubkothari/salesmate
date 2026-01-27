@@ -744,25 +744,8 @@
 </head>
 <body class="min-h-screen">
     <div id="app">
-        <!-- Glass Navigation Bar - Fixed at top -->
-        <nav id="glass-nav-fixed" style="position: fixed; top: 0; left: 0; right: 0; z-index: 9999; backdrop-filter: blur(20px) saturate(180%); -webkit-backdrop-filter: blur(20px) saturate(180%); background: rgba(15, 5, 24, 0.65); border-bottom: 1px solid rgba(255, 255, 255, 0.15); transition: all 0.3s ease; box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);">
-            <div class="container mx-auto px-6">
-                <div class="flex items-center justify-between py-4">
-                    <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-xl flex items-center justify-center overflow-hidden" style="background: rgba(0, 230, 118, 0.16); border: 1px solid rgba(0, 230, 118, 0.26);">
-                            <img src="/assets/logo.png" alt="SAK logo" class="w-7 h-7 object-contain" />
-                        </div>
-                        <div>
-                            <div class="font-extrabold tracking-tight text-white">SAK</div>
-                            <div class="text-xs muted-2">WhatsApp AI Sales Assistant</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </nav>
-
         <!-- Hero Section -->
-        <section class="gradient-bg min-h-screen flex items-center relative overflow-hidden" style="padding-top: 80px;">
+        <section class="gradient-bg min-h-screen flex items-center relative overflow-hidden">
             <!-- Animated Background Elements -->
             <div class="absolute inset-0 opacity-20">
                 <div class="absolute top-16 left-16 w-72 h-72 rounded-full filter blur-3xl" style="background: rgba(160, 196, 255, 0.18);"></div>
@@ -771,7 +754,7 @@
             
             <div class="container mx-auto px-6 relative z-10">
                 <!-- Top Nav -->
-                <div id="glass-nav" class="flex items-center justify-between pt-8 pb-10" style="position: sticky !important; top: 0 !important; z-index: 9999 !important; backdrop-filter: blur(20px) saturate(180%) !important; -webkit-backdrop-filter: blur(20px) saturate(180%) !important; background: rgba(15, 5, 24, 0.65) !important; border-bottom: 1px solid rgba(255, 255, 255, 0.15) !important; margin-left: -1.5rem !important; margin-right: -1.5rem !important; margin-top: -2rem !important; padding: 2rem 1.5rem 2.5rem !important; transition: all 0.3s ease !important; box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37) !important;">
+                <div id="glass-nav" class="flex items-center justify-between pt-8 pb-10" style="position: sticky !important; top: 0 !important; z-index: 9999 !important; backdrop-filter: blur(20px) saturate(180%) !important; -webkit-backdrop-filter: blur(20px) saturate(180%) !important; background: rgba(255, 255, 255, 0.08) !important; border: 1px solid rgba(255, 255, 255, 0.2) !important; border-radius: 20px !important; margin-left: -1.5rem !important; margin-right: -1.5rem !important; margin-top: -2rem !important; padding: 2rem 1.5rem 2.5rem !important; transition: all 0.3s ease !important; box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37) !important;">
                     <div class="flex items-center gap-3">
                         <div class="w-10 h-10 rounded-xl flex items-center justify-center overflow-hidden" style="background: rgba(0, 230, 118, 0.16); border: 1px solid rgba(0, 230, 118, 0.26);">
                             <img src="/assets/logo.png" alt="SAK logo" class="w-7 h-7 object-contain" />
@@ -2261,22 +2244,24 @@
 
     <!-- Version Indicator -->
     <div style="position: fixed; bottom: 10px; right: 10px; background: rgba(0,0,0,0.7); color: #0f0; padding: 5px 10px; border-radius: 5px; font-size: 11px; z-index: 9999; font-family: monospace;">
-        v2.4-FIXED-NAV-27Jan2026-16:20
+        v2.5-LIGHT-GLASS-27Jan2026-16:25
     </div>
 
     <!-- Glass Header Scroll Effect -->
     <script>
         (function initGlassHeader() {
-            const navElement = document.getElementById('glass-nav-fixed');
+            const navElement = document.getElementById('glass-nav');
             if (!navElement) return;
 
             function handleScroll() {
                 if (window.scrollY > 20) {
                     navElement.style.background = 'rgba(15, 5, 24, 0.85)';
                     navElement.style.boxShadow = '0 8px 32px 0 rgba(0, 0, 0, 0.5)';
+                    navElement.style.padding = '1.5rem 1.5rem';
                 } else {
                     navElement.style.background = 'rgba(15, 5, 24, 0.65)';
                     navElement.style.boxShadow = '0 8px 32px 0 rgba(0, 0, 0, 0.37)';
+                    navElement.style.padding = '2rem 1.5rem 2.5rem';
                 }
             }
 
