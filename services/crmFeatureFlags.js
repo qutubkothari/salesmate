@@ -1,4 +1,4 @@
-const { supabase } = require('./config');
+const { dbClient } = require('./config');
 
 /**
  * CRM feature keys.
@@ -122,7 +122,7 @@ function mergeFeatures(defaults, overrides) {
 }
 
 async function getTenantRowById(tenantId) {
-  const { data, error } = await supabase
+  const { data, error } = await dbClient
     .from('tenants')
     .select('id, subscription_tier, enabled_features')
     .eq('id', tenantId)
