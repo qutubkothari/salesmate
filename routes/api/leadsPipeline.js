@@ -141,61 +141,61 @@ router.get('/:tenantId/board', async (req, res) => {
       ];
     }
 
-    let convQuery = dbClient.from('conversations_new');
-    if (USE_LOCAL_DB) {
-      convQuery = convQuery.select('*');
-    } else {
-      convQuery = convQuery.select('id, tenant_id, end_user_phone, lead_score, requires_human_attention, updated_at, created_at');
-    }
-
-    const { data: convs, error: convErr } = await convQuery
+    // Use new CRM leads table instead of old conversations_new
+    const { data: crmLeads, error: leadsErr } = await dbClient
+      .from('crm_leads')
+      .select('id, tenant_id, phone, name, status, heat, score, last_activity_at, updated_at, created_at')
       .eq('tenant_id', tenantId)
       .order('updated_at', { ascending: false })
       .limit(limit);
 
-    if (convErr) throw convErr;
-
-    let leads = Array.isArray(convs) ? convs : [];
-
-    // Default "lead" criteria: scored leads or requires human attention.
-    leads = leads.filter((c) => {
-      const hasScore = c.lead_score !== null && c.lead_score !== undefined && String(c.lead_score).trim() !== '';
-      const needsHuman = c.requires_human_attention === true || c.requires_human_attention === 1;
-      return hasScore || needsHuman;
-    });
-
-    if (requiresAttention !== undefined) {
-      leads = leads.filter((c) => (c.requires_human_attention === true || c.requires_human_attention === 1) === requiresAttention);
+    if (leadsErr) {
+      console.warn('[LEADS_PIPELINE] Could not query crm_leads:', leadsErr.message);
+      // Return empty if table doesn't exist yet
+      return res.json({ success: true, stages, leads: [], readonly });
     }
 
-    // Attach a message preview
+    let leads = Array.isArray(crmLeads) ? crmLeads : [];
+
+    // Filter by score if requested
+    if (requiresAttention !== undefined) {
+      leads = leads.filter((c) => (c.heat === 'HOT' || c.heat === 'ON_FIRE') === requiresAttention);
+    }
+
+    // Attach a message preview from crm_messages
     const withPreview = await Promise.all(
-      leads.map(async (c) => {
+      leads.map(async (lead) => {
         try {
           const { data: msgs, error: msgError } = await dbClient
-            .from('messages')
-            .select('message_body, sender, created_at, message_type')
-            .eq('conversation_id', c.id)
+            .from('crm_messages')
+            .select('body, direction, created_at, channel')
+            .eq('tenant_id', tenantId)
+            .eq('lead_id', lead.id)
             .order('created_at', { ascending: false })
             .limit(3);
 
-          if (msgError) throw msgError;
+          if (msgError) {
+            console.warn('[LEADS_PIPELINE] Message fetch error:', msgError.message);
+          }
+          
           const messageList = Array.isArray(msgs) ? msgs : [];
           const last = messageList[0];
-          const lastMessage = last?.message_body || '';
+          const lastMessage = last?.body || '';
 
           return {
-            ...c,
+            ...lead,
             messages: messageList,
             lastMessage,
             last_message: lastMessage,
+            end_user_phone: lead.phone, // Map for backward compatibility
           };
         } catch (_) {
           return {
-            ...c,
+            ...lead,
             messages: [],
             lastMessage: '',
             last_message: '',
+            end_user_phone: lead.phone,
           };
         }
       })
