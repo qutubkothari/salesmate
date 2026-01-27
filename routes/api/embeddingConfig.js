@@ -128,6 +128,18 @@ router.post('/embedding-config/:tenantId/clear', async (req, res) => {
     try {
         console.log(`[EmbeddingConfig] Clearing embeddings for tenant ${tenantId}`);
 
+        // Get count BEFORE deletion
+        const { count, error: countError } = await dbClient
+            .from('website_embeddings')
+            .select('*', { count: 'exact', head: true })
+            .eq('tenant_id', tenantId);
+
+        if (countError) throw countError;
+
+        const beforeCount = count || 0;
+        console.log(`[EmbeddingConfig] Found ${beforeCount} embeddings to delete`);
+
+        // Now delete
         const { error } = await dbClient
             .from('website_embeddings')
             .delete()
@@ -135,16 +147,12 @@ router.post('/embedding-config/:tenantId/clear', async (req, res) => {
 
         if (error) throw error;
 
-        // Get count before deletion
-        const { count, error: countError } = await dbClient
-            .from('website_embeddings')
-            .select('*', { count: 'exact', head: true })
-            .eq('tenant_id', tenantId);
+        console.log(`[EmbeddingConfig] Successfully deleted ${beforeCount} embeddings`);
 
         res.json({
             success: true,
-            deletedCount: count || 0,
-            message: 'All embeddings cleared successfully'
+            deletedCount: beforeCount,
+            message: `Cleared ${beforeCount} embeddings successfully`
         });
     } catch (error) {
         console.error('[EmbeddingConfig] Error clearing embeddings:', error);
