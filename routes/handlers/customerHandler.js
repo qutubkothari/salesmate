@@ -78,7 +78,6 @@ const handleCustomer = async (req, res) => {
                 .from('conversations_new')
                 .insert({
                     tenant_id: tenant.id,
-                    phone_number: from,
                     end_user_phone: from,
                     state: 'IDLE',
                     created_at: new Date().toISOString(),

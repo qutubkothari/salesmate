@@ -939,7 +939,6 @@ app.post('/api/waha/webhook', async (req, res) => {
             .from('conversations_new')
             .insert({
               tenant_id: tenantId,
-              phone_number: from,
               end_user_phone: from,
               state: 'IDLE',
               created_at: new Date().toISOString(),
