@@ -7425,6 +7425,8 @@
                                             const needsHuman = (l.requires_human_attention === true || l.requires_human_attention === 1);
                                             const score = heatLabel(l);
                                             const currentStageId = l.pipeline_stage_id || stId;
+                                            const currentStatus = scoreLabel(l.status) || (stName ? scoreLabel(stName) : 'NEW');
+                                            const assignedId = l.assigned_user_id || '';
                                             return `
                                                 <div class="bg-white/80 rounded-xl p-4 hover:shadow-md transition cursor-pointer" onclick="openConversation('${state.session.tenantId}','${l.id}')">
                                                     <div class="flex items-start justify-between gap-3">
@@ -7438,12 +7440,21 @@
                                                             <div class="mt-2 text-[11px] text-gray-500">Updated: ${escapeHtml(updated)}</div>
                                                         </div>
                                                     </div>
-                                                    <div class="mt-3" onclick="event.stopPropagation()">
-                                                        <select class="search-input px-3 py-2 rounded-xl text-xs w-full" ${pipelineReadonly ? 'disabled title="Read-only"' : ''} onchange="moveLeadStage('${l.id}', this.value)">
+                                                    <div class="mt-3 space-y-2" onclick="event.stopPropagation()">
+                                                        <select class="search-input px-3 py-2 rounded-xl text-xs w-full" onchange="${pipelineReadonly ? `updateLeadStatus('${l.id}', this.value)` : `moveLeadStage('${l.id}', this.value)`}">
                                                             ${pipelineStages.map(s => {
                                                                 const sid = String(s.id);
-                                                                const selected = String(currentStageId) === sid ? 'selected' : '';
-                                                                return `<option value="${escapeHtml(sid)}" ${selected}>Move to: ${escapeHtml(String(s.name || ''))}</option>`;
+                                                                const statusName = scoreLabel(s.name);
+                                                                const selected = pipelineReadonly ? (currentStatus === statusName ? 'selected' : '') : (String(currentStageId) === sid ? 'selected' : '');
+                                                                const value = pipelineReadonly ? statusName : sid;
+                                                                return `<option value="${escapeHtml(value)}" ${selected}>Move to: ${escapeHtml(String(s.name || ''))}</option>`;
+                                                            }).join('')}
+                                                        </select>
+                                                        <select class="search-input px-3 py-2 rounded-xl text-xs w-full" onchange="assignLead('${l.id}', this.value)">
+                                                            <option value="">Assign: Unassigned</option>
+                                                            ${(state.data.salesTeam || []).map(u => {
+                                                                const selected = String(assignedId) === String(u.id) ? 'selected' : '';
+                                                                return `<option value="${escapeHtml(u.id)}" ${selected}>Assign: ${escapeHtml(u.name || u.full_name || u.phone || 'Salesman')}</option>`;
                                                             }).join('')}
                                                         </select>
                                                     </div>
@@ -7471,6 +7482,8 @@
                             const needsHuman = (l.requires_human_attention === true || l.requires_human_attention === 1);
                             const score = heatLabel(l);
                             const stageName = l.pipeline_stage_name || '';
+                            const assignedId = l.assigned_user_id || '';
+                            const currentStatus = scoreLabel(l.status) || (stageName ? scoreLabel(stageName) : 'NEW');
                             return `
                                 <div class="config-card p-5 rounded-xl hover:shadow-lg transition-all cursor-pointer" onclick="openConversation('${state.session.tenantId}','${l.id}')">
                                     <div class="flex items-start justify-between gap-4">
@@ -7483,6 +7496,24 @@
                                             </div>
                                             ${preview ? `<div class="mt-2 text-sm text-gray-700 bg-gray-50 rounded-lg p-3">${escapeHtml(preview)}</div>` : ''}
                                             <div class="mt-2 text-xs text-gray-500">Updated: ${escapeHtml(updated)}</div>
+                                            <div class="mt-3 space-y-2" onclick="event.stopPropagation()">
+                                                <select class="search-input px-3 py-2 rounded-xl text-xs w-full" onchange="${pipelineReadonly ? `updateLeadStatus('${l.id}', this.value)` : `moveLeadStage('${l.id}', this.value)`}">
+                                                    ${pipelineStages.map(s => {
+                                                        const sid = String(s.id);
+                                                        const statusName = scoreLabel(s.name);
+                                                        const selected = pipelineReadonly ? (currentStatus === statusName ? 'selected' : '') : (String(l.pipeline_stage_id || '') === sid ? 'selected' : '');
+                                                        const value = pipelineReadonly ? statusName : sid;
+                                                        return `<option value="${escapeHtml(value)}" ${selected}>Move to: ${escapeHtml(String(s.name || ''))}</option>`;
+                                                    }).join('')}
+                                                </select>
+                                                <select class="search-input px-3 py-2 rounded-xl text-xs w-full" onchange="assignLead('${l.id}', this.value)">
+                                                    <option value="">Assign: Unassigned</option>
+                                                    ${(state.data.salesTeam || []).map(u => {
+                                                        const selected = String(assignedId) === String(u.id) ? 'selected' : '';
+                                                        return `<option value="${escapeHtml(u.id)}" ${selected}>Assign: ${escapeHtml(u.name || u.full_name || u.phone || 'Salesman')}</option>`;
+                                                    }).join('')}
+                                                </select>
+                                            </div>
                                         </div>
                                         <div class="flex items-center text-gray-400">
                                             <i class="fas fa-chevron-right"></i>
@@ -7541,13 +7572,51 @@
         try {
             if (!state.session?.tenantId) throw new Error('No tenant session');
             if (state.data?.leadsPipeline?.readonly === true) {
-                showNotification('Pipeline is read-only in this environment', 'warning');
+                // Fall back to status update when pipeline tables are not available
+                await updateLeadStatus(conversationId, stageId);
                 return;
             }
             const path = `/api/leads-pipeline/${state.session.tenantId}/leads/${conversationId}/stage`;
             const resp = await api.putJSON(path, { stage_id: stageId });
             if (!resp.success) throw new Error(resp.error || 'Failed to move lead');
             showNotification('Lead moved', 'success');
+            await loadLeads();
+        } catch (err) {
+            showNotification(err.message || String(err), 'error');
+        }
+    }
+
+    async function updateLeadStatus(leadId, status) {
+        try {
+            const nextStatus = String(status || '').toUpperCase();
+            if (!nextStatus) return;
+            const response = await fetch(`/api/crm/leads/${leadId}`, {
+                method: 'PATCH',
+                credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: nextStatus })
+            });
+            const data = await response.json();
+            if (!data.success) throw new Error(data.error || 'Failed to update status');
+            showNotification('Lead status updated', 'success');
+            await loadLeads();
+        } catch (err) {
+            showNotification(err.message || String(err), 'error');
+        }
+    }
+
+    async function assignLead(leadId, userId) {
+        try {
+            const assignedUserId = userId ? String(userId) : null;
+            const response = await fetch(`/api/crm/leads/${leadId}`, {
+                method: 'PATCH',
+                credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ assigned_user_id: assignedUserId })
+            });
+            const data = await response.json();
+            if (!data.success) throw new Error(data.error || 'Failed to assign lead');
+            showNotification('Lead assigned', 'success');
             await loadLeads();
         } catch (err) {
             showNotification(err.message || String(err), 'error');
