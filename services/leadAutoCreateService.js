@@ -341,9 +341,9 @@ async function createLeadFromWhatsApp({
 
         // Capture contact details into customer profile when provided
         let profileMissingDetails = false;
+        const customerProfileService = require('./customerProfileService');
         if (messageBody) {
             try {
-                const customerProfileService = require('./customerProfileService');
                 const text = String(messageBody || '');
                 
                 // Enhanced extraction patterns
@@ -386,28 +386,41 @@ async function createLeadFromWhatsApp({
                     console.log('[LEAD_AUTO_CREATE] Lead updated with company:', companyName);
                 }
                 
-                // Check if we still need customer details
-                const { customer } = await customerProfileService.getCustomerByPhone(tenantId, cleanPhone);
-                profileMissingDetails = !customer || (!customer.name && !customer.email);
-                
-                // Check if we've already asked for details (don't ask repeatedly)
-                if (profileMissingDetails && lead?.id) {
-                    const { data: askedBefore } = await dbClient
-                        .from('crm_lead_events')
-                        .select('id')
-                        .eq('lead_id', lead.id)
-                        .eq('event_type', 'DETAILS_REQUESTED')
-                        .maybeSingle();
-                    
-                    if (askedBefore) {
-                        profileMissingDetails = false; // Don't ask again
-                        console.log('[LEAD_AUTO_CREATE] Already requested details for this lead');
-                    }
-                }
-                
             } catch (profileErr) {
                 console.warn('[LEAD_AUTO_CREATE] Customer profile update failed:', profileErr?.message || profileErr);
             }
+        }
+
+        // Check if we still need customer details (always evaluate)
+        try {
+            const { customer } = await customerProfileService.getCustomerByPhone(tenantId, cleanPhone);
+            profileMissingDetails = !customer || (!customer.name && !customer.email);
+
+            if (profileMissingDetails) {
+                console.log('[LEAD_AUTO_CREATE] Missing customer details:', {
+                    hasCustomer: !!customer,
+                    name: customer?.name || null,
+                    email: customer?.email || null
+                });
+            }
+
+            // Check if we've already asked for details (don't ask repeatedly)
+            if (profileMissingDetails && lead?.id) {
+                const { data: askedBefore } = await dbClient
+                    .from('crm_lead_events')
+                    .select('id')
+                    .eq('tenant_id', tenantId)
+                    .eq('lead_id', lead.id)
+                    .eq('event_type', 'DETAILS_REQUESTED')
+                    .maybeSingle();
+
+                if (askedBefore) {
+                    profileMissingDetails = false; // Don't ask again
+                    console.log('[LEAD_AUTO_CREATE] Already requested details for this lead');
+                }
+            }
+        } catch (profileCheckErr) {
+            console.warn('[LEAD_AUTO_CREATE] Customer profile check failed:', profileCheckErr?.message || profileCheckErr);
         }
 
         // If unassigned, create triage item
