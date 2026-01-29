@@ -7283,18 +7283,18 @@
         state.data.leadsPipeline = { readonly: data.readonly === true, stages: data.stages || [], columns: data.columns || [] };
 
         const scoreLabel = (s) => String(s || '').toUpperCase();
-        const badgeForScore = (s) => {
-            const v = scoreLabel(s);
-            if (v === 'HOT') return 'bg-red-100 text-red-800';
+        const heatLabel = (lead) => scoreLabel(lead?.heat || lead?.lead_score);
+        const badgeForScore = (lead) => {
+            const v = heatLabel(lead);
+            if (v === 'ON_FIRE' || v === 'HOT') return 'bg-red-100 text-red-800';
             if (v === 'WARM') return 'bg-yellow-100 text-yellow-800';
             if (v === 'COLD') return 'bg-blue-100 text-blue-800';
             return 'bg-gray-100 text-gray-700';
         };
 
-        const count = (v) => leads.filter(l => scoreLabel(l.lead_score) === v).length;
-        const hot = count('HOT');
-        const warm = count('WARM');
-        const cold = count('COLD');
+        const hot = leads.filter(l => ['ON_FIRE','HOT'].includes(heatLabel(l))).length;
+        const warm = leads.filter(l => heatLabel(l) === 'WARM').length;
+        const cold = leads.filter(l => heatLabel(l) === 'COLD').length;
 
         const pipelineReadonly = state.data.leadsPipeline?.readonly === true;
         const pipelineStages = state.data.leadsPipeline?.stages || [];
@@ -7393,7 +7393,7 @@
                                             const preview = l.last_message || l.lastMessage || '';
                                             const updated = l.updated_at ? new Date(l.updated_at).toLocaleString() : '';
                                             const needsHuman = (l.requires_human_attention === true || l.requires_human_attention === 1);
-                                            const score = scoreLabel(l.lead_score);
+                                            const score = heatLabel(l);
                                             const currentStageId = l.pipeline_stage_id || stId;
                                             return `
                                                 <div class="bg-white/80 rounded-xl p-4 hover:shadow-md transition cursor-pointer" onclick="openConversation('${state.session.tenantId}','${l.id}')">
@@ -7401,7 +7401,7 @@
                                                         <div class="min-w-0">
                                                             <div class="flex items-center gap-2 flex-wrap">
                                                                 <div class="text-sm font-semibold text-gray-900 truncate">${escapeHtml(phone || 'Unknown')}</div>
-                                                                <span class="px-2 py-1 rounded-lg text-xs font-medium ${badgeForScore(score)}">${escapeHtml(score || 'LEAD')}</span>
+                                                                <span class="px-2 py-1 rounded-lg text-xs font-medium ${badgeForScore(l)}">${escapeHtml(score || 'LEAD')}</span>
                                                                 ${needsHuman ? `<span class="px-2 py-1 rounded-lg text-xs font-medium bg-purple-100 text-purple-800"><i class='fas fa-user-shield mr-1'></i>Attention</span>` : ''}
                                                             </div>
                                                             ${preview ? `<div class="mt-2 text-xs text-gray-700 bg-gray-50 rounded-lg p-2">${escapeHtml(preview)}</div>` : ''}
@@ -7439,7 +7439,7 @@
                             const preview = l.last_message || l.lastMessage || '';
                             const updated = l.updated_at ? new Date(l.updated_at).toLocaleString() : '';
                             const needsHuman = (l.requires_human_attention === true || l.requires_human_attention === 1);
-                            const score = scoreLabel(l.lead_score);
+                            const score = heatLabel(l);
                             const stageName = l.pipeline_stage_name || '';
                             return `
                                 <div class="config-card p-5 rounded-xl hover:shadow-lg transition-all cursor-pointer" onclick="openConversation('${state.session.tenantId}','${l.id}')">
@@ -7447,7 +7447,7 @@
                                         <div class="flex-1">
                                             <div class="flex items-center gap-2 flex-wrap">
                                                 <div class="text-gray-900 font-semibold">${escapeHtml(phone || 'Unknown')}</div>
-                                                <span class="px-2 py-1 rounded-lg text-xs font-medium ${badgeForScore(score)}">${escapeHtml(score || 'LEAD')}</span>
+                                                <span class="px-2 py-1 rounded-lg text-xs font-medium ${badgeForScore(l)}">${escapeHtml(score || 'LEAD')}</span>
                                                 ${stageName ? `<span class="px-2 py-1 rounded-lg text-xs font-medium ${stageBadge(stageName)}">${escapeHtml(stageName)}</span>` : ''}
                                                 ${needsHuman ? `<span class="px-2 py-1 rounded-lg text-xs font-medium bg-purple-100 text-purple-800"><i class='fas fa-user-shield mr-1'></i>Needs Attention</span>` : ''}
                                             </div>
