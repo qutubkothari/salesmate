@@ -871,6 +871,33 @@ app.post('/api/waha/webhook', async (req, res) => {
         }
       }
 
+      // Additional fallback: map bot phone number -> tenant_id
+      if (!tenantId) {
+        try {
+          const to = String(payload.to || payload._data?.to || payload.chatId || '').replace('@c.us', '');
+          const toDigits = String(to).replace(/\D/g, '');
+          if (toDigits) {
+            const { dbClient } = require('./services/config');
+            const { data: botTenant } = await dbClient
+              .from('tenants')
+              .select('id')
+              .or(`bot_phone_number.eq.${toDigits},bot_phone_number.eq.${toDigits}@c.us,bot_phone_number.eq.${to}`)
+              .maybeSingle();
+            if (botTenant?.id) tenantId = botTenant.id;
+          }
+        } catch (e) {
+          console.warn('[WAHA] Could not resolve tenant from bot_phone_number:', e?.message || e);
+        }
+      }
+
+      console.log('[WAHA] Tenant resolution details:', {
+        session,
+        resolvedTenantId: tenantId,
+        payloadFrom: payload.from,
+        payloadTo: payload.to || payload._data?.to || null,
+        payloadChatId: payload.chatId || payload._data?.chatId || null
+      });
+
       console.log(`[WAHA] Processing message from ${from} for tenant ${tenantId || 'UNKNOWN'}: ${message.substring(0, 50)}...`);
       if (!tenantId) {
         console.warn('[WAHA] Skipping message: tenantId unresolved for session', session);
