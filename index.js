@@ -919,6 +919,61 @@ app.post('/api/waha/webhook', async (req, res) => {
         console.warn('[WAHA] Lead auto-create failed:', e?.message || e);
       }
 
+      // Ensure conversation exists and persist inbound message
+      let conversationId = null;
+      try {
+        const { dbClient } = require('./services/config');
+        const { data: existingConv, error: convErr } = await dbClient
+          .from('conversations_new')
+          .select('id')
+          .eq('tenant_id', tenantId)
+          .eq('end_user_phone', from)
+          .maybeSingle();
+        if (convErr) {
+          console.warn('[WAHA] Conversation lookup error:', convErr?.message || convErr);
+        }
+        if (existingConv?.id) {
+          conversationId = existingConv.id;
+        } else {
+          const { data: newConv, error: createErr } = await dbClient
+            .from('conversations_new')
+            .insert({
+              tenant_id: tenantId,
+              phone_number: from,
+              end_user_phone: from,
+              state: 'IDLE',
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+              last_message_at: new Date().toISOString()
+            })
+            .select('id')
+            .single();
+          if (createErr) {
+            console.warn('[WAHA] Conversation create error:', createErr?.message || createErr);
+          } else if (newConv?.id) {
+            conversationId = newConv.id;
+          }
+        }
+
+        if (conversationId) {
+          const { error: msgErr } = await dbClient
+            .from('messages')
+            .insert({
+              tenant_id: tenantId,
+              conversation_id: conversationId,
+              sender: 'user',
+              message_body: message,
+              message_type: 'text',
+              created_at: new Date().toISOString()
+            });
+          if (msgErr) {
+            console.warn('[WAHA] Inbound message insert error:', msgErr?.message || msgErr);
+          }
+        }
+      } catch (e) {
+        console.warn('[WAHA] Persist inbound message failed:', e?.message || e);
+      }
+
       // Format request to match existing customer handler
       const formattedReq = {
         body: {
@@ -959,6 +1014,28 @@ app.post('/api/waha/webhook', async (req, res) => {
             chatId: payload.from,
             text
           });
+
+          // Persist bot reply
+          try {
+            const { dbClient } = require('./services/config');
+            if (conversationId) {
+              const { error: botMsgErr } = await dbClient
+                .from('messages')
+                .insert({
+                  tenant_id: tenantId,
+                  conversation_id: conversationId,
+                  sender: 'bot',
+                  message_body: text,
+                  message_type: 'ai_response',
+                  created_at: new Date().toISOString()
+                });
+              if (botMsgErr) {
+                console.warn('[WAHA] Bot message insert error:', botMsgErr?.message || botMsgErr);
+              }
+            }
+          } catch (e) {
+            console.warn('[WAHA] Persist bot reply failed:', e?.message || e);
+          }
         }
         if (outgoing.length) {
           console.log(`[WAHA] Sent ${outgoing.length} captured reply message(s) to ${from}`);
