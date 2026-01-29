@@ -339,6 +339,27 @@ async function createLeadFromWhatsApp({
             }
         }
 
+        // Capture contact details into customer profile when provided
+        if (messageBody) {
+            try {
+                const customerProfileService = require('./customerProfileService');
+                const text = String(messageBody || '');
+                const emailMatch = text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+                const nameMatch = text.match(/(?:my name is|i am|this is)\s+([a-zA-Z][a-zA-Z\s]{1,40})/i);
+                const extracted = {
+                    name: nameMatch ? nameMatch[1].trim() : undefined,
+                    email: emailMatch ? emailMatch[0].trim() : undefined
+                };
+
+                if (extracted.name || extracted.email) {
+                    await customerProfileService.upsertCustomerByPhone(tenantId, cleanPhone, extracted);
+                    console.log('[LEAD_AUTO_CREATE] Customer profile updated from message');
+                }
+            } catch (profileErr) {
+                console.warn('[LEAD_AUTO_CREATE] Customer profile update failed:', profileErr?.message || profileErr);
+            }
+        }
+
         // If unassigned, create triage item
         if (!lead.assigned_user_id) {
             console.log('[LEAD_AUTO_CREATE] Creating triage item for unassigned lead');

@@ -269,6 +269,23 @@ router.patch('/:leadId', requireCrmAuth, requireCrmFeature(CRM_FEATURES.CRM_LEAD
     if (error) throw error;
     if (!lead) return res.status(404).json({ success: false, error: 'not_found' });
 
+    // If assigned now, mark as needing contact
+    if (mapped.assigned_user_id) {
+      try {
+        await supabase
+          .from('crm_triage_items')
+          .insert({
+            tenant_id: req.user.tenantId,
+            lead_id: leadId,
+            status: 'OPEN',
+            reason: 'Assigned lead - contact requested',
+            created_at: nowIso()
+          });
+      } catch (_) {
+        // ignore if triage table missing
+      }
+    }
+
     await addLeadEvent({
       tenantId: req.user.tenantId,
       leadId,
