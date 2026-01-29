@@ -340,21 +340,47 @@ async function createLeadFromWhatsApp({
         }
 
         // Capture contact details into customer profile when provided
+        let profileMissingDetails = false;
         if (messageBody) {
             try {
                 const customerProfileService = require('./customerProfileService');
                 const text = String(messageBody || '');
+                
+                // Enhanced extraction patterns
                 const emailMatch = text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
-                const nameMatch = text.match(/(?:my name is|i am|this is)\s+([a-zA-Z][a-zA-Z\s]{1,40})/i);
+                
+                // Try structured format first (Name: John Doe)
+                let nameMatch = text.match(/(?:name|naam)\s*[:=]\s*([A-Za-z][A-Za-z\s]{1,50})/i);
+                // Fallback to conversational format
+                if (!nameMatch) {
+                    nameMatch = text.match(/(?:my name is|i am|this is|i'm)\s+([A-Za-z][A-Za-z\s]{1,40})/i);
+                }
+                
+                // Company extraction
+                let companyMatch = text.match(/(?:company|business|firm|organisation|organization)\s*[:=]\s*([A-Za-z0-9][A-Za-z0-9\s&.]{2,60})/i);
+                if (!companyMatch) {
+                    companyMatch = text.match(/(?:from|representing|work at|at)\s+([A-Z][A-Za-z0-9\s&.]{2,50}(?:\s+(?:Ltd|Pvt|Inc|Corp|Co|Limited|Private))?)/);
+                }
+                
                 const extracted = {
                     name: nameMatch ? nameMatch[1].trim() : undefined,
                     email: emailMatch ? emailMatch[0].trim() : undefined
                 };
-
-                if (extracted.name || extracted.email) {
-                    await customerProfileService.upsertCustomerByPhone(tenantId, cleanPhone, extracted);
-                    console.log('[LEAD_AUTO_CREATE] Customer profile updated from message');
+                
+                // Add company to address field for now (can be separated later)
+                if (companyMatch) {
+                    extracted.address = companyMatch[1].trim();
                 }
+
+                if (extracted.name || extracted.email || extracted.address) {
+                    await customerProfileService.upsertCustomerByPhone(tenantId, cleanPhone, extracted);
+                    console.log('[LEAD_AUTO_CREATE] Customer profile updated:', extracted);
+                }
+                
+                // Check if we still need customer details
+                const { customer } = await customerProfileService.getCustomerByPhone(tenantId, cleanPhone);
+                profileMissingDetails = !customer || (!customer.name && !customer.email);
+                
             } catch (profileErr) {
                 console.warn('[LEAD_AUTO_CREATE] Customer profile update failed:', profileErr?.message || profileErr);
             }
@@ -390,7 +416,8 @@ async function createLeadFromWhatsApp({
             success: true,
             lead,
             isNew,
-            needsAssignment: !lead.assigned_user_id
+            needsAssignment: !lead.assigned_user_id,
+            needsCustomerDetails: profileMissingDetails && isNew
         };
 
     } catch (error) {
