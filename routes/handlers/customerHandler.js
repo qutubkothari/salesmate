@@ -81,7 +81,6 @@ const handleCustomer = async (req, res) => {
                     phone_number: from,
                     end_user_phone: from,
                     state: 'IDLE',
-                    metadata: {},
                     created_at: new Date().toISOString(),
                     updated_at: new Date().toISOString(),
                     last_message_at: new Date().toISOString()
