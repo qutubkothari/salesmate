@@ -233,7 +233,6 @@ class AIIntegrationService {
         .insert([{ 
           customer_profile_id: customerProfileId, 
           tenant_id: tenantId,
-          phone_number: phoneNumber,
           end_user_phone: phoneNumber,
           status: 'active', 
           created_at: new Date().toISOString(),

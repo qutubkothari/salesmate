@@ -843,9 +843,7 @@ Would you like to create one? Just send *"register"* to get started with your FR
                   .from('conversations_new')
                   .insert({
                     tenant_id: tenant.id,
-                    phone_number: message.from,
                     end_user_phone: message.from,
-                    state: 'active',
                     created_at: new Date().toISOString()
                   })
                   .select()
@@ -994,10 +992,7 @@ async function ensureConversationByPhone(phone, tenantId) {
       .from('conversations_new')
       .insert({
         tenant_id: tenantId,
-        phone_number: phoneToUse,
         end_user_phone: phoneToUse,  // Keep @c.us format
-        status: 'active',
-        state: 'new',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })

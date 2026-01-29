@@ -34,7 +34,6 @@ const getConversationId = async (tenantId, endUserPhone) => {
             .from('conversations_new')
             .insert({
                 tenant_id: tenantId,
-                phone_number: endUserPhone,
                 end_user_phone: endUserPhone
             })
             .select('id')
