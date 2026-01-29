@@ -211,6 +211,12 @@ async function createLeadFromWhatsApp({
                 console.log(`[LEAD_AUTO_CREATE] Heat escalated: ${existingLead.heat} → ${aiAnalysis.heat}`);
             }
 
+            // Auto-qualify if strong intent or hot lead
+            const shouldQualify = aiAnalysis.intent === 'purchase' || ['HOT', 'ON_FIRE'].includes(aiAnalysis.heat);
+            if (shouldQualify && String(existingLead.status || '').toUpperCase() !== 'QUALIFIED') {
+                updates.status = 'QUALIFIED';
+            }
+
             // SCORE BLENDING: Take weighted average (70% existing, 30% new)
             // This prevents wild swings while allowing upward trend
             const blendedScore = Math.round(
@@ -271,6 +277,8 @@ async function createLeadFromWhatsApp({
             const aiAnalysis = analyzeLeadQuality(messageBody);
             console.log('[LEAD_AUTO_CREATE] AI Analysis:', aiAnalysis);
 
+            const shouldQualify = aiAnalysis.intent === 'purchase' || ['HOT', 'ON_FIRE'].includes(aiAnalysis.heat);
+
             const { data: newLead, error: createErr } = await dbClient
                 .from('crm_leads')
                 .insert({
@@ -278,7 +286,7 @@ async function createLeadFromWhatsApp({
                     phone: cleanPhone,
                     name: name || null,
                     channel,
-                    status: 'NEW',
+                    status: shouldQualify ? 'QUALIFIED' : 'NEW',
                     heat: aiAnalysis.heat, // AI-determined heat level
                     score: aiAnalysis.score, // AI-calculated score
                     created_by_user_id: createdByUserId,
