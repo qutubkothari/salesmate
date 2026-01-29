@@ -101,9 +101,7 @@ const handleCustomer = async (req, res) => {
                 console.log('[CUSTOMER_HANDLER] Creating new customer profile for:', from);
                 await customerProfileService.upsertCustomerByPhone(tenant.id, from, {
                     name: null, // Will be updated later when AI extracts name
-                    lead_score: 0,
-                    total_orders: 0,
-                    total_spent: 0.00
+                    lead_score: 0
                 });
                 console.log('[CUSTOMER_HANDLER] Customer profile created');
             }

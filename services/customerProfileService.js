@@ -71,7 +71,6 @@ async function upsertCustomerByPhone(tenantId, rawPhone, profileData) {
         name: profileData?.name ?? null,
         email: profileData?.email ?? null,
         customer_type: profileData?.customer_type ?? null,
-        address: profileData?.address ?? null,
         city: profileData?.city ?? null,
         state: profileData?.state ?? null,
         pincode: profileData?.pincode ?? null,
