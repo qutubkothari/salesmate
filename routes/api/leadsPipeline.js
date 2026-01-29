@@ -121,6 +121,8 @@ router.get('/:tenantId/stages', async (req, res) => {
 router.get('/:tenantId/board', async (req, res) => {
   const { tenantId } = req.params;
   const { q } = req.query;
+  const channel = String(req.query.channel || '').trim().toUpperCase();
+  const assignedUserId = String(req.query.assignedUserId || '').trim();
   const limit = Math.min(Number(req.query.limit) || 200, 500);
   const requiresAttention = toBool(req.query.requiresAttention);
 
@@ -142,12 +144,26 @@ router.get('/:tenantId/board', async (req, res) => {
     }
 
     // Use new CRM leads table instead of old conversations_new
-    const { data: crmLeads, error: leadsErr } = await dbClient
+    let leadsQuery = dbClient
       .from('crm_leads')
-      .select('id, tenant_id, phone, name, status, heat, score, last_activity_at, updated_at, created_at')
+      .select('id, tenant_id, phone, name, status, heat, score, last_activity_at, updated_at, created_at, assigned_user_id, channel')
       .eq('tenant_id', tenantId)
       .order('updated_at', { ascending: false })
       .limit(limit);
+
+    if (channel) {
+      leadsQuery = leadsQuery.eq('channel', channel);
+    }
+
+    if (assignedUserId) {
+      if (assignedUserId.toUpperCase() === 'UNASSIGNED') {
+        leadsQuery = leadsQuery.is('assigned_user_id', null);
+      } else {
+        leadsQuery = leadsQuery.eq('assigned_user_id', assignedUserId);
+      }
+    }
+
+    const { data: crmLeads, error: leadsErr } = await leadsQuery;
 
     if (leadsErr) {
       console.warn('[LEADS_PIPELINE] Could not query crm_leads:', leadsErr.message);

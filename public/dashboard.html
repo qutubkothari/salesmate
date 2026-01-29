@@ -188,10 +188,6 @@
                         <i class="fas fa-life-ring"></i>
                         <span>Triage</span>
                     </div>
-                    <div class="sidebar-item" onclick="switchTab('whatsapp-leads')" data-tab="whatsapp-leads">
-                        <i class="fab fa-whatsapp"></i>
-                        <span>WhatsApp Leads</span>
-                    </div>
                     <div class="sidebar-item" onclick="switchTab('products')" data-tab="products">
                         <i class="fas fa-box"></i>
                         <span>Products</span>
@@ -7269,6 +7265,10 @@
 
         const params = new URLSearchParams();
         if (state.searchQuery) params.append('q', state.searchQuery);
+        const channelFilter = document.getElementById('leadChannelFilter')?.value || '';
+        const assignmentFilter = document.getElementById('leadAssignmentFilter')?.value || '';
+        if (channelFilter) params.append('channel', channelFilter);
+        if (assignmentFilter) params.append('assignedUserId', assignmentFilter);
 
         // Load pipeline board (includes enriched leads)
         const url = `/api/leads-pipeline/${state.session.tenantId}/board${params.toString() ? `?${params.toString()}` : ''}`;
@@ -7349,6 +7349,36 @@
                     <div class="config-card p-6 rounded-xl">
                         <div class="text-gray-600 text-sm mb-1">Cold</div>
                         <div class="text-3xl font-bold text-blue-700">${cold}</div>
+                    </div>
+                </div>
+
+                <div class="config-card p-4 rounded-xl mb-6">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Channel</label>
+                            <select id="leadChannelFilter" onchange="loadLeads()" class="w-full px-3 py-2 border rounded-xl">
+                                <option value="">All Channels</option>
+                                <option value="WHATSAPP">WhatsApp</option>
+                                <option value="EMAIL">Email</option>
+                                <option value="TELEPHONE">Telephone</option>
+                                <option value="VISIT">Personal Visit</option>
+                                <option value="INDIAMART">IndiaMart</option>
+                                <option value="GEM">GEM</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Assignment</label>
+                            <select id="leadAssignmentFilter" onchange="loadLeads()" class="w-full px-3 py-2 border rounded-xl">
+                                <option value="">All Leads</option>
+                                <option value="UNASSIGNED">Unassigned</option>
+                                ${(state.data.salesTeam || []).map(u => `<option value="${escapeHtml(u.id)}">${escapeHtml(u.name || u.full_name || u.phone || 'Salesman')}</option>`).join('')}
+                            </select>
+                        </div>
+                        <div class="flex items-end">
+                            <button onclick="loadLeads()" class="glass-effect px-4 py-2 rounded-xl text-white hover:bg-white/20 w-full">
+                                <i class="fas fa-rotate mr-2"></i>Refresh
+                            </button>
+                        </div>
                     </div>
                 </div>
 
