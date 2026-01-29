@@ -140,7 +140,7 @@ const handleCustomer = async (req, res) => {
 
     if (detailsRequest.needed && detailsRequest.leadId) {
         try {
-            const detailsMsg = `By the way, to serve you better, could you please share your name, company name, and email (optional)?\n\nYou can reply like:\n*Name:* Your Name\n*Company:* Your Company\n*Email:* your@email.com`;
+            const detailsMsg = `By the way, to serve you better, could you please share your name, company name, and email (optional)?\n\nReply in this format:\nName: Your Name\nCompany: Your Company\nEmail: your@email.com`;
             await sendMessage(from, detailsMsg, tenant.id);
 
             await dbClient.from('crm_lead_events').insert({
