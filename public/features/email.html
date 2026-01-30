@@ -64,6 +64,13 @@
         <button id="refreshBtn" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">
           <i class="fas fa-sync-alt mr-2"></i>Refresh
         </button>
+        <button id="connectGmailBtn" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium">
+          <i class="fab fa-google mr-2"></i>Connect Gmail
+        </button>
+        <button id="syncGmailBtn" class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-medium" disabled>
+          <i class="fas fa-cloud-download-alt mr-2"></i>Sync Gmail
+        </button>
+        <span id="gmailStatus" class="text-sm text-gray-500"></span>
         <button id="deleteSelectedBtn" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium" disabled>
           <i class="fas fa-trash mr-2"></i>Delete (<span id="selectedCount">0</span>)
         </button>
@@ -174,7 +181,66 @@
     async function init() {
       await loadSalespeople();
       await loadEmails();
+      await loadGmailStatus();
       setupEventListeners();
+    }
+
+    async function loadGmailStatus() {
+      try {
+        const response = await fetch(`/api/email/gmail/status`, {
+          headers: { 'Authorization': `Bearer ${getAuthToken()}` }
+        });
+        const data = await response.json();
+        const statusEl = document.getElementById('gmailStatus');
+        const syncBtn = document.getElementById('syncGmailBtn');
+        if (data?.success && data.connected) {
+          statusEl.textContent = `Connected: ${data.email || 'Gmail'}`;
+          syncBtn.disabled = false;
+        } else {
+          statusEl.textContent = 'Gmail not connected';
+          syncBtn.disabled = true;
+        }
+      } catch (_) {
+        const statusEl = document.getElementById('gmailStatus');
+        if (statusEl) statusEl.textContent = 'Gmail status unavailable';
+      }
+    }
+
+    async function connectGmail() {
+      try {
+        const response = await fetch(`/api/email/gmail/connect`, {
+          headers: { 'Authorization': `Bearer ${getAuthToken()}` }
+        });
+        const data = await response.json();
+        if (data?.success && data.authUrl) {
+          window.open(data.authUrl, '_blank');
+        } else {
+          alert('Failed to start Gmail connection');
+        }
+      } catch (e) {
+        alert('Failed to start Gmail connection');
+      }
+    }
+
+    async function syncGmail() {
+      try {
+        const response = await fetch(`/api/email/gmail/sync`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${getAuthToken()}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ maxResults: 20 })
+        });
+        const data = await response.json();
+        if (data?.success) {
+          await loadEmails();
+        } else {
+          alert(data?.error || 'Failed to sync Gmail');
+        }
+      } catch (e) {
+        alert('Failed to sync Gmail');
+      }
     }
 
     async function loadSalespeople() {
@@ -338,6 +404,8 @@
       
       // Toolbar buttons
       document.getElementById('refreshBtn').addEventListener('click', loadEmails);
+      document.getElementById('connectGmailBtn').addEventListener('click', connectGmail);
+      document.getElementById('syncGmailBtn').addEventListener('click', syncGmail);
       document.getElementById('deleteSelectedBtn').addEventListener('click', deleteSelected);
       document.getElementById('assignBtn').addEventListener('click', assignSelected);
       

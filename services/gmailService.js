@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const { google } = require('googleapis');
 const { dbClient } = require('./config');
+const { createLeadFromEmail } = require('./emailLeadCaptureService');
 
 function env(name, fallback = '') {
   return (process.env[name] ?? fallback);
@@ -180,7 +181,7 @@ async function ingestGmailMessage(tenantId, message) {
 
   const body = extractBodyFromPayload(payload) || message?.snippet || '';
 
-  return upsertEmailEnquiry({
+  const saved = await upsertEmailEnquiry({
     tenantId,
     fromEmail: from,
     subject,
@@ -190,6 +191,21 @@ async function ingestGmailMessage(tenantId, message) {
     threadId,
     raw: message,
   });
+
+  // Best-effort lead creation
+  try {
+    await createLeadFromEmail({
+      tenantId,
+      fromEmail: from,
+      fromName: null,
+      subject,
+      body
+    });
+  } catch (e) {
+    console.warn('[GMAIL] Lead creation failed:', e?.message || e);
+  }
+
+  return saved;
 }
 
 async function startWatch({ tenantId, topicName }) {

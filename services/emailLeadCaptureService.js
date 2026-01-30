@@ -7,6 +7,26 @@
 const { dbClient } = require('./config');
 const { autoAssignLead } = require('./leadAutoCreateService');
 
+function parseFromHeader(fromValue) {
+  const raw = String(fromValue || '').trim();
+  if (!raw) return { email: null, name: null };
+
+  const angleMatch = raw.match(/^(.*)<([^>]+)>$/);
+  if (angleMatch) {
+    return {
+      name: angleMatch[1].trim().replace(/^"|"$/g, '') || null,
+      email: angleMatch[2].trim() || null
+    };
+  }
+
+  // Fallback: if it's just an email
+  if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(raw)) {
+    return { email: raw, name: null };
+  }
+
+  return { email: null, name: raw };
+}
+
 /**
  * Parse email content to extract lead information
  */
@@ -68,9 +88,12 @@ async function createLeadFromEmail({ tenantId, fromEmail, fromName, subject, bod
     // Parse email content for additional info
     const parsed = parseEmailContent(body, subject);
 
+    // Parse From header if it contains name/email
+    const fromParsed = parseFromHeader(fromEmail);
+
     // Use fromEmail if not found in body
-    const leadEmail = parsed.email || fromEmail;
-    const leadName = parsed.name || fromName || leadEmail.split('@')[0];
+    const leadEmail = parsed.email || fromParsed.email || fromEmail;
+    const leadName = parsed.name || fromName || fromParsed.name || (leadEmail ? leadEmail.split('@')[0] : null);
 
     // Check if lead already exists
     const { data: existingLead } = await dbClient
@@ -87,12 +110,17 @@ async function createLeadFromEmail({ tenantId, fromEmail, fromName, subject, bod
       // Update existing lead
       console.log('[EMAIL_LEAD] Updating existing lead:', existingLead.id);
       
+      const updatePayload = {
+        last_activity_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      if (salesmanId && !existingLead.assigned_user_id) {
+        updatePayload.assigned_user_id = salesmanId;
+      }
+
       const { error: updateErr } = await dbClient
         .from('crm_leads')
-        .update({
-          last_activity_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
+        .update(updatePayload)
         .eq('id', existingLead.id);
 
       if (updateErr) throw updateErr;
@@ -110,9 +138,10 @@ async function createLeadFromEmail({ tenantId, fromEmail, fromName, subject, bod
           name: leadName,
           email: leadEmail,
           phone: parsed.phone,
-          company: parsed.company,
-          source: 'EMAIL',
+          channel: 'EMAIL',
           status: 'NEW',
+          heat: 'WARM',
+          score: 0,
           assigned_user_id: salesmanId, // If from salesman's email, auto-assign
           created_at: new Date().toISOString(),
           last_activity_at: new Date().toISOString()
