@@ -1363,6 +1363,10 @@ app.use('/api/mobile', mobileFollowupsRouter);
 const pushRouter = require('./routes/api/push');
 app.use('/api/push', pushRouter);
 
+// Location Tracking API (GPS, check-ins, route optimization, geo-fencing)
+const locationRouter = require('./routes/api/location');
+app.use('/api/location', locationRouter);
+
 // Performance & Scale API (Caching, Query Optimization, Rate Limiting, Health Checks)
 const performanceRouter = require('./routes/api/performance');
 app.use('/api/performance', performanceRouter);
