@@ -99,6 +99,15 @@ const handleCustomer = async (req, res) => {
                 }
             }
 
+            // If we got 3 lines (name, company, email) without labels, map by position
+            if ((!parsed.name || !parsed.company) && lines.length >= 2) {
+                const emailLine = lines.find((l) => /@/.test(l));
+                const nonEmailLines = lines.filter((l) => l !== emailLine);
+                if (!parsed.name && nonEmailLines[0]) parsed.name = nonEmailLines[0];
+                if (!parsed.company && nonEmailLines[1]) parsed.company = nonEmailLines[1];
+                if (!parsed.email && emailLine) parsed.email = emailLine.trim();
+            }
+
             if (parsed.name || parsed.company || parsed.email) {
                 console.log('[CUSTOMER_HANDLER] Parsed customer details:', parsed);
                 await customerProfileService.upsertCustomerByPhone(tenant.id, from, {
