@@ -189,11 +189,35 @@ router.get('/gmail/status', requireTenantAuth({ requireMatchParamTenantId: false
       success: true,
       connected: Boolean(tenant?.gmail_refresh_token),
       email: tenant?.gmail_connected_email || null,
-      historyId: tenant?.gmail_history_id || null
+      historyId: tenant?.gmail_history_id || null,
+      filterKeywords: tenant?.gmail_filter_keywords || null
     });
   } catch (e) {
     console.error('[EMAIL_GMAIL] status error:', e?.message || e);
     res.status(500).json({ success: false, error: 'Failed to load Gmail status' });
+  }
+});
+
+// Gmail filter keywords update
+router.post('/gmail/filter-keywords', requireTenantAuth({ requireMatchParamTenantId: false }), async (req, res) => {
+  try {
+    const tenantId = String(req.auth?.tenantId || '');
+    if (!tenantId) return res.status(401).json({ success: false, error: 'Unauthorized' });
+
+    const { keywords } = req.body || {};
+    const keywordsStr = keywords ? String(keywords).trim() : null;
+
+    const { error } = await dbClient
+      .from('tenants')
+      .update({ gmail_filter_keywords: keywordsStr })
+      .eq('id', tenantId);
+
+    if (error) throw error;
+
+    res.json({ success: true, keywords: keywordsStr });
+  } catch (e) {
+    console.error('[EMAIL_GMAIL] filter-keywords error:', e?.message || e);
+    res.status(500).json({ success: false, error: 'Failed to update filter keywords' });
   }
 });
 

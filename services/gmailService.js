@@ -82,7 +82,7 @@ function extractBodyFromPayload(payload) {
 async function getTenantGmailConnection(tenantId) {
   const { data: tenant, error } = await dbClient
     .from('tenants')
-    .select('id, gmail_connected_email, gmail_refresh_token, gmail_access_token, gmail_token_expiry, gmail_history_id')
+    .select('id, gmail_connected_email, gmail_refresh_token, gmail_access_token, gmail_token_expiry, gmail_history_id, gmail_filter_keywords')
     .eq('id', String(tenantId))
     .maybeSingle();
 
@@ -239,11 +239,26 @@ async function startWatch({ tenantId, topicName }) {
 }
 
 async function syncLatestMessages({ tenantId, maxResults = 10 }) {
-  const { gmail } = await getAuthedGmailClient(tenantId);
+  const { gmail, tenant } = await getAuthedGmailClient(tenantId);
+
+  // Build Gmail query with keyword filtering
+  let query = 'in:inbox';
+  
+  // Add keyword filtering if configured
+  const keywords = tenant?.gmail_filter_keywords ? String(tenant.gmail_filter_keywords).trim() : '';
+  if (keywords) {
+    // Split by comma, trim, and create OR query
+    const keywordList = keywords.split(',').map(k => k.trim()).filter(Boolean);
+    if (keywordList.length > 0) {
+      // Gmail search: (keyword1 OR keyword2 OR keyword3)
+      const keywordQuery = keywordList.map(k => `"${k}"`).join(' OR ');
+      query += ` (${keywordQuery})`;
+    }
+  }
 
   const list = await gmail.users.messages.list({
     userId: 'me',
-    q: 'in:inbox',
+    q: query,
     maxResults: Math.max(1, Math.min(50, Number(maxResults) || 10)),
   });
 
@@ -257,7 +272,7 @@ async function syncLatestMessages({ tenantId, maxResults = 10 }) {
     ingested += 1;
   }
 
-  return { ingested };
+  return { ingested, query, filtered: !!keywords };
 }
 
 async function processPubSubNotification({ emailAddress, historyId }) {

@@ -90,6 +90,34 @@
           </select>
         </div>
       </div>
+      
+      <!-- Gmail Filter Keywords -->
+      <div id="gmailFilterSection" class="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg hidden">
+        <div class="flex items-start gap-3">
+          <i class="fas fa-filter text-blue-600 mt-1"></i>
+          <div class="flex-1">
+            <label class="block text-sm font-semibold text-gray-700 mb-1">
+              Gmail Filter Keywords
+              <span class="font-normal text-gray-500">(only sync emails matching these keywords)</span>
+            </label>
+            <div class="flex gap-2">
+              <input 
+                type="text" 
+                id="gmailKeywords" 
+                placeholder="e.g. quote, enquiry, price, RFQ, purchase order"
+                class="flex-1 px-3 py-2 bg-white border border-gray-300 text-gray-700 placeholder-gray-400 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+              />
+              <button id="saveKeywordsBtn" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm whitespace-nowrap">
+                <i class="fas fa-save mr-2"></i>Save Keywords
+              </button>
+            </div>
+            <p class="text-xs text-gray-600 mt-1">
+              <i class="fas fa-info-circle mr-1"></i>
+              Separate keywords with commas. Leave empty to sync all emails.
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Email List -->
@@ -193,12 +221,23 @@
         const data = await response.json();
         const statusEl = document.getElementById('gmailStatus');
         const syncBtn = document.getElementById('syncGmailBtn');
+        const filterSection = document.getElementById('gmailFilterSection');
+        const keywordsInput = document.getElementById('gmailKeywords');
+        
         if (data?.success && data.connected) {
-          statusEl.textContent = `Connected: ${data.email || 'Gmail'}`;
+          statusEl.innerHTML = `<i class="fas fa-check-circle text-green-600 mr-1"></i>Connected: ${data.email || 'Gmail'}`;
+          statusEl.className = 'text-sm text-green-600 font-medium';
           syncBtn.disabled = false;
+          
+          // Show filter section and populate keywords
+          filterSection.classList.remove('hidden');
+          if (data.filterKeywords) {
+            keywordsInput.value = data.filterKeywords;
+          }
         } else {
           statusEl.textContent = 'Gmail not connected';
           syncBtn.disabled = true;
+          filterSection.classList.add('hidden');
         }
       } catch (_) {
         const statusEl = document.getElementById('gmailStatus');
@@ -234,11 +273,42 @@
         });
         const data = await response.json();
         if (data?.success) {
+          const message = data.filtered 
+            ? `Synced ${data.ingested} filtered email(s) matching your keywords`
+            : `Synced ${data.ingested} email(s)`;
+          showSuccess(message);
           await loadEmails();
         } else {
           alert(data?.error || 'Failed to sync Gmail');
         }
       } catch (e) {
+        console.error('Gmail sync error:', e);
+        alert('Failed to sync Gmail');
+      }
+    }
+
+    async function saveKeywords() {
+      try {
+        const keywords = document.getElementById('gmailKeywords').value.trim();
+        const response = await fetch(`/api/email/gmail/filter-keywords`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${getAuthToken()}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ keywords })
+        });
+        const data = await response.json();
+        if (data?.success) {
+          showSuccess(keywords ? 'Filter keywords saved! Gmail will now only sync matching emails.' : 'Filter cleared. Gmail will sync all emails.');
+        } else {
+          alert('Failed to save keywords');
+        }
+      } catch (e) {
+        console.error('Save keywords error:', e);
+        alert('Failed to save keywords');
+      }
+    }
         alert('Failed to sync Gmail');
       }
     }
@@ -406,6 +476,7 @@
       document.getElementById('refreshBtn').addEventListener('click', loadEmails);
       document.getElementById('connectGmailBtn').addEventListener('click', connectGmail);
       document.getElementById('syncGmailBtn').addEventListener('click', syncGmail);
+      document.getElementById('saveKeywordsBtn').addEventListener('click', saveKeywords);
       document.getElementById('deleteSelectedBtn').addEventListener('click', deleteSelected);
       document.getElementById('assignBtn').addEventListener('click', assignSelected);
       
