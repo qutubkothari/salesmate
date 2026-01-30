@@ -1351,6 +1351,10 @@ app.use('/api/whatsapp-ai', whatsappAIRouter);
 const mobileAppRouter = require('./routes/api/mobile-app');
 app.use('/api/mobile-app', mobileAppRouter);
 
+// Mobile Salesman Follow-ups API
+const mobileFollowupsRouter = require('./routes/api/mobile/followups');
+app.use('/api/mobile', mobileFollowupsRouter);
+
 // Performance & Scale API (Caching, Query Optimization, Rate Limiting, Health Checks)
 const performanceRouter = require('./routes/api/performance');
 app.use('/api/performance', performanceRouter);
