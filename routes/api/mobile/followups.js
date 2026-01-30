@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const { dbClient } = require('../../services/config');
-const { requireSalesmanAuth } = require('../../services/salesmanAuth');
+const { dbClient } = require('../../../services/config');
+const { requireSalesmanAuth } = require('../../../services/salesmanAuth');
 
 /**
  * Mobile API for Salesman Follow-ups
