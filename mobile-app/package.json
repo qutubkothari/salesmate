@@ -1,0 +1,40 @@
+{
+  "name": "salesmate-mobile",
+  "version": "1.0.0",
+  "description": "Salesmate Mobile App - Follow-ups, Leads, Orders Management",
+  "main": "index.js",
+  "scripts": {
+    "android": "react-native run-android",
+    "ios": "react-native run-ios",
+    "start": "react-native start",
+    "test": "jest",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "react": "18.2.0",
+    "react-native": "0.73.0",
+    "react-native-safe-area-context": "^4.8.0",
+    "react-native-vector-icons": "^10.0.3",
+    "@react-native-async-storage/async-storage": "^1.21.0",
+    "@react-native-community/datetimepicker": "^7.6.2",
+    "@react-navigation/native": "^6.1.9",
+    "@react-navigation/stack": "^6.3.20",
+    "axios": "^1.6.2",
+    "moment": "^2.29.4"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.23.5",
+    "@babel/preset-env": "^7.23.5",
+    "@babel/runtime": "^7.23.5",
+    "@react-native/eslint-config": "^0.73.0",
+    "@react-native/metro-config": "^0.73.0",
+    "babel-jest": "^29.7.0",
+    "eslint": "^8.54.0",
+    "jest": "^29.7.0",
+    "metro-react-native-babel-preset": "0.77.0",
+    "prettier": "^3.1.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
