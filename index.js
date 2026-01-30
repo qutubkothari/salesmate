@@ -1327,6 +1327,10 @@ app.use('/api/pipeline', pipelineRouter);
 const aiIntelligenceRouter = require('./routes/api/ai-intelligence');
 app.use('/api/ai-intelligence', aiIntelligenceRouter);
 
+// Follow-up Analytics API (Summary, Performance, Trends)
+const followupAnalyticsRouter = require('./routes/api/followupAnalytics');
+app.use('/api/followup-analytics', followupAnalyticsRouter);
+
 // Analytics & Reporting API (Dashboards, KPIs, reports, insights)
 const analyticsRouter = require('./routes/api/analytics');
 app.use('/api/analytics', analyticsRouter);

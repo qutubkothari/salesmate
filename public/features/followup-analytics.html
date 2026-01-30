@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Follow-up Analytics - Salesmate</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: system-ui, -apple-system, sans-serif; }
+  </style>
+</head>
+<body class="bg-gray-50">
+  <div class="min-h-screen">
+    <!-- Header -->
+    <div class="bg-white border-b border-gray-200 px-6 py-4">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <i class="fas fa-chart-line text-blue-600 text-2xl"></i>
+          <h1 class="text-2xl font-bold text-gray-800">Follow-up Analytics</h1>
+        </div>
+        <div class="flex items-center gap-3">
+          <select id="salesmanFilter" class="px-4 py-2 border border-gray-300 rounded-lg">
+            <option value="">All Salesmen</option>
+          </select>
+          <button id="refreshBtn" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+            <i class="fas fa-sync-alt mr-2"></i>Refresh
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="p-6">
+      <!-- Summary Cards -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+        <div class="bg-white rounded-lg shadow p-6">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm text-gray-600">Total Follow-ups</p>
+              <p id="totalFollowups" class="text-3xl font-bold text-gray-900 mt-2">-</p>
+            </div>
+            <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+              <i class="fas fa-calendar-check text-blue-600 text-xl"></i>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow p-6">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm text-gray-600">Completion Rate</p>
+              <p id="completionRate" class="text-3xl font-bold text-green-600 mt-2">-</p>
+            </div>
+            <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+              <i class="fas fa-check-circle text-green-600 text-xl"></i>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow p-6">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm text-gray-600">Overdue</p>
+              <p id="overdueCount" class="text-3xl font-bold text-red-600 mt-2">-</p>
+            </div>
+            <div class="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
+              <i class="fas fa-exclamation-triangle text-red-600 text-xl"></i>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow p-6">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm text-gray-600">Due Today</p>
+              <p id="todayCount" class="text-3xl font-bold text-orange-600 mt-2">-</p>
+            </div>
+            <div class="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+              <i class="fas fa-clock text-orange-600 text-xl"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Charts Row -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <!-- Trend Chart -->
+        <div class="bg-white rounded-lg shadow p-6">
+          <h2 class="text-lg font-semibold text-gray-800 mb-4">30-Day Trend</h2>
+          <canvas id="trendChart"></canvas>
+        </div>
+
+        <!-- Priority Distribution -->
+        <div class="bg-white rounded-lg shadow p-6">
+          <h2 class="text-lg font-semibold text-gray-800 mb-4">By Priority</h2>
+          <canvas id="priorityChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Salesman Performance Table -->
+      <div class="bg-white rounded-lg shadow">
+        <div class="p-6 border-b border-gray-200">
+          <h2 class="text-lg font-semibold text-gray-800">Salesman Performance</h2>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead class="bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Salesman</th>
+                <th class="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase">Total</th>
+                <th class="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase">Completed</th>
+                <th class="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase">Pending</th>
+                <th class="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase">Overdue</th>
+                <th class="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase">Completion %</th>
+              </tr>
+            </thead>
+            <tbody id="performanceTable" class="divide-y divide-gray-200">
+              <!-- Dynamic rows -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let trendChart, priorityChart;
+
+    function getSession() {
+      const sessionStr = localStorage.getItem('dashboardSession');
+      if (!sessionStr) return null;
+      try {
+        return JSON.parse(sessionStr);
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function getTenantId() {
+      const session = getSession();
+      return session?.tenantId || session?.tenant_id || '';
+    }
+
+    async function loadAnalytics() {
+      try {
+        const tenantId = getTenantId();
+        const salesmanId = document.getElementById('salesmanFilter').value;
+        const params = new URLSearchParams();
+        if (salesmanId) params.append('salesmanId', salesmanId);
+
+        // Load summary
+        const summaryRes = await fetch(`/api/followup-analytics/summary/${tenantId}?${params}`);
+        const summaryData = await summaryRes.json();
+        
+        if (summaryData.success) {
+          document.getElementById('totalFollowups').textContent = summaryData.summary.total;
+          document.getElementById('completionRate').textContent = summaryData.summary.completionRate + '%';
+          document.getElementById('overdueCount').textContent = summaryData.summary.overdue;
+          document.getElementById('todayCount').textContent = summaryData.summary.today;
+
+          updatePriorityChart(summaryData.byPriority);
+        }
+
+        // Load trend
+        const trendRes = await fetch(`/api/followup-analytics/trend/${tenantId}?${params}`);
+        const trendData = await trendRes.json();
+        
+        if (trendData.success) {
+          updateTrendChart(trendData.trend);
+        }
+
+        // Load performance
+        const perfRes = await fetch(`/api/followup-analytics/performance/${tenantId}`);
+        const perfData = await perfRes.json();
+        
+        if (perfData.success) {
+          updatePerformanceTable(perfData.performance);
+          populateSalesmanFilter(perfData.performance);
+        }
+      } catch (error) {
+        console.error('Load analytics error:', error);
+      }
+    }
+
+    function updateTrendChart(trend) {
+      const ctx = document.getElementById('trendChart').getContext('2d');
+      
+      if (trendChart) trendChart.destroy();
+
+      trendChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: trend.map(t => new Date(t.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })),
+          datasets: [
+            {
+              label: 'Scheduled',
+              data: trend.map(t => t.scheduled),
+              borderColor: '#3b82f6',
+              backgroundColor: '#3b82f620',
+              tension: 0.4
+            },
+            {
+              label: 'Completed',
+              data: trend.map(t => t.completed),
+              borderColor: '#10b981',
+              backgroundColor: '#10b98120',
+              tension: 0.4
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: true,
+          plugins: {
+            legend: { display: true, position: 'bottom' }
+          },
+          scales: {
+            y: { beginAtZero: true, ticks: { precision: 0 } }
+          }
+        }
+      });
+    }
+
+    function updatePriorityChart(byPriority) {
+      const ctx = document.getElementById('priorityChart').getContext('2d');
+      
+      if (priorityChart) priorityChart.destroy();
+
+      priorityChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: ['Urgent', 'High', 'Medium', 'Low'],
+          datasets: [{
+            data: [byPriority.urgent, byPriority.high, byPriority.medium, byPriority.low],
+            backgroundColor: ['#dc2626', '#f59e0b', '#3b82f6', '#10b981']
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: true,
+          plugins: {
+            legend: { display: true, position: 'bottom' }
+          }
+        }
+      });
+    }
+
+    function updatePerformanceTable(performance) {
+      const tbody = document.getElementById('performanceTable');
+      tbody.innerHTML = performance.map(p => `
+        <tr>
+          <td class="px-6 py-4">
+            <div class="font-medium text-gray-900">${p.salesmanName}</div>
+            <div class="text-sm text-gray-500">${p.phone}</div>
+          </td>
+          <td class="px-6 py-4 text-center text-gray-900">${p.total}</td>
+          <td class="px-6 py-4 text-center text-green-600 font-semibold">${p.completed}</td>
+          <td class="px-6 py-4 text-center text-gray-900">${p.pending}</td>
+          <td class="px-6 py-4 text-center text-red-600 font-semibold">${p.overdue}</td>
+          <td class="px-6 py-4 text-center">
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${
+              p.completionRate >= 80 ? 'bg-green-100 text-green-800' :
+              p.completionRate >= 60 ? 'bg-yellow-100 text-yellow-800' :
+              'bg-red-100 text-red-800'
+            }">
+              ${p.completionRate}%
+            </span>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function populateSalesmanFilter(performance) {
+      const select = document.getElementById('salesmanFilter');
+      const currentValue = select.value;
+      
+      select.innerHTML = '<option value="">All Salesmen</option>' +
+        performance.map(p => `<option value="${p.salesmanId}">${p.salesmanName}</option>`).join('');
+      
+      select.value = currentValue;
+    }
+
+    document.getElementById('refreshBtn').addEventListener('click', loadAnalytics);
+    document.getElementById('salesmanFilter').addEventListener('change', loadAnalytics);
+
+    // Initial load
+    loadAnalytics();
+  </script>
+</body>
+</html>
