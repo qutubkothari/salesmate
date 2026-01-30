@@ -59,11 +59,51 @@ const handleCustomer = async (req, res) => {
     let conversation = null;
     const { dbClient } = require('../../services/config');
     const customerProfileService = require('../../services/customerProfileService');
+    const { normalizePhone } = require('../../utils/phoneUtils');
     const { sendMessage } = require('../../services/whatsappService');
     const { createLeadFromWhatsApp } = require('../../services/leadAutoCreateService');
     
     let detailsRequest = { needed: false, leadId: null };
     try {
+        // If customer shares structured details, capture immediately
+        try {
+            const text = String(userQuery || '');
+            const nameMatch = text.match(/\bname\s*[:=]\s*([^\n\r]+)/i);
+            const companyMatch = text.match(/\b(company|business)\s*[:=]\s*([^\n\r]+)/i);
+            const emailMatch = text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+
+            const parsed = {
+                name: nameMatch ? nameMatch[1].trim() : null,
+                company: companyMatch ? companyMatch[2].trim() : null,
+                email: emailMatch ? emailMatch[0].trim() : null
+            };
+
+            if (parsed.name || parsed.company || parsed.email) {
+                console.log('[CUSTOMER_HANDLER] Parsed customer details:', parsed);
+                await customerProfileService.upsertCustomerByPhone(tenant.id, from, {
+                    contact_person: parsed.name || undefined,
+                    business_name: parsed.company || undefined,
+                    email: parsed.email || undefined
+                });
+
+                const cleanPhone = normalizePhone(from);
+                if (cleanPhone) {
+                    await dbClient
+                        .from('crm_leads')
+                        .update({
+                            name: parsed.name || undefined,
+                            company: parsed.company || undefined,
+                            email: parsed.email || undefined,
+                            updated_at: new Date().toISOString()
+                        })
+                        .eq('tenant_id', tenant.id)
+                        .eq('phone', cleanPhone);
+                }
+            }
+        } catch (detailsParseErr) {
+            console.warn('[CUSTOMER_HANDLER] Failed to parse/save customer details:', detailsParseErr?.message || detailsParseErr);
+        }
+
         // Fetch latest conversation context
         const { data: conversationData, error } = await dbClient
             .from('conversations_new')
