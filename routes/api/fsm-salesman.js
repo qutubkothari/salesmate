@@ -109,7 +109,7 @@ function ensureSalesmanSessionAuthColumns() {
 
 ensureSalesmanSessionAuthColumns();
 
-function authenticateSalesman(req, res, next) {
+async function authenticateSalesman(req, res, next) {
     try {
         const tenantId = getTenantId(req);
         if (!tenantId) {
@@ -125,16 +125,42 @@ function authenticateSalesman(req, res, next) {
         }
 
         const tokenHash = hashToken(token);
-        const session = dbGet(
-            `SELECT * FROM salesman_sessions
-             WHERE tenant_id = ?
-               AND session_token_hash = ?
-               AND revoked_at IS NULL
-               AND (session_expires_at IS NULL OR datetime(session_expires_at) > datetime('now'))
-             ORDER BY datetime(updated_at) DESC
-             LIMIT 1`,
-            [tenantId, tokenHash]
-        );
+        let session = null;
+
+        if (USE_SUPABASE) {
+            // Query Supabase for session
+            const { data, error } = await dbClient
+                .from('salesman_sessions')
+                .select('*')
+                .eq('tenant_id', tenantId)
+                .eq('session_token_hash', tokenHash)
+                .is('revoked_at', null)
+                .order('updated_at', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+
+            if (error) throw error;
+            
+            if (data) {
+                // Check if expired
+                if (data.session_expires_at && new Date(data.session_expires_at) <= new Date()) {
+                    return res.status(401).json({ success: false, error: 'Session expired' });
+                }
+                session = data;
+            }
+        } else {
+            // Query SQLite for session
+            session = dbGet(
+                `SELECT * FROM salesman_sessions
+                 WHERE tenant_id = ?
+                   AND session_token_hash = ?
+                   AND revoked_at IS NULL
+                   AND (session_expires_at IS NULL OR datetime(session_expires_at) > datetime('now'))
+                 ORDER BY datetime(updated_at) DESC
+                 LIMIT 1`,
+                [tenantId, tokenHash]
+            );
+        }
 
         if (!session) {
             return res.status(401).json({ success: false, error: 'Invalid or expired session' });
@@ -146,12 +172,23 @@ function authenticateSalesman(req, res, next) {
         }
 
         // Touch last_seen
-        dbRun(
-            `UPDATE salesman_sessions
-             SET last_seen_at = datetime('now'), updated_at = datetime('now'), is_online = 1
-             WHERE id = ?`,
-            [session.id]
-        );
+        if (USE_SUPABASE) {
+            await dbClient
+                .from('salesman_sessions')
+                .update({
+                    last_seen_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString(),
+                    is_online: 1
+                })
+                .eq('id', session.id);
+        } else {
+            dbRun(
+                `UPDATE salesman_sessions
+                 SET last_seen_at = datetime('now'), updated_at = datetime('now'), is_online = 1
+                 WHERE id = ?`,
+                [session.id]
+            );
+        }
 
         req.salesmanSession = session;
         req.salesmanId = session.salesman_id;
