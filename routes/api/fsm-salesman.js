@@ -481,6 +481,7 @@ router.get('/salesman/:id/dashboard', authenticateSalesman, async (req, res) => 
         const { date } = req.query; // optional specific date, defaults to today
         const targetDate = date || new Date().toISOString().split('T')[0];
         const tenantId = getTenantId(req);
+        const monthStart = targetDate.substring(0, 7) + '-01';
 
         let salesman, todayVisits, monthVisits, target, pendingVisits, commissions;
 
@@ -505,7 +506,6 @@ router.get('/salesman/:id/dashboard', authenticateSalesman, async (req, res) => 
             todayVisits = todayVisitsData || [];
 
             // Get month visits
-            const monthStart = targetDate.substring(0, 7) + '-01';
             const monthEnd = new Date(new Date(monthStart).getFullYear(), new Date(monthStart).getMonth() + 1, 1).toISOString().split('T')[0];
             const { data: monthVisitsData } = await dbClient
                 .from('visits')
@@ -568,7 +568,6 @@ router.get('/salesman/:id/dashboard', authenticateSalesman, async (req, res) => 
             );
 
             // Get month stats
-            const monthStart = targetDate.substring(0, 7) + '-01';
             monthVisits = dbAll(
                 `SELECT * FROM visits 
                  WHERE salesman_id = ? AND tenant_id = ? 
