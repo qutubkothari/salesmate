@@ -1103,30 +1103,41 @@ router.get('/salesman/:id/customers', authenticateSalesman, async (req, res) => 
 
         let customers;
         if (USE_SUPABASE) {
-            const { data, error: supaError } = await dbClient
-                .from('customer_profiles_new')
-                .select('*')
+            // Query from visits to get customers that actually have visit history
+            const { data: visitsData, error: supaError } = await dbClient
+                .from('visits')
+                .select(`
+                    customer_id,
+                    customer_profiles_new!visits_customer_id_fkey(id, business_name, phone, email, address, tenant_id)
+                `)
                 .eq('tenant_id', tenantId)
-                // Removed assigned_salesman_id filter so all tenant customers are available for follow-ups
-                .order('business_name', { ascending: true })
-                .limit(limit);
+                .not('customer_profiles_new', 'is', null)
+                .limit(500);
             
             if (supaError) {
-                console.error('Supabase error fetching customers:', supaError);
+                console.error('Supabase error fetching customers from visits:', supaError);
                 return res.json({ success: true, data: [], count: 0 });
-            } else {
-                // Map business_name to name for frontend compatibility
-                customers = (data || []).map(c => ({
-                    ...c,
-                    name: c.business_name || c.name
-                }));
             }
+            
+            // Get unique customers and map fields
+            const customerMap = new Map();
+            (visitsData || []).forEach(v => {
+                const cust = v.customer_profiles_new;
+                if (cust && cust.id && !customerMap.has(cust.id)) {
+                    customerMap.set(cust.id, {
+                        ...cust,
+                        name: cust.business_name || cust.name
+                    });
+                }
+            });
+            customers = Array.from(customerMap.values()).slice(0, limit);
         } else {
             customers = dbAll(
-                `SELECT *
-                 FROM customer_profiles_new
-                 WHERE tenant_id = ?
-                 ORDER BY business_name
+                `SELECT DISTINCT c.*
+                 FROM customer_profiles_new c
+                 INNER JOIN visits v ON v.customer_id = c.id
+                 WHERE c.tenant_id = ?
+                 ORDER BY c.business_name
                  LIMIT ?`,
                 [tenantId, limit]
             ).map(c => ({
