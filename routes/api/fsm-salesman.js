@@ -327,9 +327,11 @@ router.post('/salesman/login', async (req, res) => {
 
         if (USE_SUPABASE) {
             // Store session in Supabase
+            const sessionId = crypto.randomUUID();
             const { error: sessionError } = await dbClient
                 .from('salesman_sessions')
                 .insert({
+                    id: sessionId,
                     tenant_id: tenantId,
                     salesman_id: salesman_id,
                     device_id: device_id,
