@@ -1051,21 +1051,41 @@ router.get('/salesman/:id/route-plan', authenticateSalesman, (req, res) => {
 
 // -------------------- SALESMAN SCOPED DATA (WEB APP) --------------------
 
-router.get('/salesman/:id/visits', authenticateSalesman, (req, res) => {
+router.get('/salesman/:id/visits', authenticateSalesman, async (req, res) => {
     try {
         const tenantId = getTenantId(req);
         const { id } = req.params;
         const limit = Math.min(parseInt(req.query.limit || '100', 10), 500);
-        const visits = dbAll(
-            `SELECT v.*, 
-                    COALESCE(c.business_name, v.customer_name) as customer_name
-             FROM visits v
-             LEFT JOIN customer_profiles_new c ON c.id = v.customer_id
-             WHERE v.tenant_id = ? AND v.salesman_id = ?
-             ORDER BY v.visit_date DESC, v.created_at DESC
-             LIMIT ?`,
-            [tenantId, id, limit]
-        );
+        
+        let visits;
+        if (USE_SUPABASE) {
+            const { data } = await dbClient
+                .from('visits')
+                .select(`
+                    *,
+                    customer_profiles_new!visits_customer_id_fkey(business_name)
+                `)
+                .eq('tenant_id', tenantId)
+                .eq('salesman_id', id)
+                .order('visit_date', { ascending: false })
+                .order('created_at', { ascending: false })
+                .limit(limit);
+            visits = (data || []).map(v => ({
+                ...v,
+                customer_name: v.customer_profiles_new?.business_name || v.customer_name
+            }));
+        } else {
+            visits = dbAll(
+                `SELECT v.*, 
+                        COALESCE(c.business_name, v.customer_name) as customer_name
+                 FROM visits v
+                 LEFT JOIN customer_profiles_new c ON c.id = v.customer_id
+                 WHERE v.tenant_id = ? AND v.salesman_id = ?
+                 ORDER BY v.visit_date DESC, v.created_at DESC
+                 LIMIT ?`,
+                [tenantId, id, limit]
+            );
+        }
 
         res.json({ success: true, data: visits, count: visits.length });
     } catch (error) {
@@ -1074,21 +1094,32 @@ router.get('/salesman/:id/visits', authenticateSalesman, (req, res) => {
     }
 });
 
-router.get('/salesman/:id/customers', authenticateSalesman, (req, res) => {
+router.get('/salesman/:id/customers', authenticateSalesman, async (req, res) => {
     try {
         const tenantId = getTenantId(req);
         const { id } = req.params;
         const limit = Math.min(parseInt(req.query.limit || '200', 10), 1000);
 
-        // Get customers assigned to this salesman
-        const customers = dbAll(
-            `SELECT *
-             FROM customer_profiles_new
-             WHERE tenant_id = ? AND assigned_salesman_id = ?
-             ORDER BY business_name
-             LIMIT ?`,
-            [tenantId, id, limit]
-        );
+        let customers;
+        if (USE_SUPABASE) {
+            const { data } = await dbClient
+                .from('customer_profiles_new')
+                .select('*')
+                .eq('tenant_id', tenantId)
+                .eq('assigned_salesman_id', id)
+                .order('business_name', { ascending: true })
+                .limit(limit);
+            customers = data || [];
+        } else {
+            customers = dbAll(
+                `SELECT *
+                 FROM customer_profiles_new
+                 WHERE tenant_id = ? AND assigned_salesman_id = ?
+                 ORDER BY business_name
+                 LIMIT ?`,
+                [tenantId, id, limit]
+            );
+        }
 
         res.json({ success: true, data: customers, count: customers.length });
     } catch (error) {
@@ -1097,20 +1128,32 @@ router.get('/salesman/:id/customers', authenticateSalesman, (req, res) => {
     }
 });
 
-router.get('/salesman/:id/targets', authenticateSalesman, (req, res) => {
+router.get('/salesman/:id/targets', authenticateSalesman, async (req, res) => {
     try {
         const tenantId = getTenantId(req);
         const { id } = req.params;
         const limit = Math.min(parseInt(req.query.limit || '12', 10), 120);
 
-        const targets = dbAll(
-            `SELECT st.*, st.period as target_month
-             FROM salesman_targets st
-             WHERE st.tenant_id = ? AND st.salesman_id = ?
-             ORDER BY st.period DESC
-             LIMIT ?`,
-            [tenantId, id, limit]
-        );
+        let targets;
+        if (USE_SUPABASE) {
+            const { data } = await dbClient
+                .from('salesman_targets')
+                .select('*')
+                .eq('tenant_id', tenantId)
+                .eq('salesman_id', id)
+                .order('period', { ascending: false })
+                .limit(limit);
+            targets = (data || []).map(t => ({ ...t, target_month: t.period }));
+        } else {
+            targets = dbAll(
+                `SELECT st.*, st.period as target_month
+                 FROM salesman_targets st
+                 WHERE st.tenant_id = ? AND st.salesman_id = ?
+                 ORDER BY st.period DESC
+                 LIMIT ?`,
+                [tenantId, id, limit]
+            );
+        }
 
         res.json({ success: true, data: targets, count: targets.length });
     } catch (error) {
@@ -1119,19 +1162,32 @@ router.get('/salesman/:id/targets', authenticateSalesman, (req, res) => {
     }
 });
 
-router.get('/salesman/:id/expenses', authenticateSalesman, (req, res) => {
+router.get('/salesman/:id/expenses', authenticateSalesman, async (req, res) => {
     try {
         const tenantId = getTenantId(req);
         const { id } = req.params;
         const limit = Math.min(parseInt(req.query.limit || '50', 10), 200);
 
-        const expenses = dbAll(
-            `SELECT * FROM salesman_expenses
-             WHERE tenant_id = ? AND salesman_id = ?
-             ORDER BY expense_date DESC, created_at DESC
-             LIMIT ?`,
-            [tenantId, id, limit]
-        );
+        let expenses;
+        if (USE_SUPABASE) {
+            const { data } = await dbClient
+                .from('salesman_expenses')
+                .select('*')
+                .eq('tenant_id', tenantId)
+                .eq('salesman_id', id)
+                .order('expense_date', { ascending: false })
+                .order('created_at', { ascending: false })
+                .limit(limit);
+            expenses = data || [];
+        } else {
+            expenses = dbAll(
+                `SELECT * FROM salesman_expenses
+                 WHERE tenant_id = ? AND salesman_id = ?
+                 ORDER BY expense_date DESC, created_at DESC
+                 LIMIT ?`,
+                [tenantId, id, limit]
+            );
+        }
 
         res.json({ success: true, data: expenses, count: expenses.length });
     } catch (error) {
@@ -1463,11 +1519,25 @@ function processExpenseChange(action, data, tenantId, salesmanId) {
 // ==================== ANALYTICS & AI ENDPOINTS ====================
 
 // Performance Analytics - Last N days trend
-router.get('/salesman/:id/analytics/performance', authenticateSalesman, (req, res) => {
+router.get('/salesman/:id/analytics/performance', authenticateSalesman, async (req, res) => {
     try {
         const { id } = req.params;
         const tenantId = getTenantId(req);
         const days = parseInt(req.query.days) || 7;
+
+        if (USE_SUPABASE) {
+            // Return empty data for now - full analytics implementation pending
+            const dates = [];
+            for (let i = days - 1; i >= 0; i--) {
+                const date = new Date();
+                date.setDate(date.getDate() - i);
+                dates.push(date.toLocaleDateString('en-US', { weekday: 'short' }));
+            }
+            return res.json({
+                success: true,
+                data: { dates, visits: new Array(days).fill(0), orders: new Array(days).fill(0) }
+            });
+        }
 
         const results = [];
         const dates = [];
@@ -1507,10 +1577,15 @@ router.get('/salesman/:id/analytics/performance', authenticateSalesman, (req, re
 });
 
 // Conversion Funnel Analytics
-router.get('/salesman/:id/analytics/funnel', authenticateSalesman, (req, res) => {
+router.get('/salesman/:id/analytics/funnel', authenticateSalesman, async (req, res) => {
     try {
         const { id } = req.params;
         const tenantId = getTenantId(req);
+        
+        if (USE_SUPABASE) {
+            return res.json({ success: true, data: { visits: 0, engaged: 0, quoted: 0, orders: 0 } });
+        }
+        
         const monthStart = new Date().toISOString().slice(0, 7) + '-01';
 
         const visits = dbGet(
@@ -1556,9 +1631,13 @@ router.get('/salesman/:id/analytics/funnel', authenticateSalesman, (req, res) =>
 });
 
 // Live Leaderboard
-router.get('/analytics/leaderboard', authenticateSalesman, (req, res) => {
+router.get('/analytics/leaderboard', authenticateSalesman, async (req, res) => {
     try {
         const tenantId = getTenantId(req);
+        
+        if (USE_SUPABASE) {
+            return res.json({ success: true, data: [] });
+        }
         const monthStart = new Date().toISOString().slice(0, 7) + '-01';
 
         const salesmen = dbAll(
@@ -1587,10 +1666,14 @@ router.get('/analytics/leaderboard', authenticateSalesman, (req, res) => {
 });
 
 // AI Visit Recommendations
-router.get('/salesman/:id/ai/recommendations', authenticateSalesman, (req, res) => {
+router.get('/salesman/:id/ai/recommendations', authenticateSalesman, async (req, res) => {
     try {
         const { id } = req.params;
         const tenantId = getTenantId(req);
+        
+        if (USE_SUPABASE) {
+            return res.json({ success: true, data: [] });
+        }
 
         // Get customers sorted by priority score (using visits data since orders table doesn't exist)
         const customers = dbAll(
@@ -1654,10 +1737,14 @@ router.get('/salesman/:id/ai/recommendations', authenticateSalesman, (req, res) 
 });
 
 // Smart Alerts
-router.get('/salesman/:id/ai/alerts', authenticateSalesman, (req, res) => {
+router.get('/salesman/:id/ai/alerts', authenticateSalesman, async (req, res) => {
     try {
         const { id } = req.params;
         const tenantId = getTenantId(req);
+        
+        if (USE_SUPABASE) {
+            return res.json({ success: true, data: [] });
+        }
         const alerts = [];
 
         // Check for customers not visited in 20+ days
@@ -1737,10 +1824,14 @@ router.get('/salesman/:id/ai/alerts', authenticateSalesman, (req, res) => {
 });
 
 // Cross-sell Opportunities
-router.get('/salesman/:id/ai/cross-sell', authenticateSalesman, (req, res) => {
+router.get('/salesman/:id/ai/cross-sell', authenticateSalesman, async (req, res) => {
     try {
         const { id } = req.params;
         const tenantId = getTenantId(req);
+        
+        if (USE_SUPABASE) {
+            return res.json({ success: true, data: [] });
+        }
 
         // Get recent visits with products discussed (using visits since orders table doesn't exist)
         const recentVisits = dbAll(
@@ -1802,10 +1893,14 @@ router.get('/salesman/:id/ai/cross-sell', authenticateSalesman, (req, res) => {
 });
 
 // Best Time to Visit Analysis
-router.get('/salesman/:id/ai/best-times', authenticateSalesman, (req, res) => {
+router.get('/salesman/:id/ai/best-times', authenticateSalesman, async (req, res) => {
     try {
         const { id } = req.params;
         const tenantId = getTenantId(req);
+        
+        if (USE_SUPABASE) {
+            return res.json({ success: true, data: { hourly: [], daily: [] } });
+        }
 
         // Analyze historical visit success by hour
         const visits = dbAll(
