@@ -18,20 +18,56 @@ async function requireSalesmanAuth(req, res, next) {
 
     let salesman = null;
 
-    // Method 1: Bearer token (user ID)
+    // Method 1: Bearer token (user ID or session token)
     if (authHeader && authHeader.startsWith('Bearer ')) {
-      const userId = authHeader.substring(7);
-      
+      const token = authHeader.substring(7);
+
+      // First, try as user ID
       const { data, error } = await dbClient
         .from('salesmen')
         .select('id, user_id, tenant_id, name, phone, email, is_active')
         .eq('tenant_id', tenantId)
-        .eq('user_id', userId)
+        .eq('user_id', token)
         .eq('is_active', 1)
         .maybeSingle();
 
       if (error) throw error;
       salesman = data;
+
+      // If not found, try as session token
+      if (!salesman) {
+        const crypto = require('crypto');
+        const tokenHash = crypto.createHash('sha256').update(String(token)).digest('hex');
+
+        const { data: session, error: sessionError } = await dbClient
+          .from('salesman_sessions')
+          .select('salesman_id, tenant_id, session_expires_at, revoked_at')
+          .eq('tenant_id', tenantId)
+          .eq('session_token_hash', tokenHash)
+          .is('revoked_at', null)
+          .order('updated_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (sessionError) throw sessionError;
+
+        if (session?.session_expires_at && new Date(session.session_expires_at) < new Date()) {
+          return res.status(401).json({ success: false, error: 'Session expired' });
+        }
+
+        if (session?.salesman_id) {
+          const { data: sessionSalesman, error: sessionSalesmanError } = await dbClient
+            .from('salesmen')
+            .select('id, user_id, tenant_id, name, phone, email, is_active')
+            .eq('tenant_id', tenantId)
+            .eq('id', session.salesman_id)
+            .eq('is_active', 1)
+            .maybeSingle();
+
+          if (sessionSalesmanError) throw sessionSalesmanError;
+          salesman = sessionSalesman;
+        }
+      }
     }
 
     // Method 2: Phone + Password

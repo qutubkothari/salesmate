@@ -483,6 +483,14 @@
                     <i class="fas fa-users"></i>
                     <span>Customers</span>
                 </div>
+                <div class="nav-item" data-page="followups">
+                    <i class="fas fa-calendar-check"></i>
+                    <span>Follow-ups</span>
+                </div>
+                <div class="nav-item" data-page="leads">
+                    <i class="fas fa-bullseye"></i>
+                    <span>Leads</span>
+                </div>
                 <div class="nav-item" data-page="whatsapp-leads">
                     <i class="fab fa-whatsapp"></i>
                     <span>WhatsApp Leads</span>
@@ -875,6 +883,75 @@
                             </thead>
                             <tbody id="customersTableBody">
                                 <tr><td colspan="6"><div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Loading customers...</p></div></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Follow-ups Page -->
+                <div id="followups" class="page">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Follow-ups</h3>
+                            <div style="display: flex; gap: 10px;">
+                                <button class="btn btn-outline" onclick="loadFollowups()">
+                                    <i class="fas fa-sync"></i> Refresh
+                                </button>
+                                <button class="btn btn-primary" onclick="openNewFollowupModal()">
+                                    <i class="fas fa-plus"></i> New Follow-up
+                                </button>
+                            </div>
+                        </div>
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Customer</th>
+                                    <th>Phone</th>
+                                    <th>Follow-up At</th>
+                                    <th>Type</th>
+                                    <th>Priority</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="followupsTableBody">
+                                <tr><td colspan="7"><div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Loading follow-ups...</p></div></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Leads Page -->
+                <div id="leads" class="page">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Leads</h3>
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <div class="btn-group" style="display: flex; gap: 6px;">
+                                    <button class="btn btn-outline" onclick="setLeadsFilter('ALL')">All</button>
+                                    <button class="btn btn-outline" onclick="setLeadsFilter('WHATSAPP')">WhatsApp</button>
+                                    <button class="btn btn-outline" onclick="setLeadsFilter('EMAIL')">Email</button>
+                                    <button class="btn btn-outline" onclick="setLeadsFilter('OTHER')">Regular</button>
+                                </div>
+                                <button class="btn btn-outline" onclick="loadLeads()">
+                                    <i class="fas fa-sync"></i> Refresh
+                                </button>
+                            </div>
+                        </div>
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Phone</th>
+                                    <th>Email</th>
+                                    <th>Channel</th>
+                                    <th>Status</th>
+                                    <th>Heat</th>
+                                    <th>Last Update</th>
+                                </tr>
+                            </thead>
+                            <tbody id="leadsTableBody">
+                                <tr><td colspan="7"><div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Loading leads...</p></div></td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -1542,12 +1619,21 @@
                 dashboard: 'Dashboard',
                 visits: 'My Visits',
                 customers: 'Customers',
+                followups: 'Follow-ups',
+                leads: 'Leads',
                 'whatsapp-leads': 'WhatsApp Leads',
                 targets: 'Targets',
                 expenses: 'Expenses',
                 reports: 'Reports'
             };
             document.getElementById('pageTitle').textContent = titles[page] || page;
+
+            if (page === 'followups') {
+                loadFollowups();
+            }
+            if (page === 'leads') {
+                loadLeads();
+            }
         }
 
         // Load dashboard data
@@ -3109,6 +3195,158 @@
             const filter = document.getElementById('mapFilter').value;
             // In real implementation, reload with different data based on filter
             console.log('Map filter:', filter);
+        }
+
+        // ========== FOLLOWUPS FUNCTIONS ==========
+        let followupsData = [];
+
+        async function loadFollowups() {
+            try {
+                const response = await apiFetch(`/api/fsm/salesman/${encodeURIComponent(salesmanId)}/followups?tenant_id=${encodeURIComponent(tenantId)}&status=pending&limit=200`);
+                followupsData = response.data || [];
+                renderFollowupsTable();
+            } catch (error) {
+                console.error('Error loading followups:', error);
+                document.getElementById('followupsTableBody').innerHTML = '<tr><td colspan="7"><div class="empty-state"><i class="fas fa-exclamation-triangle"></i><h3>Error loading follow-ups</h3><p>Please refresh the page</p></div></td></tr>';
+            }
+        }
+
+        function renderFollowupsTable() {
+            const tbody = document.getElementById('followupsTableBody');
+            if (!tbody) return;
+
+            if (!followupsData.length) {
+                tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><i class="fas fa-calendar-check"></i><h3>No follow-ups</h3><p>You are all caught up</p></div></td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = followupsData.map(f => {
+                const statusText = f.follow_up_completed_at ? 'Completed' : 'Pending';
+                const statusBadge = f.follow_up_completed_at ? 'badge-success' : 'badge-warning';
+                return `
+                    <tr>
+                        <td>${f.end_user_name || 'Unknown'}</td>
+                        <td>${f.end_user_phone || '-'}</td>
+                        <td>${f.follow_up_at ? new Date(f.follow_up_at).toLocaleString() : '-'}</td>
+                        <td>${f.follow_up_type || '-'}</td>
+                        <td>${f.follow_up_priority || '-'}</td>
+                        <td><span class="badge ${statusBadge}">${statusText}</span></td>
+                        <td>
+                            ${f.follow_up_completed_at ? '' : `<button class="btn btn-outline" onclick="completeFollowup('${f.id}')">Complete</button>`}
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        async function completeFollowup(conversationId) {
+            try {
+                await apiFetch(`/api/fsm/salesman/${encodeURIComponent(salesmanId)}/followups/${encodeURIComponent(conversationId)}/complete?tenant_id=${encodeURIComponent(tenantId)}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ completionNote: 'Completed by salesman' })
+                });
+                loadFollowups();
+            } catch (error) {
+                console.error('Error completing followup:', error);
+                alert('Failed to complete follow-up');
+            }
+        }
+
+        async function openNewFollowupModal() {
+            const phone = prompt('Customer phone (required):');
+            if (!phone) return;
+            const followUpAt = prompt('Follow-up date/time (YYYY-MM-DD HH:mm):');
+            if (!followUpAt) return;
+            const followUpNote = prompt('Follow-up note:') || '';
+
+            try {
+                await apiFetch(`/api/fsm/salesman/${encodeURIComponent(salesmanId)}/followups?tenant_id=${encodeURIComponent(tenantId)}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ phone, followUpAt, followUpNote })
+                });
+                loadFollowups();
+            } catch (error) {
+                console.error('Error creating followup:', error);
+                alert('Failed to create follow-up');
+            }
+        }
+
+        // ========== LEADS FUNCTIONS ==========
+        let leadsData = [];
+        let leadsFilter = 'ALL';
+
+        function setLeadsFilter(filter) {
+            leadsFilter = filter;
+            renderLeadsTable();
+        }
+
+        async function loadLeads() {
+            try {
+                const response = await apiFetch(`/api/fsm/salesman/${encodeURIComponent(salesmanId)}/leads?tenant_id=${encodeURIComponent(tenantId)}&limit=200`);
+                leadsData = response.data || [];
+                renderLeadsTable();
+            } catch (error) {
+                console.error('Error loading leads:', error);
+                document.getElementById('leadsTableBody').innerHTML = '<tr><td colspan="7"><div class="empty-state"><i class="fas fa-exclamation-triangle"></i><h3>Error loading leads</h3><p>Please refresh the page</p></div></td></tr>';
+            }
+        }
+
+        function renderLeadsTable() {
+            const tbody = document.getElementById('leadsTableBody');
+            if (!tbody) return;
+
+            let filtered = leadsData;
+            if (leadsFilter === 'WHATSAPP') {
+                filtered = leadsData.filter(l => (l.channel || '').toUpperCase() === 'WHATSAPP');
+            } else if (leadsFilter === 'EMAIL') {
+                filtered = leadsData.filter(l => (l.channel || '').toUpperCase() === 'EMAIL');
+            } else if (leadsFilter === 'OTHER') {
+                filtered = leadsData.filter(l => {
+                    const ch = (l.channel || '').toUpperCase();
+                    return ch && ch !== 'WHATSAPP' && ch !== 'EMAIL';
+                });
+            }
+
+            if (!filtered.length) {
+                tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><i class="fas fa-bullseye"></i><h3>No leads</h3><p>Leads will appear here once assigned</p></div></td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = filtered.map(l => {
+                const status = (l.status || 'NEW').toUpperCase();
+                const heat = (l.heat || 'COLD').toUpperCase();
+                const updated = l.updated_at ? new Date(l.updated_at).toLocaleString() : '-';
+                return `
+                    <tr>
+                        <td>${l.name || '-'}</td>
+                        <td>${l.phone || '-'}</td>
+                        <td>${l.email || '-'}</td>
+                        <td>${l.channel || 'OTHER'}</td>
+                        <td>
+                            <select onchange="updateLeadStatus('${l.id}', this.value)" style="padding: 6px 10px; border-radius: 6px;">
+                                ${['NEW','CONTACTED','QUALIFIED','WON','LOST'].map(s => `<option value="${s}" ${s === status ? 'selected' : ''}>${s}</option>`).join('')}
+                            </select>
+                        </td>
+                        <td>${heat}</td>
+                        <td>${updated}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        async function updateLeadStatus(leadId, status) {
+            try {
+                await apiFetch(`/api/fsm/salesman/${encodeURIComponent(salesmanId)}/leads/${encodeURIComponent(leadId)}/status?tenant_id=${encodeURIComponent(tenantId)}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status })
+                });
+            } catch (error) {
+                console.error('Error updating lead status:', error);
+                alert('Failed to update lead status');
+            }
         }
 
         // AI Auto-Scheduler

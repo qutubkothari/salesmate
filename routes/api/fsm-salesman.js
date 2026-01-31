@@ -166,6 +166,8 @@ async function authenticateSalesman(req, res, next) {
             return res.status(401).json({ success: false, error: 'Invalid or expired session' });
         }
 
+        req.salesmanSession = session;
+
         // Optional: enforce salesman id match when route has :id
         if (req.params?.id && session.salesman_id && req.params.id !== session.salesman_id) {
             return res.status(403).json({ success: false, error: 'Forbidden' });
@@ -1216,6 +1218,299 @@ router.post('/salesman/:id/expenses', authenticateSalesman, (req, res) => {
         res.json({ success: true, data: { id: expenseId } });
     } catch (error) {
         console.error('Error creating expense:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// -------------------- FOLLOWUPS (SALESMAN APP) --------------------
+
+router.get('/salesman/:id/followups', authenticateSalesman, async (req, res) => {
+    try {
+        const tenantId = getTenantId(req);
+        const { id } = req.params;
+        const { status = 'pending', limit = 50 } = req.query;
+
+        if (USE_SUPABASE) {
+            const salesmanId = req.salesmanSession?.salesman_id || id;
+            if (salesmanId !== id) {
+                return res.status(403).json({ success: false, error: 'Invalid salesman context' });
+            }
+
+            let query = dbClient
+                .from('conversations_new')
+                .select(`
+                    id,
+                    end_user_phone,
+                    end_user_name,
+                    follow_up_at,
+                    follow_up_note,
+                    follow_up_type,
+                    follow_up_priority,
+                    follow_up_completed_at,
+                    last_message_at,
+                    messages_count,
+                    status
+                `)
+                .eq('tenant_id', tenantId)
+                .eq('salesman_id', salesmanId)
+                .not('follow_up_at', 'is', null)
+                .order('follow_up_at', { ascending: true })
+                .limit(parseInt(limit, 10));
+
+            if (status === 'pending') {
+                query = query.is('follow_up_completed_at', null);
+            } else if (status === 'completed') {
+                query = query.not('follow_up_completed_at', 'is', null);
+            }
+
+            const { data, error } = await query;
+            if (error) throw error;
+
+            return res.json({ success: true, data: data || [], count: (data || []).length });
+        }
+
+        // SQLite fallback (best-effort)
+        const rows = dbAll(
+            `SELECT id, end_user_phone, end_user_name, follow_up_at, follow_up_note, follow_up_type,
+                    follow_up_priority, follow_up_completed_at, last_message_at, messages_count, status
+             FROM conversations_new
+             WHERE tenant_id = ? AND salesman_id = ? AND follow_up_at IS NOT NULL
+             ORDER BY follow_up_at ASC
+             LIMIT ?`,
+            [tenantId, id, Math.min(parseInt(limit, 10) || 50, 200)]
+        );
+
+        res.json({ success: true, data: rows, count: rows.length });
+    } catch (error) {
+        console.error('Error getting followups:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+router.post('/salesman/:id/followups', authenticateSalesman, async (req, res) => {
+    try {
+        const tenantId = getTenantId(req);
+        const { id } = req.params;
+        const {
+            phone,
+            followUpAt,
+            followUpNote,
+            followUpType = 'call',
+            followUpPriority = 'medium'
+        } = req.body || {};
+
+        if (!USE_SUPABASE) {
+            return res.status(400).json({ success: false, error: 'Followups creation requires Supabase' });
+        }
+
+        if (!phone || !followUpAt) {
+            return res.status(400).json({ success: false, error: 'phone and followUpAt are required' });
+        }
+
+        const salesmanId = req.salesmanSession?.salesman_id || id;
+        if (salesmanId !== id) {
+            return res.status(403).json({ success: false, error: 'Invalid salesman context' });
+        }
+
+        const { data: salesman } = await dbClient
+            .from('salesmen')
+            .select('user_id')
+            .eq('tenant_id', tenantId)
+            .eq('id', salesmanId)
+            .maybeSingle();
+
+        let { data: conversation, error: convError } = await dbClient
+            .from('conversations_new')
+            .select('id, salesman_id')
+            .eq('tenant_id', tenantId)
+            .eq('end_user_phone', phone)
+            .maybeSingle();
+
+        if (convError) throw convError;
+
+        if (!conversation) {
+            const { data: newConv, error: createError } = await dbClient
+                .from('conversations_new')
+                .insert({
+                    id: `conv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                    tenant_id: tenantId,
+                    end_user_phone: phone,
+                    salesman_id: salesmanId,
+                    status: 'active',
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                })
+                .select('id')
+                .single();
+
+            if (createError) throw createError;
+            conversation = newConv;
+        }
+
+        const { error: updateError } = await dbClient
+            .from('conversations_new')
+            .update({
+                follow_up_at: followUpAt,
+                follow_up_note: followUpNote,
+                follow_up_type: followUpType,
+                follow_up_priority: followUpPriority,
+                follow_up_created_by: salesman?.user_id || null,
+                salesman_id: salesmanId,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', conversation.id);
+
+        if (updateError) throw updateError;
+
+        await dbClient
+            .from('scheduled_followups')
+            .insert({
+                id: `fup_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                tenant_id: tenantId,
+                end_user_phone: phone,
+                scheduled_time: followUpAt,
+                message: followUpNote || `Follow-up: ${followUpType}`,
+                status: 'pending',
+                created_by: salesmanId,
+                created_at: new Date().toISOString()
+            });
+
+        res.json({ success: true, message: 'Follow-up created successfully', conversationId: conversation.id });
+    } catch (error) {
+        console.error('Error creating followup:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+router.put('/salesman/:id/followups/:conversationId/complete', authenticateSalesman, async (req, res) => {
+    try {
+        const tenantId = getTenantId(req);
+        const { id, conversationId } = req.params;
+        const { completionNote } = req.body || {};
+
+        if (!USE_SUPABASE) {
+            return res.status(400).json({ success: false, error: 'Followups completion requires Supabase' });
+        }
+
+        const salesmanId = req.salesmanSession?.salesman_id || id;
+        if (salesmanId !== id) {
+            return res.status(403).json({ success: false, error: 'Invalid salesman context' });
+        }
+
+        const { data: current } = await dbClient
+            .from('conversations_new')
+            .select('follow_up_note')
+            .eq('id', conversationId)
+            .single();
+
+        const updatedNote = completionNote && current?.follow_up_note
+            ? `${completionNote} (Original: ${current.follow_up_note})`
+            : current?.follow_up_note || completionNote;
+
+        const { error } = await dbClient
+            .from('conversations_new')
+            .update({
+                follow_up_completed_at: new Date().toISOString(),
+                follow_up_note: updatedNote,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', conversationId)
+            .eq('tenant_id', tenantId)
+            .eq('salesman_id', salesmanId);
+
+        if (error) throw error;
+
+        res.json({ success: true, message: 'Follow-up marked as complete' });
+    } catch (error) {
+        console.error('Error completing followup:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// -------------------- LEADS (SALESMAN APP) --------------------
+
+router.get('/salesman/:id/leads', authenticateSalesman, async (req, res) => {
+    try {
+        const tenantId = getTenantId(req);
+        const { id } = req.params;
+        const limit = Math.min(parseInt(req.query.limit || '200', 10), 500);
+
+        if (USE_SUPABASE) {
+            const { data: salesman, error: salesmanError } = await dbClient
+                .from('salesmen')
+                .select('user_id')
+                .eq('id', id)
+                .eq('tenant_id', tenantId)
+                .maybeSingle();
+
+            if (salesmanError) throw salesmanError;
+            if (!salesman?.user_id) {
+                return res.json({ success: true, data: [], count: 0 });
+            }
+
+            const { data, error } = await dbClient
+                .from('crm_leads')
+                .select('*')
+                .eq('tenant_id', tenantId)
+                .or(`assigned_user_id.eq.${salesman.user_id},created_by_user_id.eq.${salesman.user_id}`)
+                .order('updated_at', { ascending: false })
+                .limit(limit);
+
+            if (error) throw error;
+            return res.json({ success: true, data: data || [], count: (data || []).length });
+        }
+
+        const rows = dbAll(
+            `SELECT * FROM crm_leads
+             WHERE tenant_id = ?
+             ORDER BY datetime(updated_at) DESC
+             LIMIT ?`,
+            [tenantId, limit]
+        );
+
+        res.json({ success: true, data: rows, count: rows.length });
+    } catch (error) {
+        console.error('Error getting salesman leads:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+router.patch('/salesman/:id/leads/:leadId/status', authenticateSalesman, async (req, res) => {
+    try {
+        const tenantId = getTenantId(req);
+        const { leadId } = req.params;
+        const { status, heat } = req.body || {};
+
+        if (!status && !heat) {
+            return res.status(400).json({ success: false, error: 'status or heat is required' });
+        }
+
+        if (USE_SUPABASE) {
+            const update = {
+                updated_at: new Date().toISOString()
+            };
+            if (status) update.status = String(status).toUpperCase();
+            if (heat) update.heat = String(heat).toUpperCase();
+
+            const { error } = await dbClient
+                .from('crm_leads')
+                .update(update)
+                .eq('tenant_id', tenantId)
+                .eq('id', leadId);
+
+            if (error) throw error;
+            return res.json({ success: true });
+        }
+
+        dbRun(
+            `UPDATE crm_leads SET status = COALESCE(?, status), heat = COALESCE(?, heat), updated_at = datetime('now')
+             WHERE tenant_id = ? AND id = ?`,
+            [status ? String(status).toUpperCase() : null, heat ? String(heat).toUpperCase() : null, tenantId, leadId]
+        );
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error updating lead status:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });
