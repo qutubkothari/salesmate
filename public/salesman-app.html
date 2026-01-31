@@ -3365,16 +3365,23 @@
 
         function renderFollowupCustomerDropdown(customers) {
             const dropdown = document.getElementById('followupCustomerDropdown');
+            console.log('Rendering dropdown with customers:', customers);
             if (!customers.length) {
+                console.log('No customers to display in dropdown');
                 dropdown.innerHTML = '<div style="padding:12px;text-align:center;color:#999;">No customers found</div>';
                 return;
             }
-            dropdown.innerHTML = customers.map(c => `
-                <div class="followup-customer-item" onclick="selectFollowupCustomer('${c.id}', '${(c.name || '').replace(/'/g, "\\'")}'(${c.phone})', '${c.phone}')" style="padding:10px 12px;cursor:pointer;border-bottom:1px solid #f0f0f0;">
+            console.log('Rendering', customers.length, 'customers in dropdown');
+            dropdown.innerHTML = customers.map((c, idx) => {
+                console.log(`Customer ${idx}:`, c);
+                return `
+                <div class="followup-customer-item" onclick="selectFollowupCustomer('${c.id}', '${(c.name || '').replace(/'/g, "\\'")}(${c.phone})', '${c.phone}')" style="padding:10px 12px;cursor:pointer;border-bottom:1px solid #f0f0f0;">
                     <div style="font-weight:600;">${c.name || 'Unknown'}</div>
                     <div style="font-size:12px;color:#666;">${c.phone || ''}</div>
                 </div>
-            `).join('');
+            `;
+            }).join('');
+            console.log('Dropdown HTML rendered, length:', dropdown.innerHTML.length);
         }
 
         function selectFollowupCustomer(id, displayName, phone) {
