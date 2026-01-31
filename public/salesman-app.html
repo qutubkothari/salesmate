@@ -2964,7 +2964,8 @@
             // Check if container is visible and has dimensions
             const rect = mapContainer.getBoundingClientRect();
             if (rect.width === 0 || rect.height === 0) {
-                console.log('Map container not ready, skipping initialization');
+                console.log('Map container not ready, retrying initialization');
+                setTimeout(initTerritoryMap, 300);
                 return;
             }
 
@@ -3013,6 +3014,13 @@
 
         function loadSampleHeatMap() {
             if (!territoryMap) return;
+
+            const container = document.getElementById('territoryMap');
+            if (!container || container.offsetWidth === 0 || container.offsetHeight === 0) {
+                console.log('Map container not ready for sample heat layer');
+                setTimeout(() => loadSampleHeatMap(), 300);
+                return;
+            }
 
             // Verify map container has dimensions
             const container = document.getElementById('territoryMap');
@@ -3067,6 +3075,7 @@
             const container = document.getElementById('territoryMap');
             if (!container || container.offsetWidth === 0 || container.offsetHeight === 0) {
                 console.log('Map container not ready for heat layer data');
+                setTimeout(() => updateHeatMapWithData(locations), 300);
                 return;
             }
 
