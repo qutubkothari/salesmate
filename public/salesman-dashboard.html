@@ -393,6 +393,22 @@
             <div>
                 <div class="card" style="margin-bottom: 20px;">
                     <div class="card-header">
+                        <h2 class="card-title">🔔 Follow-ups Due</h2>
+                        <button class="btn btn-primary" onclick="viewAllFollowups()">
+                            <i class="fas fa-list"></i> View All
+                        </button>
+                    </div>
+                    <ul class="visit-list" id="followupList">
+                        <li class="loading">
+                            <div class="spinner"></div>
+                            <p>Loading follow-ups...</p>
+                        </li>
+                    </ul>
+                </div>
+
+                <div>
+                <div class="card" style="margin-bottom: 20px;">
+                    <div class="card-header">
                         <h2 class="card-title">🎯 Monthly Target</h2>
                     </div>
                     <div id="targetProgress">
@@ -494,6 +510,9 @@
                 
                 // Render target progress
                 renderTargetProgress(data.month_stats);
+                
+                // Load followups
+                loadFollowups();
                 
             } catch (error) {
                 console.error('Error loading dashboard:', error);
@@ -633,6 +652,63 @@
                     </div>
                 </div>
             `;
+        }
+
+        async function loadFollowups() {
+            try {
+                const resp = await apiFetch('/api/mobile/followups');
+                const followups = resp.followups || [];
+                const categorized = resp.categorized || {};
+                
+                renderFollowups([...categorized.overdue || [], ...categorized.today || []]);
+            } catch (error) {
+                console.error('Error loading followups:', error);
+                document.getElementById('followupList').innerHTML = `
+                    <li class="empty-state">
+                        <i class="fas fa-exclamation-circle"></i>
+                        <p>Failed to load follow-ups</p>
+                    </li>
+                `;
+            }
+        }
+
+        function renderFollowups(followups) {
+            const followupList = document.getElementById('followupList');
+            
+            if (followups.length === 0) {
+                followupList.innerHTML = `
+                    <li class="empty-state">
+                        <i class="fas fa-check-circle"></i>
+                        <p>No follow-ups due</p>
+                    </li>
+                `;
+                return;
+            }
+            
+            const followupsHTML = followups.slice(0, 5).map(followup => {
+                const dueDate = new Date(followup.due_date);
+                const isOverdue = dueDate < new Date();
+                const statusClass = isOverdue ? 'status-pending' : 'status-completed';
+                
+                return `
+                    <li class="visit-item">
+                        <div>
+                            <div class="visit-customer">${followup.customer_name || 'Unknown Customer'}</div>
+                            <div class="visit-time">
+                                <i class="far fa-clock"></i> ${dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                            </div>
+                        </div>
+                        <span class="visit-status ${statusClass}">${isOverdue ? 'OVERDUE' : 'DUE'}</span>
+                    </li>
+                `;
+            }).join('');
+            
+            followupList.innerHTML = followupsHTML;
+        }
+
+        function viewAllFollowups() {
+            // TODO: Navigate to followups page or open modal
+            alert('Full followups view coming soon!');
         }
 
         // Load dashboard on page load
