@@ -1103,14 +1103,24 @@ router.get('/salesman/:id/customers', authenticateSalesman, async (req, res) => 
 
         let customers;
         if (USE_SUPABASE) {
-            const { data } = await dbClient
+            const { data, error: supaError } = await dbClient
                 .from('customer_profiles_new')
                 .select('*')
                 .eq('tenant_id', tenantId)
                 .eq('assigned_salesman_id', id)
                 .order('business_name', { ascending: true })
                 .limit(limit);
-            customers = data || [];
+            
+            if (supaError) {
+                console.error('Supabase error fetching customers:', supaError);
+                customers = [];
+            } else {
+                // Map business_name to name for frontend compatibility
+                customers = (data || []).map(c => ({
+                    ...c,
+                    name: c.business_name || c.name
+                }));
+            }
         } else {
             customers = dbAll(
                 `SELECT *
@@ -1119,7 +1129,10 @@ router.get('/salesman/:id/customers', authenticateSalesman, async (req, res) => 
                  ORDER BY business_name
                  LIMIT ?`,
                 [tenantId, id, limit]
-            );
+            ).map(c => ({
+                ...c,
+                name: c.business_name || c.name
+            }));
         }
 
         res.json({ success: true, data: customers, count: customers.length });
