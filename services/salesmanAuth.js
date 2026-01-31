@@ -49,8 +49,8 @@ async function requireSalesmanAuth(req, res, next) {
       if (userError) throw userError;
 
       if (user) {
-        // Verify password (simplified - in production use bcrypt)
-        const bcrypt = require('bcrypt');
+        // Verify password
+        const bcrypt = require('bcryptjs');
         const passwordMatch = await bcrypt.compare(salesmanPassword, user.password_hash);
 
         if (passwordMatch) {
