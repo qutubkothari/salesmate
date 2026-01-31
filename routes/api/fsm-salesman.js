@@ -4,12 +4,15 @@ const Database = require('better-sqlite3');
 const path = require('path');
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
+const { dbClient } = require('../../services/config');
+
+const USE_SUPABASE = process.env.USE_SUPABASE === 'true';
 
 // Direct SQLite connection
 // __dirname is <repo>/routes/api, so go up 2 levels to reach repo root
 let db;
 try {
-  if (process.env.USE_SUPABASE !== 'true') {
+  if (!USE_SUPABASE) {
     db = new Database(path.join(__dirname, '../../local-database.db'));
     db.pragma('journal_mode = WAL');
   }
@@ -168,9 +171,9 @@ function authenticateSalesman(req, res, next) {
 // -------------------- DASHBOARD --------------------
 
 // Login (creates a session token)
-router.post('/salesman/login', (req, res) => {
+router.post('/salesman/login', async (req, res) => {
     try {
-        console.log('[FSM_SALESMAN_LOGIN] Request received:', { phone: req.body?.phone, has_password: !!req.body?.password, device_id: req.body?.device_id });
+        console.log('[FSM_SALESMAN_LOGIN] Request received:', { phone: req.body?.phone, has_password: !!req.body?.password, device_id: req.body?.device_id, use_supabase: USE_SUPABASE });
         
         let tenantId = getTenantId(req);
         let { salesman_id, phone, password, device_id, device_type, device_name, app_version, platform, fcm_token } = req.body || {};
@@ -183,11 +186,74 @@ router.post('/salesman/login', (req, res) => {
 
         console.log('[FSM_SALESMAN_LOGIN] Normalized phone:', phoneDigits);
 
-        // New: allow login via { phone, password } (no tenant/salesman selection)
-        if (!tenantId || !salesman_id) {
+        let matchedUser = null;
+        let salesman = null;
+
+        if (USE_SUPABASE) {
+            // Supabase implementation
+            console.log('[FSM_SALESMAN_LOGIN] Using Supabase');
+            
+            // Find user by phone
+            const { data: users, error: userError } = await dbClient
+                .from('users')
+                .select('*')
+                .eq('phone', phoneDigits)
+                .eq('role', 'salesman')
+                .eq('is_active', 1);
+
+            if (userError) {
+                console.error('[FSM_SALESMAN_LOGIN] Supabase user query error:', userError);
+                throw userError;
+            }
+
+            console.log('[FSM_SALESMAN_LOGIN] Found users:', users?.length || 0);
+
+            if (users && users.length > 0) {
+                matchedUser = users[0];
+            }
+
+            if (!matchedUser) {
+                console.log('[FSM_SALESMAN_LOGIN] FAILED: No matching user');
+                return res.status(401).json({ success: false, error: 'Invalid phone number or password' });
+            }
+
+            // Verify password
+            const ok = verifyUserPassword(matchedUser, password);
+            if (!ok) {
+                console.log('[FSM_SALESMAN_LOGIN] FAILED: Password mismatch');
+                return res.status(401).json({ success: false, error: 'Invalid phone number or password' });
+            }
+
+            console.log('[FSM_SALESMAN_LOGIN] Password verified for user:', matchedUser.id);
+
+            // Find salesman record
+            const { data: salesmen, error: salesmanError } = await dbClient
+                .from('salesmen')
+                .select('*')
+                .eq('user_id', matchedUser.id)
+                .eq('tenant_id', matchedUser.tenant_id)
+                .eq('is_active', 1);
+
+            if (salesmanError) {
+                console.error('[FSM_SALESMAN_LOGIN] Supabase salesman query error:', salesmanError);
+                throw salesmanError;
+            }
+
+            if (!salesmen || salesmen.length === 0) {
+                console.log('[FSM_SALESMAN_LOGIN] FAILED: Salesman record not found');
+                return res.status(404).json({ success: false, error: 'Salesman not found' });
+            }
+
+            salesman = salesmen[0];
+            tenantId = matchedUser.tenant_id;
+            salesman_id = salesman.id;
+
+            console.log('[FSM_SALESMAN_LOGIN] Found salesman:', { id: salesman.id, name: salesman.name, tenant_id: tenantId });
+
+        } else {
+            // SQLite implementation (original code)
             const inputDigits = phoneDigits;
 
-            let matchedUser = null;
             try {
                 const allUsers = dbAll('SELECT * FROM users');
                 console.log('[FSM_SALESMAN_LOGIN] Total users in DB:', allUsers.length);
@@ -227,7 +293,6 @@ router.post('/salesman/login', (req, res) => {
             }
 
             // Resolve salesman record
-            let salesman = null;
             try {
                 if (matchedUser.id) {
                     salesman = dbGet('SELECT * FROM salesmen WHERE user_id = ?', [matchedUser.id]) || null;
@@ -253,87 +318,55 @@ router.post('/salesman/login', (req, res) => {
 
             tenantId = matchedUser.tenant_id || salesman.tenant_id;
             salesman_id = salesman.id;
-            phone = inputDigits;
         }
 
-        if (!tenantId) return res.status(400).json({ success: false, error: 'tenant_id is required' });
-        if (!salesman_id) return res.status(400).json({ success: false, error: 'salesman_id is required' });
-
-        const salesman = dbGet('SELECT * FROM salesmen WHERE id = ? AND tenant_id = ?', [salesman_id, tenantId]);
-        if (!salesman) return res.status(404).json({ success: false, error: 'Salesman not found' });
-        if (salesman.is_active === 0) return res.status(403).json({ success: false, error: 'Salesman inactive' });
-
-        const providedPhone = phoneDigits;
-        const dbPhone = normalizePhoneDigits(salesman.phone);
-        if (providedPhone && dbPhone && !phonesMatch(providedPhone, dbPhone)) {
-            return res.status(401).json({ success: false, error: 'Phone number does not match' });
-        }
-
-        // Enforce password for all login modes (validate against linked users row)
-        let userRow = null;
-        try {
-            if (salesman.user_id) {
-                userRow = dbGet('SELECT * FROM users WHERE id = ? AND tenant_id = ?', [salesman.user_id, tenantId]) || null;
-            }
-            if (!userRow) {
-                const allUsers = dbAll('SELECT * FROM users WHERE tenant_id = ?', [tenantId]);
-                const matches = allUsers.filter((u) => {
-                    return phonesMatch(u.phone, providedPhone);
-                });
-                if (matches.length === 1) userRow = matches[0];
-                else if (matches.length > 1) userRow = matches.find((u) => normalizePhoneDigits(u.phone) === providedPhone) || matches[0] || null;
-            }
-        } catch (e) {
-            console.warn('[FSM_SALESMAN] User lookup for password check failed:', e?.message || e);
-        }
-
-        if (!userRow) {
-            return res.status(401).json({ success: false, error: 'Invalid phone number or password' });
-        }
-        if (Number(userRow.is_active ?? 1) === 0) {
-            return res.status(403).json({ success: false, error: 'Account is inactive' });
-        }
-        const rawRole = String(userRow.role || '').toLowerCase();
-        if (rawRole !== 'salesman') {
-            return res.status(403).json({ success: false, error: 'Not a salesman account. Please use admin login.' });
-        }
-        const ok = verifyUserPassword(userRow, password);
-        if (!ok) {
-            return res.status(401).json({ success: false, error: 'Invalid phone number or password' });
-        }
-
+        // Generate session token
         const token = crypto.randomBytes(32).toString('hex');
         const tokenHash = hashToken(token);
-        const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+        const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(); // 30 days
 
-        const existing = dbGet(
-            `SELECT id FROM salesman_sessions
-             WHERE tenant_id = ? AND salesman_id = ? AND device_id = ?
-             ORDER BY datetime(updated_at) DESC LIMIT 1`,
-            [tenantId, salesman_id, device_id]
-        );
+        if (USE_SUPABASE) {
+            // Store session in Supabase
+            const { error: sessionError } = await dbClient
+                .from('salesman_sessions')
+                .insert({
+                    tenant_id: tenantId,
+                    salesman_id: salesman_id,
+                    user_id: matchedUser.id,
+                    device_id: device_id,
+                    device_type: device_type || 'web',
+                    device_name: device_name || 'Unknown',
+                    platform: platform || 'web',
+                    app_version: app_version,
+                    fcm_token: fcm_token,
+                    session_token_hash: tokenHash,
+                    session_expires_at: expiresAt,
+                    is_online: true,
+                    last_seen_at: new Date().toISOString(),
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                });
 
-        if (existing?.id) {
-            dbRun(
-                `UPDATE salesman_sessions
-                 SET session_token_hash = ?, session_expires_at = ?,
-                     device_type = ?, device_name = ?, app_version = ?, platform = ?, fcm_token = ?,
-                     is_online = 1, last_seen_at = datetime('now'), updated_at = datetime('now')
-                 WHERE id = ?`,
-                [tokenHash, expiresAt,
-                 device_type || 'web', device_name || null, app_version || null, platform || 'web', fcm_token || null,
-                 existing.id]
-            );
+            if (sessionError) {
+                console.error('[FSM_SALESMAN_LOGIN] Failed to create session:', sessionError);
+                throw sessionError;
+            }
         } else {
-            dbRun(
-                `INSERT INTO salesman_sessions
-                 (tenant_id, salesman_id, device_type, device_id, device_name, app_version, platform, fcm_token,
-                  session_token_hash, session_expires_at, last_seen_at, is_online, created_at, updated_at)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), 1, datetime('now'), datetime('now'))`,
-                [tenantId, salesman_id, device_type || 'web', device_id, device_name || null, app_version || null, platform || 'web', fcm_token || null,
-                 tokenHash, expiresAt]
-            );
+            // Store session in SQLite
+            dbRun(`
+                INSERT INTO salesman_sessions (
+                    tenant_id, salesman_id, user_id, device_id, device_type, device_name,
+                    platform, app_version, fcm_token, session_token_hash, session_expires_at,
+                    is_online, last_seen_at, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, datetime('now'), datetime('now'), datetime('now'))
+            `, [
+                tenantId, salesman_id, matchedUser.id, device_id, device_type || 'web',
+                device_name || 'Unknown', platform || 'web', app_version, fcm_token,
+                tokenHash, expiresAt
+            ]);
         }
+
+        console.log('[FSM_SALESMAN_LOGIN] SUCCESS:', { salesman_id, tenant_id: tenantId, name: salesman.name });
 
         res.json({
             success: true,
@@ -341,13 +374,17 @@ router.post('/salesman/login', (req, res) => {
                 token,
                 expires_at: expiresAt,
                 tenant_id: tenantId,
-                device_id,
-                salesman: { id: salesman.id, name: salesman.name, phone: salesman.phone }
+                salesman: {
+                    id: salesman.id,
+                    name: salesman.name,
+                    phone: salesman.phone,
+                    email: salesman.email
+                }
             }
         });
     } catch (error) {
-        console.error('Error logging in salesman:', error);
-        res.status(500).json({ success: false, error: error.message });
+        console.error('[FSM_SALESMAN] Login error:', error);
+        res.status(500).json({ success: false, error: error.message || 'Login failed' });
     }
 });
 
