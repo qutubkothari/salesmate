@@ -475,61 +475,137 @@ router.post('/salesman/:id/device', authenticateSalesman, (req, res) => {
 });
 
 // Get salesman dashboard stats (for mobile/desktop home screen)
-router.get('/salesman/:id/dashboard', authenticateSalesman, (req, res) => {
+router.get('/salesman/:id/dashboard', authenticateSalesman, async (req, res) => {
     try {
         const { id } = req.params;
         const { date } = req.query; // optional specific date, defaults to today
         const targetDate = date || new Date().toISOString().split('T')[0];
         const tenantId = getTenantId(req);
 
-        const salesman = dbGet('SELECT * FROM salesmen WHERE id = ? AND tenant_id = ?', [id, tenantId]);
+        let salesman, todayVisits, monthVisits, target, pendingVisits, commissions;
 
-        // Get today's stats
-        const todayVisits = dbAll(
-            `SELECT * FROM visits 
-             WHERE salesman_id = ? AND tenant_id = ? 
-             AND DATE(visit_date) = ?`,
-            [id, tenantId, targetDate]
-        );
+        if (USE_SUPABASE) {
+            // Get salesman
+            const { data: salesmanData } = await dbClient
+                .from('salesmen')
+                .select('id, name, phone')
+                .eq('id', id)
+                .eq('tenant_id', tenantId)
+                .maybeSingle();
+            salesman = salesmanData;
 
-        // Get month stats
-        const monthStart = targetDate.substring(0, 7) + '-01';
-        const monthVisits = dbAll(
-            `SELECT * FROM visits 
-             WHERE salesman_id = ? AND tenant_id = ? 
-             AND strftime('%Y-%m', visit_date) = strftime('%Y-%m', ?)`,
-            [id, tenantId, monthStart]
-        );
+            // Get today's visits
+            const { data: todayVisitsData } = await dbClient
+                .from('visits')
+                .select('*')
+                .eq('salesman_id', id)
+                .eq('tenant_id', tenantId)
+                .gte('visit_date', targetDate)
+                .lt('visit_date', new Date(new Date(targetDate).getTime() + 86400000).toISOString().split('T')[0]);
+            todayVisits = todayVisitsData || [];
 
-        // Get targets
-        const target = dbGet(
-            `SELECT * FROM salesman_targets 
-             WHERE salesman_id = ? AND tenant_id = ? 
-             AND period = strftime('%Y-%m', ?)`,
-            [id, tenantId, targetDate]
-        );
+            // Get month visits
+            const monthStart = targetDate.substring(0, 7) + '-01';
+            const monthEnd = new Date(new Date(monthStart).getFullYear(), new Date(monthStart).getMonth() + 1, 1).toISOString().split('T')[0];
+            const { data: monthVisitsData } = await dbClient
+                .from('visits')
+                .select('*')
+                .eq('salesman_id', id)
+                .eq('tenant_id', tenantId)
+                .gte('visit_date', monthStart)
+                .lt('visit_date', monthEnd);
+            monthVisits = monthVisitsData || [];
 
-        // Get pending visits (future or not checked out)
-        const pendingVisits = dbAll(
-            `SELECT v.*, c.business_name as customer_name, c.phone, cl.address 
-             FROM visits v
-             LEFT JOIN customer_profiles_new c ON v.customer_id = c.id
-             LEFT JOIN customer_locations cl ON c.id = cl.customer_id
-             WHERE v.salesman_id = ? AND v.tenant_id = ? 
-             AND (DATE(v.visit_date) >= ? OR v.time_out IS NULL)
-             ORDER BY v.visit_date ASC
-             LIMIT 10`,
-            [id, tenantId, targetDate]
-        );
+            // Get targets
+            const period = targetDate.substring(0, 7);
+            const { data: targetData } = await dbClient
+                .from('salesman_targets')
+                .select('*')
+                .eq('salesman_id', id)
+                .eq('tenant_id', tenantId)
+                .eq('period', period)
+                .maybeSingle();
+            target = targetData;
 
-        // Get recent commissions
-        const commissions = dbAll(
-            `SELECT SUM(commission_amount) as total_pending
-             FROM salesman_commissions 
-             WHERE salesman_id = ? AND tenant_id = ? 
-             AND status = 'pending'`,
-            [id, tenantId]
-        );
+            // Get pending visits
+            const { data: pendingVisitsData } = await dbClient
+                .from('visits')
+                .select(`
+                    *,
+                    customer_profiles_new!visits_customer_id_fkey(business_name, phone),
+                    customer_locations!customer_locations_customer_id_fkey(address)
+                `)
+                .eq('salesman_id', id)
+                .eq('tenant_id', tenantId)
+                .or(`visit_date.gte.${targetDate},time_out.is.null`)
+                .order('visit_date', { ascending: true })
+                .limit(10);
+            pendingVisits = (pendingVisitsData || []).map(v => ({
+                ...v,
+                customer_name: v.customer_profiles_new?.business_name,
+                phone: v.customer_profiles_new?.phone,
+                address: v.customer_locations?.[0]?.address
+            }));
+
+            // Get commissions
+            const { data: commissionsData } = await dbClient
+                .from('salesman_commissions')
+                .select('commission_amount')
+                .eq('salesman_id', id)
+                .eq('tenant_id', tenantId)
+                .eq('status', 'pending');
+            const total_pending = (commissionsData || []).reduce((sum, c) => sum + (c.commission_amount || 0), 0);
+            commissions = [{ total_pending }];
+        } else {
+            salesman = dbGet('SELECT * FROM salesmen WHERE id = ? AND tenant_id = ?', [id, tenantId]);
+
+            // Get today's stats
+            todayVisits = dbAll(
+                `SELECT * FROM visits 
+                 WHERE salesman_id = ? AND tenant_id = ? 
+                 AND DATE(visit_date) = ?`,
+                [id, tenantId, targetDate]
+            );
+
+            // Get month stats
+            const monthStart = targetDate.substring(0, 7) + '-01';
+            monthVisits = dbAll(
+                `SELECT * FROM visits 
+                 WHERE salesman_id = ? AND tenant_id = ? 
+                 AND strftime('%Y-%m', visit_date) = strftime('%Y-%m', ?)`,
+                [id, tenantId, monthStart]
+            );
+
+            // Get targets
+            target = dbGet(
+                `SELECT * FROM salesman_targets 
+                 WHERE salesman_id = ? AND tenant_id = ? 
+                 AND period = strftime('%Y-%m', ?)`,
+                [id, tenantId, targetDate]
+            );
+
+            // Get pending visits (future or not checked out)
+            pendingVisits = dbAll(
+                `SELECT v.*, c.business_name as customer_name, c.phone, cl.address 
+                 FROM visits v
+                 LEFT JOIN customer_profiles_new c ON v.customer_id = c.id
+                 LEFT JOIN customer_locations cl ON c.id = cl.customer_id
+                 WHERE v.salesman_id = ? AND v.tenant_id = ? 
+                 AND (DATE(v.visit_date) >= ? OR v.time_out IS NULL)
+                 ORDER BY v.visit_date ASC
+                 LIMIT 10`,
+                [id, tenantId, targetDate]
+            );
+
+            // Get recent commissions
+            commissions = dbAll(
+                `SELECT SUM(commission_amount) as total_pending
+                 FROM salesman_commissions 
+                 WHERE salesman_id = ? AND tenant_id = ? 
+                 AND status = 'pending'`,
+                [id, tenantId]
+            );
+        }
 
         res.json({
             success: true,
@@ -1092,28 +1168,46 @@ router.post('/salesman/:id/expenses', authenticateSalesman, (req, res) => {
 
 // -------------------- NOTIFICATIONS --------------------
 
-router.get('/salesman/:id/notifications', authenticateSalesman, (req, res) => {
+router.get('/salesman/:id/notifications', authenticateSalesman, async (req, res) => {
     try {
         const tenantId = getTenantId(req);
         const { id } = req.params;
         const limit = Math.min(parseInt(req.query.limit || '20', 10), 100);
         const status = req.query.status;
 
-        const rows = status
-            ? dbAll(
-                `SELECT * FROM notification_queue
-                 WHERE tenant_id = ? AND salesman_id = ? AND status = ?
-                 ORDER BY datetime(created_at) DESC
-                 LIMIT ?`,
-                [tenantId, id, status, limit]
-            )
-            : dbAll(
-                `SELECT * FROM notification_queue
-                 WHERE tenant_id = ? AND salesman_id = ?
-                 ORDER BY datetime(created_at) DESC
-                 LIMIT ?`,
-                [tenantId, id, limit]
-            );
+        let rows;
+        if (USE_SUPABASE) {
+            let query = dbClient
+                .from('notification_queue')
+                .select('*')
+                .eq('tenant_id', tenantId)
+                .eq('salesman_id', id);
+            
+            if (status) {
+                query = query.eq('status', status);
+            }
+            
+            const { data } = await query
+                .order('created_at', { ascending: false })
+                .limit(limit);
+            rows = data || [];
+        } else {
+            rows = status
+                ? dbAll(
+                    `SELECT * FROM notification_queue
+                     WHERE tenant_id = ? AND salesman_id = ? AND status = ?
+                     ORDER BY datetime(created_at) DESC
+                     LIMIT ?`,
+                    [tenantId, id, status, limit]
+                )
+                : dbAll(
+                    `SELECT * FROM notification_queue
+                     WHERE tenant_id = ? AND salesman_id = ?
+                     ORDER BY datetime(created_at) DESC
+                     LIMIT ?`,
+                    [tenantId, id, limit]
+                );
+        }
 
         res.json({ success: true, data: rows, count: rows.length });
     } catch (error) {
